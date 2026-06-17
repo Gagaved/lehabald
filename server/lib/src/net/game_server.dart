@@ -17,6 +17,23 @@ class GameServer {
   final GameEngine engine;
   HttpServer? _server;
   Timer? _tickTimer;
+  late final Directory? _webRoot = _resolveWebRoot();
+
+  static Directory? _resolveWebRoot() {
+    final candidates = <String>[
+      Platform.environment['WEB_ROOT'] ?? '',
+      'client/build/web',
+      '../client/build/web',
+    ];
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) continue;
+      final dir = Directory(candidate);
+      if (dir.existsSync() && File('${dir.path}/index.html').existsSync()) {
+        return dir.absolute;
+      }
+    }
+    return null;
+  }
 
   Future<void> start() async {
     _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
@@ -91,6 +108,8 @@ class GameServer {
       return;
     }
 
+    if (_serveStatic(request)) return;
+
     request.response
       ..statusCode = HttpStatus.ok
       ..headers.contentType = ContentType.html
@@ -101,11 +120,80 @@ class GameServer {
   <body>
     <h1>Leha Bald Dart Server</h1>
     <p>WebSocket endpoint: <code>/ws</code></p>
-    <p>Flutter Flame client connects to this backend over LAN.</p>
+    <p>Web client build not found. Run <code>fvm flutter build web</code> in <code>client/</code>.</p>
   </body>
 </html>
 ''')
       ..close();
+  }
+
+  /// Serves the built Flutter web client from [_webRoot] so the app and the
+  /// WebSocket live on the same origin (one port → one tunnel). Returns false
+  /// when no build is present, so the caller can fall back to a notice page.
+  bool _serveStatic(HttpRequest request) {
+    final root = _webRoot;
+    if (root == null) return false;
+
+    var path = Uri.decodeComponent(request.uri.path);
+    if (path == '/' || path.isEmpty) path = '/index.html';
+    if (path.contains('..')) {
+      request.response
+        ..statusCode = HttpStatus.forbidden
+        ..close();
+      return true;
+    }
+
+    var file = File('${root.path}$path');
+    if (!file.existsSync()) {
+      // SPA fallback: unknown routes serve index.html.
+      file = File('${root.path}/index.html');
+      if (!file.existsSync()) return false;
+    }
+
+    request.response.headers.contentType = _contentTypeFor(file.path);
+    unawaited(
+      file.openRead().pipe(request.response).catchError((Object _) {}),
+    );
+    return true;
+  }
+
+  ContentType _contentTypeFor(String filePath) {
+    final dot = filePath.lastIndexOf('.');
+    final ext = dot == -1 ? '' : filePath.substring(dot + 1).toLowerCase();
+    switch (ext) {
+      case 'html':
+        return ContentType.html;
+      case 'js':
+      case 'mjs':
+        return ContentType('text', 'javascript', charset: 'utf-8');
+      case 'json':
+        return ContentType.json;
+      case 'css':
+        return ContentType('text', 'css', charset: 'utf-8');
+      case 'wasm':
+        return ContentType('application', 'wasm');
+      case 'png':
+        return ContentType('image', 'png');
+      case 'jpg':
+      case 'jpeg':
+        return ContentType('image', 'jpeg');
+      case 'gif':
+        return ContentType('image', 'gif');
+      case 'svg':
+        return ContentType('image', 'svg+xml');
+      case 'ico':
+        return ContentType('image', 'x-icon');
+      case 'ttf':
+        return ContentType('font', 'ttf');
+      case 'otf':
+        return ContentType('font', 'otf');
+      case 'woff':
+        return ContentType('font', 'woff');
+      case 'woff2':
+        return ContentType('font', 'woff2');
+      default:
+        return ContentType('application', 'octet-stream');
+    }
   }
 
   Future<void> _printAddresses() async {
