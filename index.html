@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Леха против Бахиркина</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <section class="topbar" aria-label="Статус игры">
+        <div>
+          <h1>Леха против Бахиркина</h1>
+          <p>Леха собирает TikTok-логотипы и выживает две минуты. Бахиркин охотится по следу, видимости и капкану.</p>
+        </div>
+        <div class="stats">
+          <span><small id="score-label">Роль</small><strong id="score">...</strong></span>
+          <span><small id="remaining-label">Таймер</small><strong id="remaining">2:00</strong></span>
+          <button class="trap-button" id="trap" title="Поставить капкан">Капкан</button>
+          <button class="restart-button js-restart" type="button" title="Перезапустить игру">Рестарт</button>
+        </div>
+      </section>
+
+      <section class="play-area">
+        <canvas id="game" width="672" height="672" aria-label="Игровой лабиринт"></canvas>
+        <div id="lobby" class="lobby" aria-label="Лобби">
+          <h2>Лобби</h2>
+          <p>Выберите персонажа. Один персонаж доступен только одному игроку.</p>
+          <div class="role-grid">
+            <button class="role-button" data-role="leha" id="choose-leha">Леха</button>
+            <button class="role-button" data-role="bakhirkin" id="choose-bakhirkin">Бахиркин</button>
+          </div>
+          <button class="spectator-button" id="spectate">Наблюдатель</button>
+          <button class="ready-button" id="ready">Готов</button>
+          <div class="lobby-status" id="lobby-status"></div>
+        </div>
+        <div id="message" class="message hidden" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="controls" aria-label="Управление">
+        <button class="control-button" data-dir="up" aria-label="Вверх">↑</button>
+        <div class="control-row">
+          <button class="control-button" data-dir="left" aria-label="Влево">←</button>
+          <button class="control-button restart js-restart" aria-label="Заново">↻</button>
+          <button class="control-button" data-dir="right" aria-label="Вправо">→</button>
+        </div>
+        <button class="control-button" data-dir="down" aria-label="Вниз">↓</button>
+      </section>
+    </main>
+
+    <script src="./game.js?v=17"></script>
+  </body>
+</html>

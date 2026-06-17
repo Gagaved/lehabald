@@ -1,0 +1,15 @@
+name: leha_bald_server
+description: Authoritative Dart WebSocket server for Leha Bald.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  leha_bald_shared:
+    path: ../packages/shared
+  dart_mappable: ^4.3.0
+
+dev_dependencies:
+  lints: ^5.0.0

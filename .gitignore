@@ -1,0 +1,11 @@
+.fvm/
+.dart_tool/
+build/
+
+client/.dart_tool/
+client/build/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+
+packages/shared/.dart_tool/
+server/.dart_tool/
