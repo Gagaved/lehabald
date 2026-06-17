@@ -18,7 +18,7 @@ class MazeGenerator {
 
   final Random _rng;
 
-  MazeGenerator({int? seed}) : _rng = Random(seed);
+  MazeGenerator({int? seed, Random? rng}) : _rng = rng ?? Random(seed);
 
   List<String> generate() {
     // Internal grid as a 2-D list of chars; (x, y).

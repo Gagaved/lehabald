@@ -87,15 +87,15 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
 
     if (event is KeyDownEvent) {
       _heldKeys[event.logicalKey] = direction;
-      network.input(direction);
     } else {
       _heldKeys.remove(event.logicalKey);
-      final fallback = _heldKeys.values.isEmpty ? null : _heldKeys.values.last;
-      if (fallback == null) {
-        network.stop();
-      } else {
-        network.input(fallback);
-      }
+    }
+
+    final combined = _combinedDirection();
+    if (combined == null) {
+      network.stop();
+    } else {
+      network.input(combined);
     }
     return KeyEventResult.handled;
   }
@@ -127,17 +127,21 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   }
 
   void _drawTrail(Canvas canvas, List<TrailPointDto> trail) {
-    if (trail.length < 2) return;
-    final ordered = [...trail]..sort((a, b) => a.alpha.compareTo(b.alpha));
-    for (var i = 1; i < ordered.length; i += 1) {
-      final prev = ordered[i - 1];
-      final point = ordered[i];
-      final alpha = min(prev.alpha, point.alpha);
-      final paint = Paint()
-        ..color = Color.fromRGBO(255, 0, 80, 0.2 + alpha * 0.24)
-        ..strokeWidth = tile * (0.52 + alpha * 0.38)
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(prev.x * tile, prev.y * tile), Offset(point.x * tile, point.y * tile), paint);
+    for (final point in trail) {
+      final a = point.alpha.clamp(0.0, 1.0);
+      final center = Offset(point.x * tile, point.y * tile);
+      // Outer soft glow
+      canvas.drawCircle(
+        center,
+        tile * (0.18 + a * 0.14),
+        Paint()..color = Color.fromRGBO(255, 30, 90, a * 0.22),
+      );
+      // Core dot — brighter and smaller
+      canvas.drawCircle(
+        center,
+        tile * (0.07 + a * 0.07),
+        Paint()..color = Color.fromRGBO(255, 70, 130, a * 0.85),
+      );
     }
   }
 
@@ -162,15 +166,29 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   void _drawTraps(Canvas canvas, List<TrapDto> traps) {
     for (final trap in traps) {
       final center = Offset(trap.x * tile + tile / 2, trap.y * tile + tile / 2);
-      canvas.drawCircle(center, tile * 0.36, Paint()..color = const Color(0x44ff0050));
-      canvas.drawCircle(
-        center,
-        tile * 0.36,
-        Paint()
-          ..color = const Color(0xccff0050)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 3,
-      );
+      if (trap.triggered) {
+        // Triggered: bright expanding flash for Bakhirkin's catch notification.
+        canvas.drawCircle(center, tile * 0.55, Paint()..color = const Color(0x55ffaa00));
+        canvas.drawCircle(
+          center,
+          tile * 0.55,
+          Paint()
+            ..color = const Color(0xffffaa00)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3,
+        );
+        canvas.drawCircle(center, tile * 0.22, Paint()..color = const Color(0xccffcc44));
+      } else {
+        canvas.drawCircle(center, tile * 0.36, Paint()..color = const Color(0x44ff0050));
+        canvas.drawCircle(
+          center,
+          tile * 0.36,
+          Paint()
+            ..color = const Color(0xccff0050)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3,
+        );
+      }
     }
   }
 
@@ -207,13 +225,15 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
 
   void _drawPlayers(Canvas canvas, List<PlayerDto> players, String myId) {
     for (final player in players) {
+      final center = Offset(player.x * tile, player.y * tile);
       final image = _imageForPlayer(player);
       final size = _sizeForPlayer(player, player.id == myId);
-      _drawImage(canvas, image, Offset(player.x * tile, player.y * tile), size, player.ghost ? 0.42 : 1);
-      if (player.stunned) _drawStun(canvas, Offset(player.x * tile, player.y * tile), size);
+      _drawImage(canvas, image, center, size, player.ghost ? 0.42 : 1);
+      if (player.facing != null) _drawFacingIndicator(canvas, center, player.facing!);
+      if (player.stunned) _drawStun(canvas, center, size);
       if (player.invulnerable) {
         canvas.drawCircle(
-          Offset(player.x * tile, player.y * tile),
+          center,
           size * 0.58,
           Paint()
             ..color = const Color(0x99ffffff)
@@ -222,6 +242,13 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
         );
       }
     }
+  }
+
+  void _drawFacingIndicator(Canvas canvas, Offset center, MoveDirection dir) {
+    const r = tile * 0.52;
+    const dotR = tile * 0.10;
+    final dot = center + Offset(dir.dx * r, dir.dy * r);
+    canvas.drawCircle(dot, dotR, Paint()..color = const Color(0xccffffff));
   }
 
   Image _imageForPlayer(PlayerDto player) {
@@ -258,6 +285,28 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
       Rect.fromCenter(center: center, width: size, height: size),
       paint,
     );
+  }
+
+  /// Combines currently held axis keys into a single direction (incl. diagonals).
+  MoveDirection? _combinedDirection() {
+    final dirs = _heldKeys.values.toSet();
+    final hasUp    = dirs.contains(MoveDirection.up);
+    final hasDown  = dirs.contains(MoveDirection.down);
+    final hasLeft  = dirs.contains(MoveDirection.left);
+    final hasRight = dirs.contains(MoveDirection.right);
+    final up    = hasUp    && !hasDown;
+    final down  = hasDown  && !hasUp;
+    final left  = hasLeft  && !hasRight;
+    final right = hasRight && !hasLeft;
+    if (up    && left)  return MoveDirection.upLeft;
+    if (up    && right) return MoveDirection.upRight;
+    if (down  && left)  return MoveDirection.downLeft;
+    if (down  && right) return MoveDirection.downRight;
+    if (up)    return MoveDirection.up;
+    if (down)  return MoveDirection.down;
+    if (left)  return MoveDirection.left;
+    if (right) return MoveDirection.right;
+    return null;
   }
 
   MoveDirection? _directionForKey(LogicalKeyboardKey key) {

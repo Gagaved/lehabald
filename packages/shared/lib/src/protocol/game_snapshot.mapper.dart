@@ -17,6 +17,7 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
       MapperContainer.globals.use(_instance = PlayerDtoMapper._());
       PlayerRoleMapper.ensureInitialized();
       LehaAspectMapper.ensureInitialized();
+      MoveDirectionMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -54,6 +55,12 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
     'aspect',
     _$aspect,
   );
+  static MoveDirection? _$facing(PlayerDto v) => v.facing;
+  static const Field<PlayerDto, MoveDirection> _f$facing = Field(
+    'facing',
+    _$facing,
+    opt: true,
+  );
 
   @override
   final MappableFields<PlayerDto> fields = const {
@@ -69,6 +76,7 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
     #invulnerable: _f$invulnerable,
     #hp: _f$hp,
     #aspect: _f$aspect,
+    #facing: _f$facing,
   };
 
   static PlayerDto _instantiate(DecodingData data) {
@@ -85,6 +93,7 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
       invulnerable: data.dec(_f$invulnerable),
       hp: data.dec(_f$hp),
       aspect: data.dec(_f$aspect),
+      facing: data.dec(_f$facing),
     );
   }
 
@@ -160,6 +169,7 @@ abstract class PlayerDtoCopyWith<$R, $In extends PlayerDto, $Out>
     bool? invulnerable,
     int? hp,
     LehaAspect? aspect,
+    MoveDirection? facing,
   });
   PlayerDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -186,6 +196,7 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
     bool? invulnerable,
     int? hp,
     Object? aspect = $none,
+    Object? facing = $none,
   }) => $apply(
     FieldCopyWithData({
       if (id != null) #id: id,
@@ -200,6 +211,7 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
       if (invulnerable != null) #invulnerable: invulnerable,
       if (hp != null) #hp: hp,
       if (aspect != $none) #aspect: aspect,
+      if (facing != $none) #facing: facing,
     }),
   );
   @override
@@ -216,6 +228,7 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
     invulnerable: data.get(#invulnerable, or: $value.invulnerable),
     hp: data.get(#hp, or: $value.hp),
     aspect: data.get(#aspect, or: $value.aspect),
+    facing: data.get(#facing, or: $value.facing),
   );
 
   @override
@@ -374,6 +387,13 @@ class TrapDtoMapper extends ClassMapperBase<TrapDto> {
     'expiresAt',
     _$expiresAt,
   );
+  static bool _$triggered(TrapDto v) => v.triggered;
+  static const Field<TrapDto, bool> _f$triggered = Field(
+    'triggered',
+    _$triggered,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<TrapDto> fields = const {
@@ -381,6 +401,7 @@ class TrapDtoMapper extends ClassMapperBase<TrapDto> {
     #y: _f$y,
     #placedAt: _f$placedAt,
     #expiresAt: _f$expiresAt,
+    #triggered: _f$triggered,
   };
 
   static TrapDto _instantiate(DecodingData data) {
@@ -389,6 +410,7 @@ class TrapDtoMapper extends ClassMapperBase<TrapDto> {
       y: data.dec(_f$y),
       placedAt: data.dec(_f$placedAt),
       expiresAt: data.dec(_f$expiresAt),
+      triggered: data.dec(_f$triggered),
     );
   }
 
@@ -449,7 +471,7 @@ extension TrapDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, TrapDto, $Out> {
 
 abstract class TrapDtoCopyWith<$R, $In extends TrapDto, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
-  $R call({int? x, int? y, int? placedAt, int? expiresAt});
+  $R call({int? x, int? y, int? placedAt, int? expiresAt, bool? triggered});
   TrapDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -462,12 +484,13 @@ class _TrapDtoCopyWithImpl<$R, $Out>
   late final ClassMapperBase<TrapDto> $mapper =
       TrapDtoMapper.ensureInitialized();
   @override
-  $R call({int? x, int? y, int? placedAt, int? expiresAt}) => $apply(
+  $R call({int? x, int? y, int? placedAt, int? expiresAt, bool? triggered}) => $apply(
     FieldCopyWithData({
       if (x != null) #x: x,
       if (y != null) #y: y,
       if (placedAt != null) #placedAt: placedAt,
       if (expiresAt != null) #expiresAt: expiresAt,
+      if (triggered != null) #triggered: triggered,
     }),
   );
   @override
@@ -476,6 +499,7 @@ class _TrapDtoCopyWithImpl<$R, $Out>
     y: data.get(#y, or: $value.y),
     placedAt: data.get(#placedAt, or: $value.placedAt),
     expiresAt: data.get(#expiresAt, or: $value.expiresAt),
+    triggered: data.get(#triggered, or: $value.triggered),
   );
 
   @override

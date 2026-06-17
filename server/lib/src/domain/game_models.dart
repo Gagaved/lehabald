@@ -46,14 +46,16 @@ class TrapState {
   final int x;
   final int y;
   final int placedAt;
-  final int expiresAt;
+  int expiresAt;
+  int? triggeredAt;
 }
 
 class WebState {
-  WebState({required this.x, required this.y});
+  WebState({required this.x, required this.y, required this.createdAt});
 
   final int x;
   final int y;
+  final int createdAt;
 }
 
 class PortalState {

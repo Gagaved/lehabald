@@ -1,5 +1,6 @@
 import 'package:dart_mappable/dart_mappable.dart';
 
+import 'direction.dart';
 import 'game_types.dart';
 
 part 'game_snapshot.mapper.dart';
@@ -19,6 +20,7 @@ class PlayerDto with PlayerDtoMappable {
     required this.invulnerable,
     required this.hp,
     required this.aspect,
+    this.facing,
   });
 
   final String id;
@@ -33,6 +35,8 @@ class PlayerDto with PlayerDtoMappable {
   final bool invulnerable;
   final int hp;
   final LehaAspect? aspect;
+  /// Facing direction — only sent for Spider and Wizard Leha (direction indicator).
+  final MoveDirection? facing;
 }
 
 @MappableClass()
@@ -55,12 +59,14 @@ class TrapDto with TrapDtoMappable {
     required this.y,
     required this.placedAt,
     required this.expiresAt,
+    this.triggered = false,
   });
 
   final int x;
   final int y;
   final int placedAt;
   final int expiresAt;
+  final bool triggered;
 }
 
 @MappableClass()

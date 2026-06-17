@@ -5,20 +5,23 @@ import '../domain/game_constants.dart';
 import 'maze_generator.dart';
 
 class MazeService {
-  MazeService({List<String>? mazeData})
-      : maze = mazeData ?? GameConstants.maze,
-        blockedVoidSpaces = _computeBlockedVoidSpaces(mazeData ?? GameConstants.maze);
+  MazeService({List<String>? mazeData, Random? rng}) : maze = mazeData ?? GameConstants.maze {
+    blockedVoidSpaces = _computeBlockedVoidSpaces(maze);
+    superLogoKeys = _pickSuperLogoKeys(maze, rng ?? Random());
+  }
 
   final List<String> maze;
-  final Set<String> blockedVoidSpaces;
+  late final Set<String> blockedVoidSpaces;
+  late final Set<String> superLogoKeys;
 
   int get rows => maze.length;
   int get cols => maze.first.length;
 
   /// Generate a fresh random map (called at the start of each round).
   static MazeService generate({int? seed}) {
-    final data = MazeGenerator(seed: seed).generate();
-    return MazeService(mazeData: data);
+    final rng = seed != null ? Random(seed) : Random();
+    final data = MazeGenerator(rng: rng).generate();
+    return MazeService(mazeData: data, rng: rng);
   }
 
   bool isWall(int x, int y) {
@@ -34,23 +37,60 @@ class MazeService {
     return false;
   }
 
-  bool hasLineOfSight(Point<int> a, Point<int> b) {
-    if (a.y == b.y) {
-      for (var x = min(a.x, b.x) + 1; x < max(a.x, b.x); x += 1) {
-        if (isWall(x, a.y)) return false;
+  /// Ray-cast visibility check using DDA (Digital Differential Analysis).
+  /// Works with real-world float positions, not cell centres — so visibility
+  /// is accurate in open spaces and isn't limited to axis-aligned corridors.
+  ///
+  /// The ray steps through every wall-cell boundary it crosses and stops as
+  /// soon as it enters a wall tile.  Returns true if the straight line from
+  /// [a] to [b] passes through no wall tiles.
+  bool hasLineOfSight(Point<double> a, Point<double> b) {
+    final dx = b.x - a.x;
+    final dy = b.y - a.y;
+    final dist = sqrt(dx * dx + dy * dy);
+    if (dist < 1e-6) return true;
+
+    // Unit step sizes: how far along the ray until we cross the next
+    // vertical (tDeltaX) or horizontal (tDeltaY) grid line.
+    final tDeltaX = dist / dx.abs().clamp(1e-9, double.infinity);
+    final tDeltaY = dist / dy.abs().clamp(1e-9, double.infinity);
+
+    var cellX = a.x.floor();
+    var cellY = a.y.floor();
+    final stepX = dx >= 0 ? 1 : -1;
+    final stepY = dy >= 0 ? 1 : -1;
+
+    // Distance to the first vertical / horizontal crossing.
+    var tMaxX = dx == 0
+        ? double.infinity
+        : (dx > 0 ? (cellX + 1 - a.x) : (a.x - cellX)) * tDeltaX;
+    var tMaxY = dy == 0
+        ? double.infinity
+        : (dy > 0 ? (cellY + 1 - a.y) : (a.y - cellY)) * tDeltaY;
+
+    final targetCellX = b.x.floor();
+    final targetCellY = b.y.floor();
+
+    while (true) {
+      // Check the current cell (skip the cell the viewer is standing in).
+      if ((cellX != a.x.floor() || cellY != a.y.floor()) && isWall(cellX, cellY)) {
+        return false;
       }
-      return true;
-    }
-    if (a.x == b.x) {
-      for (var y = min(a.y, b.y) + 1; y < max(a.y, b.y); y += 1) {
-        if (isWall(a.x, y)) return false;
+      if (cellX == targetCellX && cellY == targetCellY) return true;
+
+      if (tMaxX < tMaxY) {
+        tMaxX += tDeltaX;
+        cellX += stepX;
+      } else {
+        tMaxY += tDeltaY;
+        cellY += stepY;
       }
-      return true;
     }
-    return false;
   }
 
-  bool hasXrayVisibility(Point<int> a, Point<int> b) {
+  /// Small radius around the viewer where everything is always visible
+  /// (used as a fallback so players can always see their immediate surroundings).
+  bool hasXrayVisibility(Point<double> a, Point<double> b) {
     return (a.x - b.x).abs() <= GameConstants.xrayRadius &&
         (a.y - b.y).abs() <= GameConstants.xrayRadius;
   }
@@ -62,9 +102,36 @@ class MazeService {
       for (var x = 0; x < cols; x++) {
         final key = '$x,$y';
         final cell = maze[y][x];
-        if (!startCells.contains(key) && (cell == '.' || GameConstants.superLogoKeys.contains(key))) {
+        if (!startCells.contains(key) && (cell == '.' || superLogoKeys.contains(key))) {
           result.add(key);
         }
+      }
+    }
+    return result;
+  }
+
+  /// Picks 3 open corridor cells to place super logos, spread across the map.
+  static Set<String> _pickSuperLogoKeys(List<String> mazeData, Random rng) {
+    final h = mazeData.length;
+    final w = mazeData.first.length;
+    final spawns = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+
+    // Divide map into 3 horizontal thirds; pick one random open cell per third.
+    final result = <String>{};
+    for (var third = 0; third < 3; third++) {
+      final xMin = (w * third / 3).floor();
+      final xMax = (w * (third + 1) / 3).floor();
+      final candidates = <String>[];
+      for (var y = 1; y < h - 1; y++) {
+        for (var x = xMin; x < xMax; x++) {
+          final key = '$x,$y';
+          if (mazeData[y][x] == '.' && !spawns.contains(key)) {
+            candidates.add(key);
+          }
+        }
+      }
+      if (candidates.isNotEmpty) {
+        result.add(candidates[rng.nextInt(candidates.length)]);
       }
     }
     return result;
