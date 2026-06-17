@@ -2,14 +2,24 @@ import 'dart:collection';
 import 'dart:math';
 
 import '../domain/game_constants.dart';
+import 'maze_generator.dart';
 
 class MazeService {
-  MazeService() : blockedVoidSpaces = _createBlockedVoidSpaces();
+  MazeService({List<String>? mazeData})
+      : maze = mazeData ?? GameConstants.maze,
+        blockedVoidSpaces = _computeBlockedVoidSpaces(mazeData ?? GameConstants.maze);
 
+  final List<String> maze;
   final Set<String> blockedVoidSpaces;
 
-  int get rows => GameConstants.maze.length;
-  int get cols => GameConstants.maze.first.length;
+  int get rows => maze.length;
+  int get cols => maze.first.length;
+
+  /// Generate a fresh random map (called at the start of each round).
+  static MazeService generate({int? seed}) {
+    final data = MazeGenerator(seed: seed).generate();
+    return MazeService(mazeData: data);
+  }
 
   bool isWall(int x, int y) {
     if (GameConstants.tunnelRows.contains(y) && (x < 0 || x >= cols)) {
@@ -18,7 +28,7 @@ class MazeService {
     final wrappedX = GameConstants.tunnelRows.contains(y) ? (x + cols) % cols : x;
     if (wrappedX < 0 || wrappedX >= cols) return true;
     if (y < 0 || y >= rows) return true;
-    final cell = GameConstants.maze[y][wrappedX];
+    final cell = maze[y][wrappedX];
     if (cell == '#') return true;
     if (cell == ' ' && blockedVoidSpaces.contains('$wrappedX,$y')) return true;
     return false;
@@ -31,14 +41,12 @@ class MazeService {
       }
       return true;
     }
-
     if (a.x == b.x) {
       for (var y = min(a.y, b.y) + 1; y < max(a.y, b.y); y += 1) {
         if (isWall(a.x, y)) return false;
       }
       return true;
     }
-
     return false;
   }
 
@@ -48,12 +56,12 @@ class MazeService {
   }
 
   Set<String> createLogos() {
-    final startCells = GameConstants.starts.map((start) => '${start.x},${start.y}').toSet();
+    final startCells = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
     final result = <String>{};
-    for (var y = 0; y < rows; y += 1) {
-      for (var x = 0; x < cols; x += 1) {
+    for (var y = 0; y < rows; y++) {
+      for (var x = 0; x < cols; x++) {
         final key = '$x,$y';
-        final cell = GameConstants.maze[y][x];
+        final cell = maze[y][x];
         if (!startCells.contains(key) && (cell == '.' || GameConstants.superLogoKeys.contains(key))) {
           result.add(key);
         }
@@ -62,30 +70,28 @@ class MazeService {
     return result;
   }
 
-  static Set<String> _createBlockedVoidSpaces() {
+  static Set<String> _computeBlockedVoidSpaces(List<String> mazeData) {
     final blocked = <String>{};
     final queue = Queue<Point<int>>();
+    final h = mazeData.length;
+    final w = mazeData.first.length;
 
     void enqueue(int x, int y) {
-      if (y < 0 || y >= GameConstants.maze.length) return;
-      if (x < 0 || x >= GameConstants.maze.first.length) return;
+      if (y < 0 || y >= h || x < 0 || x >= w) return;
       final key = '$x,$y';
-      if (blocked.contains(key) || GameConstants.tunnelRows.contains(y) || GameConstants.maze[y][x] != ' ') {
-        return;
-      }
+      if (blocked.contains(key) || GameConstants.tunnelRows.contains(y) || mazeData[y][x] != ' ') return;
       blocked.add(key);
       queue.add(Point(x, y));
     }
 
-    for (var x = 0; x < GameConstants.maze.first.length; x += 1) {
+    for (var x = 0; x < w; x++) {
       enqueue(x, 0);
-      enqueue(x, GameConstants.maze.length - 1);
+      enqueue(x, h - 1);
     }
-    for (var y = 0; y < GameConstants.maze.length; y += 1) {
+    for (var y = 0; y < h; y++) {
       enqueue(0, y);
-      enqueue(GameConstants.maze.first.length - 1, y);
+      enqueue(w - 1, y);
     }
-
     while (queue.isNotEmpty) {
       final p = queue.removeFirst();
       enqueue(p.x, p.y - 1);
@@ -93,7 +99,6 @@ class MazeService {
       enqueue(p.x - 1, p.y);
       enqueue(p.x + 1, p.y);
     }
-
     return blocked;
   }
 }

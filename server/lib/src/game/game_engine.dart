@@ -8,11 +8,12 @@ import '../domain/game_models.dart';
 import 'maze_service.dart';
 
 class GameEngine {
-  GameEngine({required this.maze}) {
+  GameEngine({required MazeService maze}) : _maze = maze {
     logos = maze.createLogos();
   }
 
-  final MazeService maze;
+  MazeService _maze;
+  MazeService get maze => _maze;
   final Map<String, PlayerConnection> clients = {};
   var round = GameRound();
   var logos = <String>{};
@@ -71,7 +72,8 @@ class GameEngine {
   }
 
   void reset() {
-    logos = maze.createLogos();
+    _maze = MazeService.generate();
+    logos = _maze.createLogos();
     round = GameRound();
     for (final client in clients.values) {
       final start = GameConstants.starts[client.slot ?? 0];
@@ -489,6 +491,8 @@ class GameEngine {
     if (distance > 0.62) return;
     if (now < round.lehaPowerUntil && now >= bakhirkin.invulnerableUntil) {
       hitBakhirkin(bakhirkin, now);
+    } else if (now < bakhirkin.invulnerableUntil) {
+      // Bakhirkin is stunned/invulnerable — ignore the collision entirely.
     } else {
       endGame(1, 'Бахиркин поймал Леху.');
     }
