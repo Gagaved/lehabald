@@ -14,10 +14,27 @@ void main() {
   runApp(LehaBaldApp(network: network, game: game));
 }
 
+const _backendPort = 4173;
+
+/// Resolves the WebSocket backend URL.
+///
+/// Priority:
+/// 1. Explicit `SERVER_URL` dart-define (manual override, e.g. for tunnels
+///    where the backend lives on a different host than the client).
+/// 2. On web, the same host that served this page, on the backend port — so a
+///    single build works on LAN, over the VPN, or behind an https tunnel
+///    (which upgrades the scheme to `wss`) without rebuilding.
+/// 3. Localhost fallback for native/dev runs.
 String defaultServerUrl() {
   const fromDefine = String.fromEnvironment('SERVER_URL');
   if (fromDefine.isNotEmpty) return fromDefine;
-  return 'ws://127.0.0.1:4173/ws';
+
+  final base = Uri.base;
+  if (base.host.isNotEmpty && base.host != 'localhost' && base.host != '127.0.0.1') {
+    final scheme = base.scheme == 'https' ? 'wss' : 'ws';
+    return '$scheme://${base.host}:$_backendPort/ws';
+  }
+  return 'ws://127.0.0.1:$_backendPort/ws';
 }
 
 class LehaBaldApp extends StatelessWidget {
