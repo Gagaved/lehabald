@@ -43,6 +43,14 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.useAbility;
       case r'selectAspect':
         return ClientMessageType.selectAspect;
+      case r'selectHunter':
+        return ClientMessageType.selectHunter;
+      case r'setName':
+        return ClientMessageType.setName;
+      case r'addBot':
+        return ClientMessageType.addBot;
+      case r'removeBot':
+        return ClientMessageType.removeBot;
       case r'restart':
         return ClientMessageType.restart;
       default:
@@ -69,6 +77,14 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'useAbility';
       case ClientMessageType.selectAspect:
         return r'selectAspect';
+      case ClientMessageType.selectHunter:
+        return r'selectHunter';
+      case ClientMessageType.setName:
+        return r'setName';
+      case ClientMessageType.addBot:
+        return r'addBot';
+      case ClientMessageType.removeBot:
+        return r'removeBot';
       case ClientMessageType.restart:
         return r'restart';
     }
@@ -93,6 +109,7 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       MoveDirectionMapper.ensureInitialized();
       PlayerRoleMapper.ensureInitialized();
       LehaAspectMapper.ensureInitialized();
+      HunterKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -123,6 +140,18 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     _$aspect,
     opt: true,
   );
+  static HunterKind? _$hunter(ClientMessage v) => v.hunter;
+  static const Field<ClientMessage, HunterKind> _f$hunter = Field(
+    'hunter',
+    _$hunter,
+    opt: true,
+  );
+  static String? _$name(ClientMessage v) => v.name;
+  static const Field<ClientMessage, String> _f$name = Field(
+    'name',
+    _$name,
+    opt: true,
+  );
   static bool? _$ready(ClientMessage v) => v.ready;
   static const Field<ClientMessage, bool> _f$ready = Field(
     'ready',
@@ -136,6 +165,8 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     #direction: _f$direction,
     #role: _f$role,
     #aspect: _f$aspect,
+    #hunter: _f$hunter,
+    #name: _f$name,
     #ready: _f$ready,
   };
 
@@ -145,6 +176,8 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       direction: data.dec(_f$direction),
       role: data.dec(_f$role),
       aspect: data.dec(_f$aspect),
+      hunter: data.dec(_f$hunter),
+      name: data.dec(_f$name),
       ready: data.dec(_f$ready),
     );
   }
@@ -216,6 +249,8 @@ abstract class ClientMessageCopyWith<$R, $In extends ClientMessage, $Out>
     MoveDirection? direction,
     PlayerRole? role,
     LehaAspect? aspect,
+    HunterKind? hunter,
+    String? name,
     bool? ready,
   });
   ClientMessageCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -235,6 +270,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     Object? direction = $none,
     Object? role = $none,
     Object? aspect = $none,
+    Object? hunter = $none,
+    Object? name = $none,
     Object? ready = $none,
   }) => $apply(
     FieldCopyWithData({
@@ -242,6 +279,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
       if (direction != $none) #direction: direction,
       if (role != $none) #role: role,
       if (aspect != $none) #aspect: aspect,
+      if (hunter != $none) #hunter: hunter,
+      if (name != $none) #name: name,
       if (ready != $none) #ready: ready,
     }),
   );
@@ -251,6 +290,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     direction: data.get(#direction, or: $value.direction),
     role: data.get(#role, or: $value.role),
     aspect: data.get(#aspect, or: $value.aspect),
+    hunter: data.get(#hunter, or: $value.hunter),
+    name: data.get(#name, or: $value.name),
     ready: data.get(#ready, or: $value.ready),
   );
 

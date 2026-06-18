@@ -15,6 +15,10 @@ enum ClientMessageType {
   placeTrap,
   useAbility,
   selectAspect,
+  selectHunter,
+  setName,
+  addBot,
+  removeBot,
   restart,
 }
 
@@ -25,6 +29,8 @@ class ClientMessage with ClientMessageMappable {
     this.direction,
     this.role,
     this.aspect,
+    this.hunter,
+    this.name,
     this.ready,
   });
 
@@ -32,5 +38,7 @@ class ClientMessage with ClientMessageMappable {
   final MoveDirection? direction;
   final PlayerRole? role;
   final LehaAspect? aspect;
+  final HunterKind? hunter;
+  final String? name;
   final bool? ready;
 }

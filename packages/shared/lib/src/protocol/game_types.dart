@@ -3,10 +3,13 @@ import 'package:dart_mappable/dart_mappable.dart';
 part 'game_types.mapper.dart';
 
 @MappableEnum()
-enum PlayerRole { leha, bakhirkin, spectator }
+enum PlayerRole { leha, hunter, spectator }
 
 @MappableEnum()
 enum LehaAspect { superLeha, spider, wizard }
+
+@MappableEnum()
+enum HunterKind { bakhirkin, sashaYakuza, sima }
 
 @MappableEnum()
 enum GamePhase { waiting, playing, ended }

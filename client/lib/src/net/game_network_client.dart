@@ -4,17 +4,52 @@ import 'dart:convert';
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class GameNetworkClient extends ChangeNotifier {
   GameNetworkClient({required String initialUrl}) : serverUrl = initialUrl {
+    _loadNickname();
     connect();
   }
 
+  static const _nicknameKey = 'leha_nickname';
+
   String serverUrl;
+  String nickname = '';
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
+
+  Future<void> _loadNickname() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_nicknameKey) ?? '';
+      if (saved.isNotEmpty && nickname.isEmpty) {
+        nickname = saved;
+        _sendName();
+        notifyListeners();
+      }
+    } catch (_) {
+      // Persistence unavailable — nickname stays in-memory only.
+    }
+  }
+
+  /// Registers (or changes) the player's nickname and persists it locally.
+  Future<void> register(String name) async {
+    nickname = name.trim();
+    _sendName();
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_nicknameKey, nickname);
+    } catch (_) {}
+  }
+
+  void _sendName() {
+    if (nickname.isEmpty) return;
+    send(ClientMessage(type: ClientMessageType.setName, name: nickname));
+  }
 
   GameSnapshotDto? snapshot;
   String status = 'Подключение к серверу...';
@@ -36,6 +71,8 @@ class GameNetworkClient extends ChangeNotifier {
         onDone: _scheduleReconnect,
         onError: (_) => _scheduleReconnect(),
       );
+      // Re-register our nickname: the server creates a fresh connection each time.
+      _sendName();
     } catch (_) {
       _scheduleReconnect();
     }
@@ -69,6 +106,18 @@ class GameNetworkClient extends ChangeNotifier {
 
   void selectAspect(LehaAspect aspect) {
     send(ClientMessage(type: ClientMessageType.selectAspect, aspect: aspect));
+  }
+
+  void selectHunter(HunterKind hunter) {
+    send(ClientMessage(type: ClientMessageType.selectHunter, hunter: hunter));
+  }
+
+  void addBot(PlayerRole role) {
+    send(ClientMessage(type: ClientMessageType.addBot, role: role));
+  }
+
+  void removeBot(PlayerRole role) {
+    send(ClientMessage(type: ClientMessageType.removeBot, role: role));
   }
 
   void ready(bool ready) {

@@ -21,7 +21,7 @@ void main() {
 
       // Starts are open
       expect(svc.isWall(10, 16), isFalse, reason: 'Leha start is wall');
-      expect(svc.isWall(10, 4), isFalse, reason: 'Bakhirkin start is wall');
+      expect(svc.isWall(10, 4), isFalse, reason: 'Hunter start is wall');
 
       // At least some logos exist
       expect(svc.createLogos().length, greaterThan(10));

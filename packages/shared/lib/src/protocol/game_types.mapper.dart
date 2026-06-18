@@ -29,8 +29,8 @@ class PlayerRoleMapper extends EnumMapper<PlayerRole> {
     switch (value) {
       case r'leha':
         return PlayerRole.leha;
-      case r'bakhirkin':
-        return PlayerRole.bakhirkin;
+      case r'hunter':
+        return PlayerRole.hunter;
       case r'spectator':
         return PlayerRole.spectator;
       default:
@@ -43,8 +43,8 @@ class PlayerRoleMapper extends EnumMapper<PlayerRole> {
     switch (self) {
       case PlayerRole.leha:
         return r'leha';
-      case PlayerRole.bakhirkin:
-        return r'bakhirkin';
+      case PlayerRole.hunter:
+        return r'hunter';
       case PlayerRole.spectator:
         return r'spectator';
     }
@@ -105,6 +105,56 @@ extension LehaAspectMapperExtension on LehaAspect {
   String toValue() {
     LehaAspectMapper.ensureInitialized();
     return MapperContainer.globals.toValue<LehaAspect>(this) as String;
+  }
+}
+
+class HunterKindMapper extends EnumMapper<HunterKind> {
+  HunterKindMapper._();
+
+  static HunterKindMapper? _instance;
+  static HunterKindMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = HunterKindMapper._());
+    }
+    return _instance!;
+  }
+
+  static HunterKind fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  HunterKind decode(dynamic value) {
+    switch (value) {
+      case r'bakhirkin':
+        return HunterKind.bakhirkin;
+      case r'sashaYakuza':
+        return HunterKind.sashaYakuza;
+      case r'sima':
+        return HunterKind.sima;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(HunterKind self) {
+    switch (self) {
+      case HunterKind.bakhirkin:
+        return r'bakhirkin';
+      case HunterKind.sashaYakuza:
+        return r'sashaYakuza';
+      case HunterKind.sima:
+        return r'sima';
+    }
+  }
+}
+
+extension HunterKindMapperExtension on HunterKind {
+  String toValue() {
+    HunterKindMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<HunterKind>(this) as String;
   }
 }
 

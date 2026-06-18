@@ -59,7 +59,7 @@ class LehaBaldApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Леха против Бахиркина',
+      title: 'Леха против Охотника',
       theme: ThemeData.dark(useMaterial3: true).copyWith(
         scaffoldBackgroundColor: const Color(0xff05070d),
         colorScheme: ColorScheme.fromSeed(

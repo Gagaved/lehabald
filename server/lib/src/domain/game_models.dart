@@ -11,7 +11,10 @@ class PlayerConnection {
   });
 
   final String id;
-  final WebSocket socket;
+  final WebSocket? socket;
+  bool isBot = false;
+  int botNextThinkAt = 0;
+  String name = '';
   int? slot;
   PlayerRole role = PlayerRole.spectator;
   bool ready = false;
@@ -23,8 +26,13 @@ class PlayerConnection {
   MoveDirection lastDirection = MoveDirection.right;
   bool stopRequested = false;
   LehaAspect aspect = LehaAspect.superLeha;
+  HunterKind hunterKind = HunterKind.bakhirkin;
   int hp = 100;
   int trapCooldownUntil = 0;
+  int barrelCooldownUntil = 0;
+  int blindUntil = 0;
+  int simaFemboyUntil = 0;
+  int simaCooldownUntil = 0;
   int trapCharges = 0;
   int webCharges = 0;
   int portalCooldownUntil = 0;
@@ -56,6 +64,26 @@ class WebState {
   final int x;
   final int y;
   final int createdAt;
+}
+
+class BarrelState {
+  BarrelState({
+    required this.x,
+    required this.y,
+    required this.dirX,
+    required this.dirY,
+    required this.spawnedAt,
+    required this.ownerId,
+  });
+
+  double x;
+  double y;
+  double dirX;
+  double dirY;
+  final int spawnedAt;
+  final String ownerId;
+  /// While now < slowUntil the barrel crawls (set when it touches Spider's web).
+  int slowUntil = 0;
 }
 
 class PortalState {
@@ -91,6 +119,7 @@ class GameRound {
   int lehaPowerUntil = 0;
   List<TrapState> traps = [];
   List<WebState> webs = [];
+  List<BarrelState> barrels = [];
   List<PortalState> portals = [];
   List<int> pendingTrapRechargeAt = [];
   Map<int, List<TrailPoint>> trails = {0: [], 1: []};

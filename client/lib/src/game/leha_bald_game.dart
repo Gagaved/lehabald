@@ -22,6 +22,12 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   late Image spiderHead;
   late Image wizardHead;
   late Image logoImage;
+  // Optional Sasha-yakuza assets — null until the PNGs are added; we fall back
+  // to procedural drawing / the default chaser head so the game still runs.
+  Image? sashaHead;
+  Image? barrelImage;
+  Image? simaHead;
+  Image? simaFemboy;
 
   @override
   Future<void> onLoad() async {
@@ -31,6 +37,18 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     spiderHead = await images.load('leha-spider.png');
     wizardHead = await images.load('leha-wizard.png');
     logoImage = await images.load('tiktok-logo.png');
+    sashaHead = await _tryLoad('sasha-head.png');
+    barrelImage = await _tryLoad('barrel.png');
+    simaHead = await _tryLoad('sima-head.png');
+    simaFemboy = await _tryLoad('sima-femboy.png');
+  }
+
+  Future<Image?> _tryLoad(String name) async {
+    try {
+      return await images.load(name);
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -58,9 +76,74 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     _drawLogos(canvas, snapshot.logos);
     _drawPortals(canvas, snapshot.portals);
     _drawTraps(canvas, snapshot.traps);
+    _drawBarrels(canvas, snapshot.barrels);
     _drawPlayers(canvas, snapshot.players, snapshot.you.id);
+    _drawBlindFog(canvas, snapshot);
 
     canvas.restore();
+  }
+
+  /// When Leha is hit by a barrel his sight collapses to a small radius:
+  /// everything outside it is covered by darkness.
+  void _drawBlindFog(Canvas canvas, GameSnapshotDto snapshot) {
+    final me = snapshot.players.where((p) => p.id == snapshot.you.id).firstOrNull;
+    if (me == null || !me.blinded) return;
+    final center = Offset(me.x * tile, me.y * tile);
+    const radius = tile * 2.4;
+    final shroud = Paint()
+      ..shader = Gradient.radial(
+        center,
+        radius * 1.5,
+        const [Color(0x00000000), Color(0xcc05070d), Color(0xf205070d)],
+        const [0.0, 0.55, 1.0],
+      );
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, snapshot.cols * tile, snapshot.rows * tile),
+      shroud,
+    );
+  }
+
+  void _drawBarrels(Canvas canvas, List<BarrelDto> barrels) {
+    for (final barrel in barrels) {
+      final center = Offset(barrel.x * tile, barrel.y * tile);
+      // Rotate the barrel to align with its travel direction.
+      final hasDir = barrel.dirX != 0 || barrel.dirY != 0;
+      final angle = hasDir ? atan2(barrel.dirY, barrel.dirX) : 0.0;
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.rotate(angle);
+      final image = barrelImage;
+      if (image != null) {
+        _drawImage(canvas, image, Offset.zero, tile * 1.2, 1);
+      } else {
+        // Procedural barrel: brown body with two darker hoops.
+        final rect = Rect.fromCenter(center: Offset.zero, width: tile * 0.8, height: tile * 0.96);
+        final body = RRect.fromRectAndRadius(rect, const Radius.circular(6));
+        canvas.drawRRect(body, Paint()..color = const Color(0xff7a4a22));
+        canvas.drawRRect(
+          body,
+          Paint()
+            ..color = const Color(0xff3a2410)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+        final hoop = Paint()
+          ..color = const Color(0xff2c2c30)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3;
+        canvas.drawLine(
+          rect.topLeft.translate(0, rect.height * 0.3),
+          rect.topRight.translate(0, rect.height * 0.3),
+          hoop,
+        );
+        canvas.drawLine(
+          rect.bottomLeft.translate(0, -rect.height * 0.3),
+          rect.bottomRight.translate(0, -rect.height * 0.3),
+          hoop,
+        );
+      }
+      canvas.restore();
+    }
   }
 
   @override
@@ -69,8 +152,13 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
 
     if (event.logicalKey == LogicalKeyboardKey.space && event is KeyDownEvent) {
       final snapshot = network.snapshot;
-      if (snapshot?.you.role == PlayerRole.bakhirkin) {
-        network.placeTrap();
+      if (snapshot?.you.role == PlayerRole.hunter) {
+        // Only Bakhirkin places a trap; Sasha/Sima use their active ability.
+        if (_myHunterKind(snapshot) == HunterKind.bakhirkin) {
+          network.placeTrap();
+        } else {
+          network.useAbility();
+        }
       } else if (snapshot?.you.role == PlayerRole.leha) {
         network.useAbility();
       }
@@ -147,7 +235,7 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
 
   void _drawLogos(Canvas canvas, List<LogoDto> logos) {
     for (final logo in logos) {
-      final size = logo.power ? tile * 0.92 : tile * 0.5;
+      final size = logo.power ? tile * 0.92 : tile * 0.25;
       final center = Offset(logo.x * tile + tile / 2, logo.y * tile + tile / 2);
       if (logo.power) {
         canvas.drawCircle(
@@ -167,7 +255,7 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     for (final trap in traps) {
       final center = Offset(trap.x * tile + tile / 2, trap.y * tile + tile / 2);
       if (trap.triggered) {
-        // Triggered: bright expanding flash for Bakhirkin's catch notification.
+        // Triggered: bright expanding flash for Hunter's catch notification.
         canvas.drawCircle(center, tile * 0.55, Paint()..color = const Color(0x55ffaa00));
         canvas.drawCircle(
           center,
@@ -228,7 +316,9 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
       final center = Offset(player.x * tile, player.y * tile);
       final image = _imageForPlayer(player);
       final size = _sizeForPlayer(player, player.id == myId);
+      if (player.femboy) _drawFemboyAura(canvas, center, size);
       _drawImage(canvas, image, center, size, player.ghost ? 0.42 : 1);
+      if (player.femboy) _drawHearts(canvas, center, size);
       if (player.facing != null) _drawFacingIndicator(canvas, center, player.facing!);
       if (player.stunned) _drawStun(canvas, center, size);
       if (player.invulnerable) {
@@ -244,6 +334,59 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     }
   }
 
+  /// Soft pulsing pink aura under Sima while in femboy form.
+  void _drawFemboyAura(Canvas canvas, Offset center, double size) {
+    final t = DateTime.now().millisecondsSinceEpoch;
+    final pulse = 0.5 + 0.5 * sin(t / 260.0);
+    final r = size * (0.55 + 0.12 * pulse);
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..color = Color.fromRGBO(255, 90, 160, 0.18 + 0.12 * pulse)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+    );
+  }
+
+  /// Lots of little hearts swirling up around Sima while in femboy form.
+  void _drawHearts(Canvas canvas, Offset center, double size) {
+    final t = DateTime.now().millisecondsSinceEpoch;
+    const count = 16;
+    const periodMs = 1700;
+    for (var i = 0; i < count; i++) {
+      final phase = ((t / periodMs) + i / count) % 1.0;
+      final ang = i * (2 * pi / count) + t / 1400.0;
+      final spread = size * (0.30 + 0.45 * phase);
+      final wobble = sin(t / 300.0 + i) * size * 0.04;
+      final p = center +
+          Offset(cos(ang) * spread + wobble, sin(ang) * spread * 0.5 - size * (0.2 + phase * 1.15));
+      final a = sin(phase * pi); // fade in then out
+      if (a <= 0.02) continue;
+      final s = size * (0.11 + 0.05 * a);
+      final color = switch (i % 3) {
+        0 => const Color(0xffff5fa2),
+        1 => const Color(0xffff2d55),
+        _ => const Color(0xffff8fc0),
+      };
+      _drawHeart(canvas, p, s, color.withValues(alpha: a));
+    }
+  }
+
+  void _drawHeart(Canvas canvas, Offset c, double s, Color color) {
+    final paint = Paint()..color = color;
+    // soft glow
+    canvas.drawCircle(c, s * 1.15, Paint()..color = color.withValues(alpha: color.a * 0.3));
+    final r = s * 0.5;
+    canvas.drawCircle(c + Offset(-r * 0.55, -r * 0.25), r * 0.62, paint);
+    canvas.drawCircle(c + Offset(r * 0.55, -r * 0.25), r * 0.62, paint);
+    final path = Path()
+      ..moveTo(c.dx - r * 1.05, c.dy - r * 0.12)
+      ..lineTo(c.dx, c.dy + r * 1.15)
+      ..lineTo(c.dx + r * 1.05, c.dy - r * 0.12)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
   void _drawFacingIndicator(Canvas canvas, Offset center, MoveDirection dir) {
     const r = tile * 0.52;
     const dotR = tile * 0.10;
@@ -253,7 +396,14 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
 
   Image _imageForPlayer(PlayerDto player) {
     if (player.powered) return poweredHead;
-    if (player.slot == 1) return chaserHead;
+    if (player.slot == 1) {
+      if (player.hunterKind == HunterKind.sashaYakuza && sashaHead != null) return sashaHead!;
+      if (player.hunterKind == HunterKind.sima) {
+        if (player.femboy && simaFemboy != null) return simaFemboy!;
+        return simaHead ?? chaserHead;
+      }
+      return chaserHead;
+    }
     return switch (player.aspect) {
       LehaAspect.spider => spiderHead,
       LehaAspect.wizard => wizardHead,
@@ -265,6 +415,7 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     if (player.powered) return tile * 1.72;
     if (player.aspect == LehaAspect.spider) return tile * 2.02;
     if (player.aspect == LehaAspect.wizard) return tile * 1.36;
+    if (player.slot == 1 && player.hunterKind == HunterKind.sashaYakuza) return tile * 1.7;
     return isMe ? tile * 1.08 : tile * 1.02;
   }
 
@@ -307,6 +458,16 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     if (left)  return MoveDirection.left;
     if (right) return MoveDirection.right;
     return null;
+  }
+
+  HunterKind? _myHunterKind(GameSnapshotDto? snapshot) {
+    if (snapshot == null) return null;
+    final me = snapshot.players.where((p) => p.id == snapshot.you.id).firstOrNull;
+    if (me?.hunterKind != null) return me!.hunterKind;
+    return snapshot.lobby.roles
+        .where((r) => r.role == PlayerRole.hunter)
+        .firstOrNull
+        ?.hunterKind;
   }
 
   MoveDirection? _directionForKey(LogicalKeyboardKey key) {

@@ -27,29 +27,46 @@ class MoveDirectionMapper extends EnumMapper<MoveDirection> {
   @override
   MoveDirection decode(dynamic value) {
     switch (value) {
-      case r'up':        return MoveDirection.up;
-      case r'down':      return MoveDirection.down;
-      case r'left':      return MoveDirection.left;
-      case r'right':     return MoveDirection.right;
-      case r'upLeft':    return MoveDirection.upLeft;
-      case r'upRight':   return MoveDirection.upRight;
-      case r'downLeft':  return MoveDirection.downLeft;
-      case r'downRight': return MoveDirection.downRight;
-      default:           throw MapperException.unknownEnumValue(value);
+      case r'up':
+        return MoveDirection.up;
+      case r'down':
+        return MoveDirection.down;
+      case r'left':
+        return MoveDirection.left;
+      case r'right':
+        return MoveDirection.right;
+      case r'upLeft':
+        return MoveDirection.upLeft;
+      case r'upRight':
+        return MoveDirection.upRight;
+      case r'downLeft':
+        return MoveDirection.downLeft;
+      case r'downRight':
+        return MoveDirection.downRight;
+      default:
+        throw MapperException.unknownEnumValue(value);
     }
   }
 
   @override
   dynamic encode(MoveDirection self) {
     switch (self) {
-      case MoveDirection.up:        return r'up';
-      case MoveDirection.down:      return r'down';
-      case MoveDirection.left:      return r'left';
-      case MoveDirection.right:     return r'right';
-      case MoveDirection.upLeft:    return r'upLeft';
-      case MoveDirection.upRight:   return r'upRight';
-      case MoveDirection.downLeft:  return r'downLeft';
-      case MoveDirection.downRight: return r'downRight';
+      case MoveDirection.up:
+        return r'up';
+      case MoveDirection.down:
+        return r'down';
+      case MoveDirection.left:
+        return r'left';
+      case MoveDirection.right:
+        return r'right';
+      case MoveDirection.upLeft:
+        return r'upLeft';
+      case MoveDirection.upRight:
+        return r'upRight';
+      case MoveDirection.downLeft:
+        return r'downLeft';
+      case MoveDirection.downRight:
+        return r'downRight';
     }
   }
 }

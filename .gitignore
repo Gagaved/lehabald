@@ -9,3 +9,7 @@ client/.flutter-plugins-dependencies
 
 packages/shared/.dart_tool/
 server/.dart_tool/
+
+# Runtime artifacts
+server/games.log
+server/leha_stats.json

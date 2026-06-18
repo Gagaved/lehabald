@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:io';
 import 'dart:math';
 
@@ -5,15 +6,26 @@ import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../domain/game_constants.dart';
 import '../domain/game_models.dart';
+import 'game_logger.dart';
 import 'maze_service.dart';
+import 'stats_store.dart';
 
 class GameEngine {
-  GameEngine({required MazeService maze}) : _maze = maze {
+  GameEngine({required MazeService maze, StatsStore? stats, GameLogger? logger})
+      : _maze = maze,
+        stats = stats ?? StatsStore(),
+        logger = logger ?? GameLogger() {
     logos = maze.createLogos();
   }
 
   MazeService _maze;
   MazeService get maze => _maze;
+  final StatsStore stats;
+  final GameLogger logger;
+
+  String _playerLog(PlayerConnection? p, String character) => p == null
+      ? 'none'
+      : '${p.isBot ? 'BOT' : (p.name.isEmpty ? 'anon' : p.name)} ($character)';
   final Map<String, PlayerConnection> clients = {};
   var round = GameRound();
   var logos = <String>{};
@@ -66,12 +78,26 @@ class GameEngine {
       case ClientMessageType.selectAspect:
         final aspect = message.aspect;
         if (aspect != null) selectAspect(client, aspect);
+      case ClientMessageType.selectHunter:
+        final hunter = message.hunter;
+        if (hunter != null) selectHunter(client, hunter);
+      case ClientMessageType.setName:
+        final name = message.name;
+        if (name != null) setName(client, name);
+      case ClientMessageType.addBot:
+        final role = message.role;
+        if (role != null) addBot(role);
+      case ClientMessageType.removeBot:
+        final role = message.role;
+        if (role != null) removeBot(role);
       case ClientMessageType.restart:
-        reset();
+        // A spectator (e.g. watching two bots) returns everyone to the lobby;
+        // an actual player triggers a rematch.
+        reset(keepBotsReady: client.slot != null);
     }
   }
 
-  void reset() {
+  void reset({bool keepBotsReady = true}) {
     _maze = MazeService.generate();
     logos = _maze.createLogos();
     round = GameRound();
@@ -79,7 +105,7 @@ class GameEngine {
       final start = GameConstants.starts[client.slot ?? 0];
       client
         ..score = 0
-        ..ready = false
+        ..ready = keepBotsReady && client.isBot
         ..x = start.x + 0.5
         ..y = start.y + 0.5
         ..direction = null
@@ -87,8 +113,12 @@ class GameEngine {
         ..lastDirection = MoveDirection.right
         ..stopRequested = false
         ..hp = client.slot == 1 ? 100 : client.hp
-        ..trapCharges = client.slot == 1 ? GameConstants.maxTrapCharges : 0
+        ..trapCharges = _trapChargesFor(client)
         ..trapCooldownUntil = 0
+        ..barrelCooldownUntil = 0
+        ..simaFemboyUntil = 0
+        ..simaCooldownUntil = 0
+        ..blindUntil = 0
         ..webCharges = client.slot == 0 ? GameConstants.maxWebCharges : 0
         ..portalCooldownUntil = 0
         ..stunnedUntil = 0
@@ -99,6 +129,10 @@ class GameEngine {
     }
     ensureRoundState();
   }
+
+  /// Only Bakhirkin places traps; Sasha-yakuza throws barrels instead.
+  int _trapChargesFor(PlayerConnection client) =>
+      client.slot == 1 && client.hunterKind == HunterKind.bakhirkin ? GameConstants.maxTrapCharges : 0;
 
   void selectRole(PlayerConnection client, PlayerRole role) {
     if (round.phase != GamePhase.waiting || role == PlayerRole.spectator) return;
@@ -120,8 +154,12 @@ class GameEngine {
       ..lastDirection = MoveDirection.right
       ..stopRequested = false
       ..hp = slot == 1 ? 100 : client.hp
-      ..trapCharges = slot == 1 ? GameConstants.maxTrapCharges : 0
+      ..trapCharges = slot == 1 && client.hunterKind == HunterKind.bakhirkin ? GameConstants.maxTrapCharges : 0
       ..trapCooldownUntil = 0
+      ..barrelCooldownUntil = 0
+      ..simaFemboyUntil = 0
+      ..simaCooldownUntil = 0
+      ..blindUntil = 0
       ..webCharges = slot == 0 ? GameConstants.maxWebCharges : 0
       ..portalCooldownUntil = 0
       ..stunnedUntil = 0
@@ -129,6 +167,60 @@ class GameEngine {
       ..webSlowedUntil = 0
       ..webPhaseUntil = 0
       ..speed = speedFor(client, nowMs());
+    ensureRoundState();
+  }
+
+  void selectHunter(PlayerConnection client, HunterKind kind) {
+    if (round.phase != GamePhase.waiting || client.slot != 1) return;
+    client
+      ..hunterKind = kind
+      ..trapCharges = kind == HunterKind.bakhirkin ? GameConstants.maxTrapCharges : 0
+      ..trapCooldownUntil = 0
+      ..barrelCooldownUntil = 0
+      ..simaFemboyUntil = 0
+      ..simaCooldownUntil = 0;
+    ensureRoundState();
+  }
+
+  void setName(PlayerConnection client, String name) {
+    var trimmed = name.trim();
+    if (trimmed.length > 20) trimmed = trimmed.substring(0, 20);
+    client.name = trimmed;
+  }
+
+  /// Adds an always-ready AI bot to the [role] slot (Super-Leha for Leha,
+  /// Bakhirkin for the hunter). No-op if the slot is already taken.
+  void addBot(PlayerRole role) {
+    if (round.phase != GamePhase.waiting) return;
+    if (role != PlayerRole.leha && role != PlayerRole.hunter) return;
+    final slot = GameConstants.roles.indexOf(role);
+    if (clients.values.any((c) => c.slot == slot)) return;
+    final start = GameConstants.starts[slot];
+    final bot = PlayerConnection(
+      id: 'bot-$slot-${_nextId++}',
+      socket: null,
+      x: start.x + 0.5,
+      y: start.y + 0.5,
+    )
+      ..isBot = true
+      ..slot = slot
+      ..role = role
+      ..ready = true
+      ..name = ''
+      ..aspect = LehaAspect.superLeha
+      ..hunterKind = HunterKind.bakhirkin
+      ..hp = 100
+      ..trapCharges = slot == 1 ? GameConstants.maxTrapCharges : 0
+      ..lastDirection = MoveDirection.right
+      ..speed = speedForSlot(slot, nowMs());
+    clients[bot.id] = bot;
+    ensureRoundState();
+  }
+
+  void removeBot(PlayerRole role) {
+    if (round.phase != GamePhase.waiting) return;
+    final slot = GameConstants.roles.indexOf(role);
+    clients.removeWhere((_, c) => c.isBot && c.slot == slot);
     ensureRoundState();
   }
 
@@ -184,7 +276,13 @@ class GameEngine {
   }
 
   void useAbility(PlayerConnection client) {
-    if (round.phase != GamePhase.playing || client.slot != 0) return;
+    if (round.phase != GamePhase.playing) return;
+    if (client.slot == 1) {
+      if (client.hunterKind == HunterKind.sashaYakuza) throwBarrel(client);
+      if (client.hunterKind == HunterKind.sima) activateFemboy(client);
+      return;
+    }
+    if (client.slot != 0) return;
     switch (client.aspect) {
       case LehaAspect.superLeha:
         return;
@@ -193,6 +291,28 @@ class GameEngine {
       case LehaAspect.wizard:
         placePortal(client);
     }
+  }
+
+  void activateFemboy(PlayerConnection client) {
+    final now = nowMs();
+    if (now < client.simaCooldownUntil || now < client.stunnedUntil) return;
+    client.simaFemboyUntil = now + GameConstants.simaFemboyMs;
+    client.simaCooldownUntil = now + GameConstants.simaFemboyCooldownMs;
+  }
+
+  void throwBarrel(PlayerConnection client) {
+    final now = nowMs();
+    if (now < client.barrelCooldownUntil || now < client.stunnedUntil) return;
+    final dir = client.lastDirection;
+    client.barrelCooldownUntil = now + GameConstants.barrelCooldownMs;
+    round.barrels.add(BarrelState(
+      x: client.x,
+      y: client.y,
+      dirX: dir.dx,
+      dirY: dir.dy,
+      spawnedAt: now,
+      ownerId: client.id,
+    ));
   }
 
   void placeWeb(PlayerConnection client) {
@@ -227,15 +347,251 @@ class GameEngine {
     }
   }
 
+  // ---- Bots -------------------------------------------------------------
+
+  static const _steps = <(MoveDirection, int, int)>[
+    (MoveDirection.right, 1, 0),
+    (MoveDirection.left, -1, 0),
+    (MoveDirection.down, 0, 1),
+    (MoveDirection.up, 0, -1),
+  ];
+
+  void updateBots(int now) {
+    for (final bot in clients.values) {
+      if (!bot.isBot || bot.slot == null) continue;
+      if (now < bot.stunnedUntil) {
+        bot.nextDirection = null;
+        continue;
+      }
+      // Re-plan a few times per second; keep moving between decisions.
+      if (now < bot.botNextThinkAt) continue;
+      bot.botNextThinkAt = now + 180;
+      if (bot.slot == 0) {
+        _thinkLehaBot(bot, now);
+      } else {
+        _thinkHunterBot(bot, now);
+      }
+    }
+  }
+
+  void _thinkLehaBot(PlayerConnection bot, int now) {
+    final cell = centerCell(bot);
+    final hunter = findPlayer(1);
+    final powered = now < round.lehaPowerUntil;
+    if (hunter != null) {
+      final hc = centerCell(hunter);
+      final dist = _cellDist(cell, hc);
+      if (!powered && dist <= 4) {
+        // Threatened: run away from the hunter.
+        bot.nextDirection = _fleeStep(cell, hc) ?? bot.nextDirection;
+        return;
+      }
+      if (powered && dist <= 7) {
+        // Powered: hunt the hunter down to eat him.
+        bot.nextDirection = _bfsFirstStep(cell, (x, y) => x == hc.x && y == hc.y) ?? bot.nextDirection;
+        return;
+      }
+    }
+    // Otherwise head for the nearest TikTok logo.
+    bot.nextDirection = _bfsFirstStep(cell, (x, y) => logos.contains('$x,$y')) ?? bot.nextDirection;
+  }
+
+  void _thinkHunterBot(PlayerConnection bot, int now) {
+    final cell = centerCell(bot);
+    final leha = findPlayer(0);
+    if (leha == null) {
+      bot.nextDirection = null;
+      return;
+    }
+    final lc = centerCell(leha);
+    if (now < round.lehaPowerUntil) {
+      // Powered Leha can eat the hunter — keep distance.
+      bot.nextDirection = _fleeStep(cell, lc) ?? bot.nextDirection;
+      return;
+    }
+    // Drop a trap when close, then keep chasing.
+    if (bot.hunterKind == HunterKind.bakhirkin &&
+        _cellDist(cell, lc) <= 4 &&
+        bot.trapCharges > 0 &&
+        now >= bot.trapCooldownUntil) {
+      placeTrap(bot);
+    }
+    bot.nextDirection = _bfsFirstStep(cell, (x, y) => x == lc.x && y == lc.y) ?? bot.nextDirection;
+  }
+
+  /// One open cell step from (x,y) along [step], honoring tunnel wrap; null if blocked.
+  Point<int>? _stepCell(int x, int y, (MoveDirection, int, int) step) {
+    var nx = x + step.$2;
+    final ny = y + step.$3;
+    if (GameConstants.tunnelRows.contains(ny)) {
+      if (nx < 0) nx = maze.cols - 1;
+      if (nx >= maze.cols) nx = 0;
+    }
+    if (ny < 0 || ny >= maze.rows || nx < 0 || nx >= maze.cols) return null;
+    if (maze.isWall(nx, ny)) return null;
+    return Point(nx, ny);
+  }
+
+  /// BFS over maze cells; returns the first move toward the nearest cell
+  /// satisfying [isGoal], or null if none reachable.
+  MoveDirection? _bfsFirstStep(Point<int> start, bool Function(int, int) isGoal) {
+    if (isGoal(start.x, start.y)) return null;
+    final cols = maze.cols;
+    final visited = List<bool>.filled(maze.rows * cols, false);
+    visited[start.y * cols + start.x] = true;
+    final queue = Queue<({int x, int y, MoveDirection first})>();
+    for (final step in _steps) {
+      final n = _stepCell(start.x, start.y, step);
+      if (n == null || visited[n.y * cols + n.x]) continue;
+      if (isGoal(n.x, n.y)) return step.$1;
+      visited[n.y * cols + n.x] = true;
+      queue.add((x: n.x, y: n.y, first: step.$1));
+    }
+    while (queue.isNotEmpty) {
+      final node = queue.removeFirst();
+      for (final step in _steps) {
+        final n = _stepCell(node.x, node.y, step);
+        if (n == null || visited[n.y * cols + n.x]) continue;
+        if (isGoal(n.x, n.y)) return node.first;
+        visited[n.y * cols + n.x] = true;
+        queue.add((x: n.x, y: n.y, first: node.first));
+      }
+    }
+    return null;
+  }
+
+  /// Open neighbor that maximizes distance from [threat].
+  MoveDirection? _fleeStep(Point<int> from, Point<int> threat) {
+    MoveDirection? best;
+    var bestDist = -1;
+    for (final step in _steps) {
+      final n = _stepCell(from.x, from.y, step);
+      if (n == null) continue;
+      final d = _cellDist(n, threat);
+      if (d > bestDist) {
+        bestDist = d;
+        best = step.$1;
+      }
+    }
+    return best;
+  }
+
+  int _cellDist(Point<int> a, Point<int> b) => (a.x - b.x).abs() + (a.y - b.y).abs();
+
+  void updateBarrels(PlayerConnection? leha, int now, double dt) {
+    if (round.barrels.isEmpty) return;
+    final baseDist = GameConstants.baseSpeed * GameConstants.barrelSpeedMultiplier * dt;
+    final survivors = <BarrelState>[];
+    for (final barrel in round.barrels) {
+      // Destroyed after living for its full lifetime.
+      if (now - barrel.spawnedAt >= GameConstants.barrelLifetimeMs) continue;
+      // Touching Spider's web slows the barrel to a crawl, and the slow lingers
+      // for a moment after it rolls off the web.
+      final onWeb = round.webs.any((w) => w.x == barrel.x.floor() && w.y == barrel.y.floor());
+      if (onWeb) barrel.slowUntil = now + GameConstants.barrelWebSlowMs;
+      final slowed = now < barrel.slowUntil;
+      _advanceBarrel(barrel, slowed ? baseDist * GameConstants.barrelWebSlowFactor : baseDist);
+      // Ricochets off walls indefinitely — only lifetime or a hit destroys it.
+      // A barrel that reaches Leha is consumed; it only stuns a non-powered Leha
+      // (Super/powered Leha shatters the barrel with no effect).
+      if (leha != null) {
+        final ddx = leha.x - barrel.x;
+        final ddy = leha.y - barrel.y;
+        if (ddx * ddx + ddy * ddy <=
+            GameConstants.barrelHitRadius * GameConstants.barrelHitRadius) {
+          if (now >= round.lehaPowerUntil) hitLehaWithBarrel(leha, now);
+          continue;
+        }
+      }
+      survivors.add(barrel);
+    }
+    round.barrels = survivors;
+  }
+
+  void _advanceBarrel(BarrelState barrel, double dist) {
+    final stepX = barrel.dirX * dist;
+    final stepY = barrel.dirY * dist;
+    if (!barrelBlocked(barrel.x + stepX, barrel.y + stepY)) {
+      barrel
+        ..x += stepX
+        ..y += stepY;
+    } else {
+      final blockedX = barrelBlocked(barrel.x + stepX, barrel.y);
+      final blockedY = barrelBlocked(barrel.x, barrel.y + stepY);
+      if (blockedX) barrel.dirX = -barrel.dirX;
+      if (blockedY) barrel.dirY = -barrel.dirY;
+      // Head-on into a corner with both axes individually clear: reverse fully.
+      if (!blockedX && !blockedY) {
+        barrel
+          ..dirX = -barrel.dirX
+          ..dirY = -barrel.dirY;
+      }
+      final rx = barrel.x + barrel.dirX * dist;
+      final ry = barrel.y + barrel.dirY * dist;
+      if (!barrelBlocked(rx, ry)) {
+        barrel
+          ..x = rx
+          ..y = ry;
+      } else {
+        if (!barrelBlocked(barrel.x + barrel.dirX * dist, barrel.y)) {
+          barrel.x += barrel.dirX * dist;
+        }
+        if (!barrelBlocked(barrel.x, barrel.y + barrel.dirY * dist)) {
+          barrel.y += barrel.dirY * dist;
+        }
+      }
+    }
+    _wrapBarrelTunnel(barrel);
+  }
+
+  /// Circle-vs-AABB wall test for barrels (no spider/web exceptions).
+  bool barrelBlocked(double x, double y) {
+    if (GameConstants.tunnelRows.contains(y.floor()) && (x < 0 || x >= maze.cols)) {
+      return false;
+    }
+    final r = GameConstants.barrelRadius;
+    final minCx = (x - r).floor();
+    final maxCx = (x + r).ceil();
+    final minCy = (y - r).floor();
+    final maxCy = (y + r).ceil();
+    for (var cy = minCy; cy <= maxCy; cy++) {
+      for (var cx = minCx; cx <= maxCx; cx++) {
+        if (!maze.isWall(cx, cy)) continue;
+        final closestX = x.clamp(cx.toDouble(), cx + 1.0);
+        final closestY = y.clamp(cy.toDouble(), cy + 1.0);
+        final ddx = x - closestX;
+        final ddy = y - closestY;
+        if (ddx * ddx + ddy * ddy < r * r) return true;
+      }
+    }
+    return false;
+  }
+
+  void _wrapBarrelTunnel(BarrelState barrel) {
+    if (!GameConstants.tunnelRows.contains(barrel.y.floor())) return;
+    if (barrel.x < -0.35) barrel.x = maze.cols + 0.35;
+    if (barrel.x > maze.cols + 0.35) barrel.x = -0.35;
+  }
+
+  void hitLehaWithBarrel(PlayerConnection leha, int now) {
+    leha
+      ..stunnedUntil = now + GameConstants.barrelStunMs
+      ..blindUntil = now + GameConstants.barrelBlindMs
+      ..webPhaseUntil = 0
+      ..direction = null
+      ..nextDirection = null
+      ..stopRequested = false;
+  }
+
   void ensureRoundState() {
     final activePlayers = clients.values.where((client) => client.slot != null).toList();
     final hasLeha = activePlayers.any((client) => client.slot == 0);
-    final hasBakhirkin = activePlayers.any((client) => client.slot == 1);
+    final hasHunter = activePlayers.any((client) => client.slot == 1);
     final bothReady = hasLeha &&
-        hasBakhirkin &&
+        hasHunter &&
         activePlayers.where((client) => client.slot == 0 || client.slot == 1).every((client) => client.ready);
 
-    if (!hasLeha || !hasBakhirkin || !bothReady) {
+    if (!hasLeha || !hasHunter || !bothReady) {
       if (round.phase != GamePhase.ended) {
         round.phase = GamePhase.waiting;
         round.startedAt = null;
@@ -253,15 +609,19 @@ class GameEngine {
         ..lehaPowerUntil = 0
         ..traps = []
         ..webs = []
+        ..barrels = []
         ..portals = []
         ..pendingTrapRechargeAt = []
         ..trails = {0: [], 1: []};
-      final bakhirkin = findPlayer(1);
-      if (bakhirkin != null) {
-        bakhirkin
+      final hunter = findPlayer(1);
+      if (hunter != null) {
+        hunter
           ..hp = 100
-          ..trapCharges = GameConstants.maxTrapCharges
+          ..trapCharges = _trapChargesFor(hunter)
           ..trapCooldownUntil = 0
+          ..barrelCooldownUntil = 0
+          ..simaFemboyUntil = 0
+          ..simaCooldownUntil = 0
           ..invulnerableUntil = 0
           ..stunnedUntil = 0
           ..webSlowedUntil = 0
@@ -274,9 +634,16 @@ class GameEngine {
           ..portalCooldownUntil = 0
           ..stunnedUntil = 0
           ..invulnerableUntil = 0
+          ..blindUntil = 0
           ..webSlowedUntil = 0
           ..webPhaseUntil = 0;
       }
+      logger.log({
+        'event': 'start',
+        'leha': _playerLog(leha, leha?.aspect.name ?? '—'),
+        'hunter': _playerLog(hunter, hunter?.hunterKind.name ?? '—'),
+        'logos': logos.length,
+      });
     }
   }
 
@@ -288,6 +655,7 @@ class GameEngine {
     expireTraps(now);
     expireWebs(now);
     rechargeTraps(now);
+    updateBots(now);
     for (final client in clients.values) {
       if (client.slot == null) continue;
       updatePlayerState(client, now);
@@ -299,10 +667,11 @@ class GameEngine {
     }
 
     final leha = findPlayer(0);
-    final bakhirkin = findPlayer(1);
+    final hunter = findPlayer(1);
     if (leha != null) updateTrail(leha, now);
-    if (bakhirkin != null) updateTrail(bakhirkin, now);
-    resolveCollision(leha, bakhirkin, now);
+    if (hunter != null) updateTrail(hunter, now);
+    updateBarrels(leha, now, GameConstants.tickMs / 1000);
+    resolveCollision(leha, hunter, now);
     resolveTrap(leha, now);
 
     final startedAt = round.startedAt;
@@ -318,9 +687,14 @@ class GameEngine {
 
   GameSnapshotDto snapshotFor(PlayerConnection viewer) {
     final now = nowMs();
+    final lehaBlinded = viewer.slot == 0 && now < viewer.blindUntil;
     final visiblePlayers = clients.values
         .where((player) => player.slot != null)
-        .where((player) => viewer.slot == null || player == viewer || canSeePlayer(viewer, player, now))
+        .where((player) {
+          if (viewer.slot == null || player == viewer) return true;
+          if (!canSeePlayer(viewer, player, now)) return false;
+          return !lehaBlinded || _withinBlindRadius(viewer, player.x, player.y);
+        })
         .map((player) => serializePlayer(player, now))
         .toList();
     final startedAt = round.startedAt;
@@ -330,20 +704,27 @@ class GameEngine {
 
     return GameSnapshotDto(
       type: 'state',
-      you: YouDto(id: viewer.id, slot: viewer.slot, role: viewer.role),
+      you: YouDto(id: viewer.id, slot: viewer.slot, role: viewer.role, name: viewer.name),
       rows: maze.rows,
       cols: maze.cols,
       maze: maze.maze,
-      logos: visibleLogosFor(viewer).map((key) {
-        final parts = key.split(',').map(int.parse).toList();
-        return LogoDto(
-          x: parts[0],
-          y: parts[1],
-          power: findPlayer(0)?.aspect == LehaAspect.superLeha && maze.superLogoKeys.contains(key),
-        );
-      }).toList(),
+      logos: visibleLogosFor(viewer)
+          .where((key) {
+            if (!lehaBlinded) return true;
+            final parts = key.split(',').map(int.parse).toList();
+            return _withinBlindRadius(viewer, parts[0] + 0.5, parts[1] + 0.5);
+          })
+          .map((key) {
+            final parts = key.split(',').map(int.parse).toList();
+            return LogoDto(
+              x: parts[0],
+              y: parts[1],
+              power: findPlayer(0)?.aspect == LehaAspect.superLeha && maze.superLogoKeys.contains(key),
+            );
+          }).toList(),
       traps: visibleTrapsFor(viewer, now),
       webs: visibleWebsFor(viewer),
+      barrels: visibleBarrelsFor(viewer, now),
       portals: visiblePortalsFor(viewer),
       trail: trailForClient(viewer, now),
       players: visiblePlayers,
@@ -375,9 +756,37 @@ class GameEngine {
         abilityAvailable: abilityAvailableFor(viewer, now),
         abilityCooldownMs: abilityCooldownFor(viewer, now),
         abilityCharges: abilityChargesFor(viewer),
+        barrelAvailable: viewer.slot == 1 &&
+            viewer.hunterKind == HunterKind.sashaYakuza &&
+            round.phase == GamePhase.playing &&
+            now >= viewer.stunnedUntil &&
+            now >= viewer.barrelCooldownUntil,
+        barrelCooldownMs: viewer.slot == 1 && viewer.hunterKind == HunterKind.sashaYakuza
+            ? max(0, viewer.barrelCooldownUntil - now)
+            : 0,
+        femboyAvailable: viewer.slot == 1 &&
+            viewer.hunterKind == HunterKind.sima &&
+            round.phase == GamePhase.playing &&
+            now >= viewer.stunnedUntil &&
+            now >= viewer.simaCooldownUntil,
+        femboyCooldownMs: viewer.slot == 1 && viewer.hunterKind == HunterKind.sima
+            ? max(0, viewer.simaCooldownUntil - now)
+            : 0,
       ),
       status: statusFor(viewer),
+      leaderboard: stats
+          .leaderboard()
+          .map((e) => UserStatsDto(name: e.name, wins: e.wins, losses: e.losses))
+          .toList(),
+      yourStats: _yourStats(viewer),
     );
+  }
+
+  UserStatsDto? _yourStats(PlayerConnection viewer) {
+    final name = viewer.name.trim();
+    if (name.isEmpty) return null;
+    final s = stats.statsFor(name);
+    return UserStatsDto(name: name, wins: s?.wins ?? 0, losses: s?.losses ?? 0);
   }
 
   void movePlayer(PlayerConnection player, double dt) {
@@ -393,6 +802,18 @@ class GameEngine {
       endWebPhase(player);
     }
 
+    // Sima's femboy charm: a non-powered Leha with line of sight is dragged
+    // straight toward Sima at half speed, overriding his input.
+    if (player.slot == 0 && now >= round.lehaPowerUntil) {
+      final sima = _activeSima(now);
+      if (sima != null && maze.hasLineOfSight(playerPos(player), playerPos(sima))) {
+        _charmMove(player, sima, dt, now);
+        _wrapTunnel(player);
+        resolveWebContact(player, now);
+        return;
+      }
+    }
+
     final distance = player.speed * dt;
     final requested = player.nextDirection;
     if (requested == null) {
@@ -403,12 +824,62 @@ class GameEngine {
     player
       ..direction = requested
       ..lastDirection = requested;
-    if (!tryMove(player, requested.dx * distance, requested.dy * distance, now)) {
+    if (!_moveWithCornering(player, requested, distance, now)) {
       player.direction = null;
     }
 
     _wrapTunnel(player);
     resolveWebContact(player, now);
+  }
+
+  /// Moves [player] by [dist] in [dir]. If a cardinal move is blocked only
+  /// because the player is off the lane centre (the classic "can't turn into
+  /// the corridor" problem), it nudges the perpendicular axis toward the centre
+  /// of the target cell and retries — giving forgiving Pac-Man-style cornering.
+  bool _moveWithCornering(PlayerConnection player, MoveDirection dir, double dist, int now) {
+    if (tryMove(player, dir.dx * dist, dir.dy * dist, now)) return true;
+    if (dir.isDiagonal) return false;
+    if (!canMoveFrom(player, dir)) return false; // genuinely walled ahead
+
+    final cell = centerCell(player);
+    // Allow a slightly faster snap than travel speed so turns feel responsive.
+    final snap = dist * 1.5;
+    if (dir.dx != 0) {
+      final centerY = cell.y + 0.5;
+      final ny = _approach(player.y, centerY, snap);
+      if (isPositionOpen(player, player.x, ny, now)) player.y = ny;
+    } else {
+      final centerX = cell.x + 0.5;
+      final nx = _approach(player.x, centerX, snap);
+      if (isPositionOpen(player, nx, player.y, now)) player.x = nx;
+    }
+    return tryMove(player, dir.dx * dist, dir.dy * dist, now);
+  }
+
+  /// The hunter if it is Sima and currently in femboy form, else null.
+  PlayerConnection? _activeSima(int now) {
+    final hunter = findPlayer(1);
+    if (hunter != null && hunter.hunterKind == HunterKind.sima && now < hunter.simaFemboyUntil) {
+      return hunter;
+    }
+    return null;
+  }
+
+  /// Drags [leha] in a straight line toward [sima] at half base speed.
+  void _charmMove(PlayerConnection leha, PlayerConnection sima, double dt, int now) {
+    leha.direction = null;
+    final dx = sima.x - leha.x;
+    final dy = sima.y - leha.y;
+    final len = sqrt(dx * dx + dy * dy);
+    if (len < 1e-4) return;
+    final dist = GameConstants.baseSpeed * GameConstants.simaSlowFactor * dt;
+    tryMove(leha, dx / len * dist, dy / len * dist, now);
+  }
+
+  double _approach(double value, double target, double maxStep) {
+    final delta = target - value;
+    if (delta.abs() <= maxStep) return target;
+    return value + (delta > 0 ? maxStep : -maxStep);
   }
 
   void updatePlayerState(PlayerConnection player, int now) {
@@ -421,6 +892,10 @@ class GameEngine {
     final leha = findPlayer(0);
     if (player.slot == 1 && leha != null && now < leha.stunnedUntil) base *= 1.1;
     if (player.slot == 1 && now < player.webSlowedUntil) return base * 0.5;
+    // Sima crawls while in femboy form.
+    if (player.slot == 1 && player.hunterKind == HunterKind.sima && now < player.simaFemboyUntil) {
+      base *= GameConstants.simaSlowFactor;
+    }
     return base;
   }
 
@@ -455,16 +930,16 @@ class GameEngine {
         .toList();
   }
 
-  void resolveCollision(PlayerConnection? leha, PlayerConnection? bakhirkin, int now) {
-    if (leha == null || bakhirkin == null) return;
-    final distance = sqrt(pow(leha.x - bakhirkin.x, 2) + pow(leha.y - bakhirkin.y, 2));
+  void resolveCollision(PlayerConnection? leha, PlayerConnection? hunter, int now) {
+    if (leha == null || hunter == null) return;
+    final distance = sqrt(pow(leha.x - hunter.x, 2) + pow(leha.y - hunter.y, 2));
     if (distance > 0.62) return;
-    if (now < round.lehaPowerUntil && now >= bakhirkin.invulnerableUntil) {
-      hitBakhirkin(bakhirkin, now);
-    } else if (now < bakhirkin.invulnerableUntil) {
-      // Bakhirkin is stunned/invulnerable — ignore the collision entirely.
+    if (now < round.lehaPowerUntil && now >= hunter.invulnerableUntil) {
+      hitHunter(hunter, now);
+    } else if (now < hunter.invulnerableUntil) {
+      // Hunter is stunned/invulnerable — ignore the collision entirely.
     } else {
-      endGame(1, 'Бахиркин поймал Леху.');
+      endGame(1, 'Охотник поймал Леху.');
     }
   }
 
@@ -513,7 +988,7 @@ class GameEngine {
         ..direction = null
         ..nextDirection = null
         ..stopRequested = false;
-      // Mark as triggered and keep briefly so Bakhirkin sees the notification.
+      // Mark as triggered and keep briefly so Hunter sees the notification.
       round.traps[trapIndex]
         ..triggeredAt = now
         ..expiresAt = now + GameConstants.trapTriggeredDisplayMs;
@@ -523,9 +998,9 @@ class GameEngine {
 
   void scheduleTrapRecharge(int now) {
     round.pendingTrapRechargeAt.add(now + GameConstants.trapCooldownMs);
-    final bakhirkin = findPlayer(1);
-    if (bakhirkin != null) {
-      bakhirkin.trapCooldownUntil = round.pendingTrapRechargeAt.reduce(min);
+    final hunter = findPlayer(1);
+    if (hunter != null) {
+      hunter.trapCooldownUntil = round.pendingTrapRechargeAt.reduce(min);
     }
   }
 
@@ -533,16 +1008,16 @@ class GameEngine {
     final ready = round.pendingTrapRechargeAt.where((time) => now >= time).length;
     if (ready == 0) return;
     round.pendingTrapRechargeAt.removeWhere((time) => now >= time);
-    final bakhirkin = findPlayer(1);
-    if (bakhirkin != null) {
-      bakhirkin.trapCharges = min(GameConstants.maxTrapCharges, bakhirkin.trapCharges + ready);
-      bakhirkin.trapCooldownUntil = round.pendingTrapRechargeAt.isEmpty ? 0 : round.pendingTrapRechargeAt.reduce(min);
+    final hunter = findPlayer(1);
+    if (hunter != null) {
+      hunter.trapCharges = min(GameConstants.maxTrapCharges, hunter.trapCharges + ready);
+      hunter.trapCooldownUntil = round.pendingTrapRechargeAt.isEmpty ? 0 : round.pendingTrapRechargeAt.reduce(min);
     }
   }
 
-  void hitBakhirkin(PlayerConnection bakhirkin, int now) {
-    bakhirkin
-      ..hp = max(0, bakhirkin.hp - 50)
+  void hitHunter(PlayerConnection hunter, int now) {
+    hunter
+      ..hp = max(0, hunter.hp - 50)
       ..stunnedUntil = now + GameConstants.hunterStunMs
       ..invulnerableUntil = now + GameConstants.hunterStunMs
       ..webPhaseUntil = 0
@@ -550,8 +1025,8 @@ class GameEngine {
       ..nextDirection = null
       ..stopRequested = false;
     round.lehaPowerUntil = 0;
-    if (bakhirkin.hp <= 0) {
-      endGame(0, 'Супер-Леха съел Бахиркина второй раз.');
+    if (hunter.hp <= 0) {
+      endGame(0, 'Супер-Леха съел Охотника второй раз.');
     }
   }
 
@@ -570,6 +1045,19 @@ class GameEngine {
       ..endedAt = nowMs()
       ..winnerSlot = winnerSlot
       ..reason = reason;
+    final winner = findPlayer(winnerSlot);
+    final loser = findPlayer(winnerSlot == 0 ? 1 : 0);
+    stats.recordResult(winner: winner?.name.trim(), loser: loser?.name.trim());
+    final startedAt = round.startedAt;
+    logger.log({
+      'event': 'end',
+      'winner': winnerSlot == 0 ? 'leha' : 'hunter',
+      'reason': reason,
+      'durationMs': startedAt == null ? null : (round.endedAt ?? nowMs()) - startedAt,
+      'leha': _playerLog(findPlayer(0), findPlayer(0)?.aspect.name ?? '—'),
+      'hunter': _playerLog(findPlayer(1), findPlayer(1)?.hunterKind.name ?? '—'),
+      'lehaScore': findPlayer(0)?.score ?? 0,
+    });
   }
 
   Point<int> centerCell(PlayerConnection player) => Point(player.x.floor(), player.y.floor());
@@ -658,12 +1146,14 @@ class GameEngine {
       ready: player?.ready ?? false,
       playerId: player?.id,
       aspect: slot == 0 ? player?.aspect ?? LehaAspect.superLeha : null,
+      hunterKind: slot == 1 ? player?.hunterKind ?? HunterKind.bakhirkin : null,
+      bot: player?.isBot ?? false,
     );
   }
 
   Iterable<String> visibleLogosFor(PlayerConnection viewer) {
     if (viewer.slot == null || viewer.slot == 0) return logos;
-    // Bakhirkin sees super-logo positions only when Leha is actually Super Leha.
+    // Hunter sees super-logo positions only when Leha is actually Super Leha.
     final leha = findPlayer(0);
     if (leha?.aspect == LehaAspect.superLeha) return logos.where(maze.superLogoKeys.contains);
     return const [];
@@ -675,7 +1165,7 @@ class GameEngine {
     final vp = playerPos(viewer);
     return activeTraps
         .where((trap) {
-          // Bakhirkin always sees triggered traps (catch notification).
+          // Hunter always sees triggered traps (catch notification).
           if (viewer.slot == 1 && trap.triggeredAt != null) return true;
           final tp = Point(trap.x + 0.5, trap.y + 0.5);
           return maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp);
@@ -698,21 +1188,46 @@ class GameEngine {
         .toList();
   }
 
-  List<PortalDto> visiblePortalsFor(PlayerConnection viewer) {
-    // Spectators (slot == null) see nothing; Leha and Bakhirkin both see portals.
-    if (viewer.slot == null) return const [];
+  List<BarrelDto> visibleBarrelsFor(PlayerConnection viewer, int now) {
+    final lehaBlinded = viewer.slot == 0 && now < viewer.blindUntil;
+    BarrelDto toDto(BarrelState b) => BarrelDto(
+          x: _round3(b.x),
+          y: _round3(b.y),
+          dirX: _round3(b.dirX),
+          dirY: _round3(b.dirY),
+        );
+    if (viewer.slot == null) return round.barrels.map(toDto).toList();
     final vp = playerPos(viewer);
+    return round.barrels
+        .where((b) {
+          // The thrower always sees their own barrels.
+          if (b.ownerId == viewer.id) return true;
+          final tp = Point(b.x, b.y);
+          if (!(maze.hasLineOfSight(vp, tp) || maze.hasXrayVisibility(vp, tp))) return false;
+          return !lehaBlinded || _withinBlindRadius(viewer, b.x, b.y);
+        })
+        .map(toDto)
+        .toList();
+  }
+
+  bool _withinBlindRadius(PlayerConnection viewer, double x, double y) {
+    final dx = viewer.x - x;
+    final dy = viewer.y - y;
+    return dx * dx + dy * dy <= GameConstants.lehaBlindRadius * GameConstants.lehaBlindRadius;
+  }
+
+  List<PortalDto> visiblePortalsFor(PlayerConnection viewer) {
+    // Spectators (slot == null) see nothing; Leha and the hunter both always
+    // see Wizard-Leha's portals (the hunter needs to anticipate teleports).
+    if (viewer.slot == null) return const [];
     return [
       for (var i = 0; i < round.portals.length; i += 1)
-        if (viewer.slot == 0 ||
-            maze.hasXrayVisibility(vp, Point(round.portals[i].x + 0.5, round.portals[i].y + 0.5)) ||
-            maze.hasLineOfSight(vp, Point(round.portals[i].x + 0.5, round.portals[i].y + 0.5)))
-          PortalDto(
-            x: round.portals[i].x,
-            y: round.portals[i].y,
-            index: i,
-            active: round.portals.length == 2,
-          ),
+        PortalDto(
+          x: round.portals[i].x,
+          y: round.portals[i].y,
+          index: i,
+          active: round.portals.length == 2,
+        ),
     ];
   }
 
@@ -755,6 +1270,9 @@ class GameEngine {
       invulnerable: now < player.invulnerableUntil,
       hp: player.hp,
       aspect: aspect,
+      hunterKind: player.slot == 1 ? player.hunterKind : null,
+      blinded: player.slot == 0 && now < player.blindUntil,
+      femboy: player.slot == 1 && player.hunterKind == HunterKind.sima && now < player.simaFemboyUntil,
       facing: showFacing ? player.lastDirection : null,
     );
   }
@@ -762,7 +1280,7 @@ class GameEngine {
   String statusFor(PlayerConnection viewer) {
     if (round.phase == GamePhase.waiting) return 'Выберите персонажей и нажмите готовность.';
     if (round.phase == GamePhase.ended) {
-      final side = round.winnerSlot == 0 ? 'Леха выиграл' : 'Бахиркин выиграл';
+      final side = round.winnerSlot == 0 ? 'Леха выиграл' : 'Охотник выиграл';
       final personal = viewer.slot == null
           ? 'Вы наблюдатель.'
           : round.winnerSlot == viewer.slot
@@ -797,7 +1315,7 @@ class GameEngine {
     final vp = playerPos(viewer);
     final tp = Point(point.x, point.y);
     final distance = sqrt(pow(vp.x - tp.x, 2) + pow(vp.y - tp.y, 2));
-    // Bakhirkin smells Leha's trail within scentRadius — no line-of-sight needed.
+    // Hunter smells Leha's trail within scentRadius — no line-of-sight needed.
     if (viewer.slot == 1) return distance <= GameConstants.trailScentRadius;
     // Leha (powered) sees trail within visibility radius or with direct LOS.
     if (distance <= GameConstants.trailVisibilityRadius) return true;
@@ -831,7 +1349,7 @@ class GameEngine {
   void resolveWebContact(PlayerConnection player, int now) {
     if (player.slot != 1) return;
     final cell = centerCell(player);
-    // Only floor webs (non-wall cells) slow Bakhirkin; wall webs are for Spider traversal.
+    // Only floor webs (non-wall cells) slow Hunter; wall webs are for Spider traversal.
     final index = round.webs.indexWhere(
       (web) => web.x == cell.x && web.y == cell.y && !maze.isWall(web.x, web.y),
     );

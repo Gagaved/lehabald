@@ -17,6 +17,7 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
       MapperContainer.globals.use(_instance = PlayerDtoMapper._());
       PlayerRoleMapper.ensureInitialized();
       LehaAspectMapper.ensureInitialized();
+      HunterKindMapper.ensureInitialized();
       MoveDirectionMapper.ensureInitialized();
     }
     return _instance!;
@@ -55,6 +56,26 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
     'aspect',
     _$aspect,
   );
+  static HunterKind? _$hunterKind(PlayerDto v) => v.hunterKind;
+  static const Field<PlayerDto, HunterKind> _f$hunterKind = Field(
+    'hunterKind',
+    _$hunterKind,
+    opt: true,
+  );
+  static bool _$blinded(PlayerDto v) => v.blinded;
+  static const Field<PlayerDto, bool> _f$blinded = Field(
+    'blinded',
+    _$blinded,
+    opt: true,
+    def: false,
+  );
+  static bool _$femboy(PlayerDto v) => v.femboy;
+  static const Field<PlayerDto, bool> _f$femboy = Field(
+    'femboy',
+    _$femboy,
+    opt: true,
+    def: false,
+  );
   static MoveDirection? _$facing(PlayerDto v) => v.facing;
   static const Field<PlayerDto, MoveDirection> _f$facing = Field(
     'facing',
@@ -76,6 +97,9 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
     #invulnerable: _f$invulnerable,
     #hp: _f$hp,
     #aspect: _f$aspect,
+    #hunterKind: _f$hunterKind,
+    #blinded: _f$blinded,
+    #femboy: _f$femboy,
     #facing: _f$facing,
   };
 
@@ -93,6 +117,9 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
       invulnerable: data.dec(_f$invulnerable),
       hp: data.dec(_f$hp),
       aspect: data.dec(_f$aspect),
+      hunterKind: data.dec(_f$hunterKind),
+      blinded: data.dec(_f$blinded),
+      femboy: data.dec(_f$femboy),
       facing: data.dec(_f$facing),
     );
   }
@@ -169,6 +196,9 @@ abstract class PlayerDtoCopyWith<$R, $In extends PlayerDto, $Out>
     bool? invulnerable,
     int? hp,
     LehaAspect? aspect,
+    HunterKind? hunterKind,
+    bool? blinded,
+    bool? femboy,
     MoveDirection? facing,
   });
   PlayerDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -196,6 +226,9 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
     bool? invulnerable,
     int? hp,
     Object? aspect = $none,
+    Object? hunterKind = $none,
+    bool? blinded,
+    bool? femboy,
     Object? facing = $none,
   }) => $apply(
     FieldCopyWithData({
@@ -211,6 +244,9 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
       if (invulnerable != null) #invulnerable: invulnerable,
       if (hp != null) #hp: hp,
       if (aspect != $none) #aspect: aspect,
+      if (hunterKind != $none) #hunterKind: hunterKind,
+      if (blinded != null) #blinded: blinded,
+      if (femboy != null) #femboy: femboy,
       if (facing != $none) #facing: facing,
     }),
   );
@@ -228,6 +264,9 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
     invulnerable: data.get(#invulnerable, or: $value.invulnerable),
     hp: data.get(#hp, or: $value.hp),
     aspect: data.get(#aspect, or: $value.aspect),
+    hunterKind: data.get(#hunterKind, or: $value.hunterKind),
+    blinded: data.get(#blinded, or: $value.blinded),
+    femboy: data.get(#femboy, or: $value.femboy),
     facing: data.get(#facing, or: $value.facing),
   );
 
@@ -484,15 +523,16 @@ class _TrapDtoCopyWithImpl<$R, $Out>
   late final ClassMapperBase<TrapDto> $mapper =
       TrapDtoMapper.ensureInitialized();
   @override
-  $R call({int? x, int? y, int? placedAt, int? expiresAt, bool? triggered}) => $apply(
-    FieldCopyWithData({
-      if (x != null) #x: x,
-      if (y != null) #y: y,
-      if (placedAt != null) #placedAt: placedAt,
-      if (expiresAt != null) #expiresAt: expiresAt,
-      if (triggered != null) #triggered: triggered,
-    }),
-  );
+  $R call({int? x, int? y, int? placedAt, int? expiresAt, bool? triggered}) =>
+      $apply(
+        FieldCopyWithData({
+          if (x != null) #x: x,
+          if (y != null) #y: y,
+          if (placedAt != null) #placedAt: placedAt,
+          if (expiresAt != null) #expiresAt: expiresAt,
+          if (triggered != null) #triggered: triggered,
+        }),
+      );
   @override
   TrapDto $make(CopyWithData data) => TrapDto(
     x: data.get(#x, or: $value.x),
@@ -601,6 +641,140 @@ class _WebDtoCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, WebDto, $Out>
   @override
   WebDtoCopyWith<$R2, WebDto, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
       _WebDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class BarrelDtoMapper extends ClassMapperBase<BarrelDto> {
+  BarrelDtoMapper._();
+
+  static BarrelDtoMapper? _instance;
+  static BarrelDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = BarrelDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'BarrelDto';
+
+  static double _$x(BarrelDto v) => v.x;
+  static const Field<BarrelDto, double> _f$x = Field('x', _$x);
+  static double _$y(BarrelDto v) => v.y;
+  static const Field<BarrelDto, double> _f$y = Field('y', _$y);
+  static double _$dirX(BarrelDto v) => v.dirX;
+  static const Field<BarrelDto, double> _f$dirX = Field('dirX', _$dirX);
+  static double _$dirY(BarrelDto v) => v.dirY;
+  static const Field<BarrelDto, double> _f$dirY = Field('dirY', _$dirY);
+
+  @override
+  final MappableFields<BarrelDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #dirX: _f$dirX,
+    #dirY: _f$dirY,
+  };
+
+  static BarrelDto _instantiate(DecodingData data) {
+    return BarrelDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      dirX: data.dec(_f$dirX),
+      dirY: data.dec(_f$dirY),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static BarrelDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<BarrelDto>(map);
+  }
+
+  static BarrelDto fromJson(String json) {
+    return ensureInitialized().decodeJson<BarrelDto>(json);
+  }
+}
+
+mixin BarrelDtoMappable {
+  String toJson() {
+    return BarrelDtoMapper.ensureInitialized().encodeJson<BarrelDto>(
+      this as BarrelDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return BarrelDtoMapper.ensureInitialized().encodeMap<BarrelDto>(
+      this as BarrelDto,
+    );
+  }
+
+  BarrelDtoCopyWith<BarrelDto, BarrelDto, BarrelDto> get copyWith =>
+      _BarrelDtoCopyWithImpl<BarrelDto, BarrelDto>(
+        this as BarrelDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return BarrelDtoMapper.ensureInitialized().stringifyValue(
+      this as BarrelDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return BarrelDtoMapper.ensureInitialized().equalsValue(
+      this as BarrelDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return BarrelDtoMapper.ensureInitialized().hashValue(this as BarrelDto);
+  }
+}
+
+extension BarrelDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, BarrelDto, $Out> {
+  BarrelDtoCopyWith<$R, BarrelDto, $Out> get $asBarrelDto =>
+      $base.as((v, t, t2) => _BarrelDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class BarrelDtoCopyWith<$R, $In extends BarrelDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({double? x, double? y, double? dirX, double? dirY});
+  BarrelDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _BarrelDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, BarrelDto, $Out>
+    implements BarrelDtoCopyWith<$R, BarrelDto, $Out> {
+  _BarrelDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<BarrelDto> $mapper =
+      BarrelDtoMapper.ensureInitialized();
+  @override
+  $R call({double? x, double? y, double? dirX, double? dirY}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (dirX != null) #dirX: dirX,
+      if (dirY != null) #dirY: dirY,
+    }),
+  );
+  @override
+  BarrelDto $make(CopyWithData data) => BarrelDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    dirX: data.get(#dirX, or: $value.dirX),
+    dirY: data.get(#dirY, or: $value.dirY),
+  );
+
+  @override
+  BarrelDtoCopyWith<$R2, BarrelDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _BarrelDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class PortalDtoMapper extends ClassMapperBase<PortalDto> {
@@ -1015,6 +1189,7 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
       MapperContainer.globals.use(_instance = RoleStateDtoMapper._());
       PlayerRoleMapper.ensureInitialized();
       LehaAspectMapper.ensureInitialized();
+      HunterKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1040,6 +1215,19 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
     'aspect',
     _$aspect,
   );
+  static HunterKind? _$hunterKind(RoleStateDto v) => v.hunterKind;
+  static const Field<RoleStateDto, HunterKind> _f$hunterKind = Field(
+    'hunterKind',
+    _$hunterKind,
+    opt: true,
+  );
+  static bool _$bot(RoleStateDto v) => v.bot;
+  static const Field<RoleStateDto, bool> _f$bot = Field(
+    'bot',
+    _$bot,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<RoleStateDto> fields = const {
@@ -1049,6 +1237,8 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
     #ready: _f$ready,
     #playerId: _f$playerId,
     #aspect: _f$aspect,
+    #hunterKind: _f$hunterKind,
+    #bot: _f$bot,
   };
 
   static RoleStateDto _instantiate(DecodingData data) {
@@ -1059,6 +1249,8 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
       ready: data.dec(_f$ready),
       playerId: data.dec(_f$playerId),
       aspect: data.dec(_f$aspect),
+      hunterKind: data.dec(_f$hunterKind),
+      bot: data.dec(_f$bot),
     );
   }
 
@@ -1131,6 +1323,8 @@ abstract class RoleStateDtoCopyWith<$R, $In extends RoleStateDto, $Out>
     bool? ready,
     String? playerId,
     LehaAspect? aspect,
+    HunterKind? hunterKind,
+    bool? bot,
   });
   RoleStateDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1151,6 +1345,8 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
     bool? ready,
     Object? playerId = $none,
     Object? aspect = $none,
+    Object? hunterKind = $none,
+    bool? bot,
   }) => $apply(
     FieldCopyWithData({
       if (role != null) #role: role,
@@ -1159,6 +1355,8 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
       if (ready != null) #ready: ready,
       if (playerId != $none) #playerId: playerId,
       if (aspect != $none) #aspect: aspect,
+      if (hunterKind != $none) #hunterKind: hunterKind,
+      if (bot != null) #bot: bot,
     }),
   );
   @override
@@ -1169,6 +1367,8 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
     ready: data.get(#ready, or: $value.ready),
     playerId: data.get(#playerId, or: $value.playerId),
     aspect: data.get(#aspect, or: $value.aspect),
+    hunterKind: data.get(#hunterKind, or: $value.hunterKind),
+    bot: data.get(#bot, or: $value.bot),
   );
 
   @override
@@ -1395,6 +1595,34 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     'abilityCharges',
     _$abilityCharges,
   );
+  static bool _$barrelAvailable(GameInfoDto v) => v.barrelAvailable;
+  static const Field<GameInfoDto, bool> _f$barrelAvailable = Field(
+    'barrelAvailable',
+    _$barrelAvailable,
+    opt: true,
+    def: false,
+  );
+  static int _$barrelCooldownMs(GameInfoDto v) => v.barrelCooldownMs;
+  static const Field<GameInfoDto, int> _f$barrelCooldownMs = Field(
+    'barrelCooldownMs',
+    _$barrelCooldownMs,
+    opt: true,
+    def: 0,
+  );
+  static bool _$femboyAvailable(GameInfoDto v) => v.femboyAvailable;
+  static const Field<GameInfoDto, bool> _f$femboyAvailable = Field(
+    'femboyAvailable',
+    _$femboyAvailable,
+    opt: true,
+    def: false,
+  );
+  static int _$femboyCooldownMs(GameInfoDto v) => v.femboyCooldownMs;
+  static const Field<GameInfoDto, int> _f$femboyCooldownMs = Field(
+    'femboyCooldownMs',
+    _$femboyCooldownMs,
+    opt: true,
+    def: 0,
+  );
 
   @override
   final MappableFields<GameInfoDto> fields = const {
@@ -1411,6 +1639,10 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     #abilityAvailable: _f$abilityAvailable,
     #abilityCooldownMs: _f$abilityCooldownMs,
     #abilityCharges: _f$abilityCharges,
+    #barrelAvailable: _f$barrelAvailable,
+    #barrelCooldownMs: _f$barrelCooldownMs,
+    #femboyAvailable: _f$femboyAvailable,
+    #femboyCooldownMs: _f$femboyCooldownMs,
   };
 
   static GameInfoDto _instantiate(DecodingData data) {
@@ -1428,6 +1660,10 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
       abilityAvailable: data.dec(_f$abilityAvailable),
       abilityCooldownMs: data.dec(_f$abilityCooldownMs),
       abilityCharges: data.dec(_f$abilityCharges),
+      barrelAvailable: data.dec(_f$barrelAvailable),
+      barrelCooldownMs: data.dec(_f$barrelCooldownMs),
+      femboyAvailable: data.dec(_f$femboyAvailable),
+      femboyCooldownMs: data.dec(_f$femboyCooldownMs),
     );
   }
 
@@ -1505,6 +1741,10 @@ abstract class GameInfoDtoCopyWith<$R, $In extends GameInfoDto, $Out>
     bool? abilityAvailable,
     int? abilityCooldownMs,
     int? abilityCharges,
+    bool? barrelAvailable,
+    int? barrelCooldownMs,
+    bool? femboyAvailable,
+    int? femboyCooldownMs,
   });
   GameInfoDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1532,6 +1772,10 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     bool? abilityAvailable,
     int? abilityCooldownMs,
     int? abilityCharges,
+    bool? barrelAvailable,
+    int? barrelCooldownMs,
+    bool? femboyAvailable,
+    int? femboyCooldownMs,
   }) => $apply(
     FieldCopyWithData({
       if (phase != null) #phase: phase,
@@ -1547,6 +1791,10 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
       if (abilityAvailable != null) #abilityAvailable: abilityAvailable,
       if (abilityCooldownMs != null) #abilityCooldownMs: abilityCooldownMs,
       if (abilityCharges != null) #abilityCharges: abilityCharges,
+      if (barrelAvailable != null) #barrelAvailable: barrelAvailable,
+      if (barrelCooldownMs != null) #barrelCooldownMs: barrelCooldownMs,
+      if (femboyAvailable != null) #femboyAvailable: femboyAvailable,
+      if (femboyCooldownMs != null) #femboyCooldownMs: femboyCooldownMs,
     }),
   );
   @override
@@ -1567,6 +1815,10 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
       or: $value.abilityCooldownMs,
     ),
     abilityCharges: data.get(#abilityCharges, or: $value.abilityCharges),
+    barrelAvailable: data.get(#barrelAvailable, or: $value.barrelAvailable),
+    barrelCooldownMs: data.get(#barrelCooldownMs, or: $value.barrelCooldownMs),
+    femboyAvailable: data.get(#femboyAvailable, or: $value.femboyAvailable),
+    femboyCooldownMs: data.get(#femboyCooldownMs, or: $value.femboyCooldownMs),
   );
 
   @override
@@ -1596,12 +1848,20 @@ class YouDtoMapper extends ClassMapperBase<YouDto> {
   static const Field<YouDto, int> _f$slot = Field('slot', _$slot);
   static PlayerRole _$role(YouDto v) => v.role;
   static const Field<YouDto, PlayerRole> _f$role = Field('role', _$role);
+  static String _$name(YouDto v) => v.name;
+  static const Field<YouDto, String> _f$name = Field(
+    'name',
+    _$name,
+    opt: true,
+    def: '',
+  );
 
   @override
   final MappableFields<YouDto> fields = const {
     #id: _f$id,
     #slot: _f$slot,
     #role: _f$role,
+    #name: _f$name,
   };
 
   static YouDto _instantiate(DecodingData data) {
@@ -1609,6 +1869,7 @@ class YouDtoMapper extends ClassMapperBase<YouDto> {
       id: data.dec(_f$id),
       slot: data.dec(_f$slot),
       role: data.dec(_f$role),
+      name: data.dec(_f$name),
     );
   }
 
@@ -1658,7 +1919,7 @@ extension YouDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, YouDto, $Out> {
 
 abstract class YouDtoCopyWith<$R, $In extends YouDto, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
-  $R call({String? id, int? slot, PlayerRole? role});
+  $R call({String? id, int? slot, PlayerRole? role, String? name});
   YouDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -1669,23 +1930,157 @@ class _YouDtoCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, YouDto, $Out>
   @override
   late final ClassMapperBase<YouDto> $mapper = YouDtoMapper.ensureInitialized();
   @override
-  $R call({String? id, Object? slot = $none, PlayerRole? role}) => $apply(
-    FieldCopyWithData({
-      if (id != null) #id: id,
-      if (slot != $none) #slot: slot,
-      if (role != null) #role: role,
-    }),
-  );
+  $R call({String? id, Object? slot = $none, PlayerRole? role, String? name}) =>
+      $apply(
+        FieldCopyWithData({
+          if (id != null) #id: id,
+          if (slot != $none) #slot: slot,
+          if (role != null) #role: role,
+          if (name != null) #name: name,
+        }),
+      );
   @override
   YouDto $make(CopyWithData data) => YouDto(
     id: data.get(#id, or: $value.id),
     slot: data.get(#slot, or: $value.slot),
     role: data.get(#role, or: $value.role),
+    name: data.get(#name, or: $value.name),
   );
 
   @override
   YouDtoCopyWith<$R2, YouDto, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
       _YouDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class UserStatsDtoMapper extends ClassMapperBase<UserStatsDto> {
+  UserStatsDtoMapper._();
+
+  static UserStatsDtoMapper? _instance;
+  static UserStatsDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = UserStatsDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'UserStatsDto';
+
+  static String _$name(UserStatsDto v) => v.name;
+  static const Field<UserStatsDto, String> _f$name = Field('name', _$name);
+  static int _$wins(UserStatsDto v) => v.wins;
+  static const Field<UserStatsDto, int> _f$wins = Field('wins', _$wins);
+  static int _$losses(UserStatsDto v) => v.losses;
+  static const Field<UserStatsDto, int> _f$losses = Field('losses', _$losses);
+
+  @override
+  final MappableFields<UserStatsDto> fields = const {
+    #name: _f$name,
+    #wins: _f$wins,
+    #losses: _f$losses,
+  };
+
+  static UserStatsDto _instantiate(DecodingData data) {
+    return UserStatsDto(
+      name: data.dec(_f$name),
+      wins: data.dec(_f$wins),
+      losses: data.dec(_f$losses),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static UserStatsDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<UserStatsDto>(map);
+  }
+
+  static UserStatsDto fromJson(String json) {
+    return ensureInitialized().decodeJson<UserStatsDto>(json);
+  }
+}
+
+mixin UserStatsDtoMappable {
+  String toJson() {
+    return UserStatsDtoMapper.ensureInitialized().encodeJson<UserStatsDto>(
+      this as UserStatsDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return UserStatsDtoMapper.ensureInitialized().encodeMap<UserStatsDto>(
+      this as UserStatsDto,
+    );
+  }
+
+  UserStatsDtoCopyWith<UserStatsDto, UserStatsDto, UserStatsDto> get copyWith =>
+      _UserStatsDtoCopyWithImpl<UserStatsDto, UserStatsDto>(
+        this as UserStatsDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return UserStatsDtoMapper.ensureInitialized().stringifyValue(
+      this as UserStatsDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return UserStatsDtoMapper.ensureInitialized().equalsValue(
+      this as UserStatsDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return UserStatsDtoMapper.ensureInitialized().hashValue(
+      this as UserStatsDto,
+    );
+  }
+}
+
+extension UserStatsDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, UserStatsDto, $Out> {
+  UserStatsDtoCopyWith<$R, UserStatsDto, $Out> get $asUserStatsDto =>
+      $base.as((v, t, t2) => _UserStatsDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class UserStatsDtoCopyWith<$R, $In extends UserStatsDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({String? name, int? wins, int? losses});
+  UserStatsDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _UserStatsDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, UserStatsDto, $Out>
+    implements UserStatsDtoCopyWith<$R, UserStatsDto, $Out> {
+  _UserStatsDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<UserStatsDto> $mapper =
+      UserStatsDtoMapper.ensureInitialized();
+  @override
+  $R call({String? name, int? wins, int? losses}) => $apply(
+    FieldCopyWithData({
+      if (name != null) #name: name,
+      if (wins != null) #wins: wins,
+      if (losses != null) #losses: losses,
+    }),
+  );
+  @override
+  UserStatsDto $make(CopyWithData data) => UserStatsDto(
+    name: data.get(#name, or: $value.name),
+    wins: data.get(#wins, or: $value.wins),
+    losses: data.get(#losses, or: $value.losses),
+  );
+
+  @override
+  UserStatsDtoCopyWith<$R2, UserStatsDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _UserStatsDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
@@ -1699,12 +2094,14 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       LogoDtoMapper.ensureInitialized();
       TrapDtoMapper.ensureInitialized();
       WebDtoMapper.ensureInitialized();
+      BarrelDtoMapper.ensureInitialized();
       PortalDtoMapper.ensureInitialized();
       TrailPointDtoMapper.ensureInitialized();
       PlayerDtoMapper.ensureInitialized();
       ScoreDtoMapper.ensureInitialized();
       LobbyDtoMapper.ensureInitialized();
       GameInfoDtoMapper.ensureInitialized();
+      UserStatsDtoMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1739,6 +2136,11 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
   static const Field<GameSnapshotDto, List<WebDto>> _f$webs = Field(
     'webs',
     _$webs,
+  );
+  static List<BarrelDto> _$barrels(GameSnapshotDto v) => v.barrels;
+  static const Field<GameSnapshotDto, List<BarrelDto>> _f$barrels = Field(
+    'barrels',
+    _$barrels,
   );
   static List<PortalDto> _$portals(GameSnapshotDto v) => v.portals;
   static const Field<GameSnapshotDto, List<PortalDto>> _f$portals = Field(
@@ -1780,6 +2182,15 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     'status',
     _$status,
   );
+  static List<UserStatsDto> _$leaderboard(GameSnapshotDto v) => v.leaderboard;
+  static const Field<GameSnapshotDto, List<UserStatsDto>> _f$leaderboard =
+      Field('leaderboard', _$leaderboard, opt: true, def: const []);
+  static UserStatsDto? _$yourStats(GameSnapshotDto v) => v.yourStats;
+  static const Field<GameSnapshotDto, UserStatsDto> _f$yourStats = Field(
+    'yourStats',
+    _$yourStats,
+    opt: true,
+  );
 
   @override
   final MappableFields<GameSnapshotDto> fields = const {
@@ -1791,6 +2202,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #logos: _f$logos,
     #traps: _f$traps,
     #webs: _f$webs,
+    #barrels: _f$barrels,
     #portals: _f$portals,
     #trail: _f$trail,
     #players: _f$players,
@@ -1799,6 +2211,8 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #lobby: _f$lobby,
     #game: _f$game,
     #status: _f$status,
+    #leaderboard: _f$leaderboard,
+    #yourStats: _f$yourStats,
   };
 
   static GameSnapshotDto _instantiate(DecodingData data) {
@@ -1811,6 +2225,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       logos: data.dec(_f$logos),
       traps: data.dec(_f$traps),
       webs: data.dec(_f$webs),
+      barrels: data.dec(_f$barrels),
       portals: data.dec(_f$portals),
       trail: data.dec(_f$trail),
       players: data.dec(_f$players),
@@ -1819,6 +2234,8 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       lobby: data.dec(_f$lobby),
       game: data.dec(_f$game),
       status: data.dec(_f$status),
+      leaderboard: data.dec(_f$leaderboard),
+      yourStats: data.dec(_f$yourStats),
     );
   }
 
@@ -1889,6 +2306,8 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos;
   ListCopyWith<$R, TrapDto, TrapDtoCopyWith<$R, TrapDto, TrapDto>> get traps;
   ListCopyWith<$R, WebDto, WebDtoCopyWith<$R, WebDto, WebDto>> get webs;
+  ListCopyWith<$R, BarrelDto, BarrelDtoCopyWith<$R, BarrelDto, BarrelDto>>
+  get barrels;
   ListCopyWith<$R, PortalDto, PortalDtoCopyWith<$R, PortalDto, PortalDto>>
   get portals;
   ListCopyWith<
@@ -1903,6 +2322,13 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   get scores;
   LobbyDtoCopyWith<$R, LobbyDto, LobbyDto> get lobby;
   GameInfoDtoCopyWith<$R, GameInfoDto, GameInfoDto> get game;
+  ListCopyWith<
+    $R,
+    UserStatsDto,
+    UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>
+  >
+  get leaderboard;
+  UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>? get yourStats;
   $R call({
     String? type,
     YouDto? you,
@@ -1912,6 +2338,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
+    List<BarrelDto>? barrels,
     List<PortalDto>? portals,
     List<TrailPointDto>? trail,
     List<PlayerDto>? players,
@@ -1920,6 +2347,8 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     LobbyDto? lobby,
     GameInfoDto? game,
     String? status,
+    List<UserStatsDto>? leaderboard,
+    UserStatsDto? yourStats,
   });
   GameSnapshotDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
@@ -1966,6 +2395,13 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         (v) => call(webs: v),
       );
   @override
+  ListCopyWith<$R, BarrelDto, BarrelDtoCopyWith<$R, BarrelDto, BarrelDto>>
+  get barrels => ListCopyWith(
+    $value.barrels,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(barrels: v),
+  );
+  @override
   ListCopyWith<$R, PortalDto, PortalDtoCopyWith<$R, PortalDto, PortalDto>>
   get portals => ListCopyWith(
     $value.portals,
@@ -2004,6 +2440,20 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
   GameInfoDtoCopyWith<$R, GameInfoDto, GameInfoDto> get game =>
       $value.game.copyWith.$chain((v) => call(game: v));
   @override
+  ListCopyWith<
+    $R,
+    UserStatsDto,
+    UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>
+  >
+  get leaderboard => ListCopyWith(
+    $value.leaderboard,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(leaderboard: v),
+  );
+  @override
+  UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>? get yourStats =>
+      $value.yourStats?.copyWith.$chain((v) => call(yourStats: v));
+  @override
   $R call({
     String? type,
     YouDto? you,
@@ -2013,6 +2463,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
+    List<BarrelDto>? barrels,
     List<PortalDto>? portals,
     List<TrailPointDto>? trail,
     List<PlayerDto>? players,
@@ -2021,6 +2472,8 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     LobbyDto? lobby,
     GameInfoDto? game,
     String? status,
+    List<UserStatsDto>? leaderboard,
+    Object? yourStats = $none,
   }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
@@ -2031,6 +2484,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (logos != null) #logos: logos,
       if (traps != null) #traps: traps,
       if (webs != null) #webs: webs,
+      if (barrels != null) #barrels: barrels,
       if (portals != null) #portals: portals,
       if (trail != null) #trail: trail,
       if (players != null) #players: players,
@@ -2039,6 +2493,8 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (lobby != null) #lobby: lobby,
       if (game != null) #game: game,
       if (status != null) #status: status,
+      if (leaderboard != null) #leaderboard: leaderboard,
+      if (yourStats != $none) #yourStats: yourStats,
     }),
   );
   @override
@@ -2051,6 +2507,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     logos: data.get(#logos, or: $value.logos),
     traps: data.get(#traps, or: $value.traps),
     webs: data.get(#webs, or: $value.webs),
+    barrels: data.get(#barrels, or: $value.barrels),
     portals: data.get(#portals, or: $value.portals),
     trail: data.get(#trail, or: $value.trail),
     players: data.get(#players, or: $value.players),
@@ -2059,6 +2516,8 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     lobby: data.get(#lobby, or: $value.lobby),
     game: data.get(#game, or: $value.game),
     status: data.get(#status, or: $value.status),
+    leaderboard: data.get(#leaderboard, or: $value.leaderboard),
+    yourStats: data.get(#yourStats, or: $value.yourStats),
   );
 
   @override

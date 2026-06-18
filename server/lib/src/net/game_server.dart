@@ -94,7 +94,7 @@ class GameServer {
   void broadcastState() {
     for (final client in engine.clients.values) {
       final socket = client.socket;
-      if (socket.readyState != WebSocket.open) continue;
+      if (socket == null || socket.readyState != WebSocket.open) continue;
       socket.add(jsonEncode(engine.snapshotFor(client).toMap()));
     }
   }

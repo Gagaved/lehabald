@@ -12,6 +12,7 @@ void ensureProtocolMappersInitialized() {
   MoveDirectionMapper.ensureInitialized();
   PlayerRoleMapper.ensureInitialized();
   LehaAspectMapper.ensureInitialized();
+  HunterKindMapper.ensureInitialized();
   GamePhaseMapper.ensureInitialized();
   Vec2iMapper.ensureInitialized();
   Vec2dMapper.ensureInitialized();
@@ -21,6 +22,7 @@ void ensureProtocolMappersInitialized() {
   LogoDtoMapper.ensureInitialized();
   TrapDtoMapper.ensureInitialized();
   WebDtoMapper.ensureInitialized();
+  BarrelDtoMapper.ensureInitialized();
   PortalDtoMapper.ensureInitialized();
   TrailPointDtoMapper.ensureInitialized();
   ScoreDtoMapper.ensureInitialized();
@@ -28,5 +30,6 @@ void ensureProtocolMappersInitialized() {
   LobbyDtoMapper.ensureInitialized();
   GameInfoDtoMapper.ensureInitialized();
   YouDtoMapper.ensureInitialized();
+  UserStatsDtoMapper.ensureInitialized();
   GameSnapshotDtoMapper.ensureInitialized();
 }
