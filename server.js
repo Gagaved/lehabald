@@ -8,14 +8,14 @@ const port = Number(process.env.PORT || 4173);
 const host = "0.0.0.0";
 const root = __dirname;
 const tickMs = 1000 / 60;
-const roundDurationMs = 120_000;
-const logoTimerReductionMs = 1_000;
+const roundDurationMs = 180_000;
+const logoTimerReductionMs = 500;
 const readyTimeoutMs = 30_000;
 const powerDurationMs = 9_000;
 const ghostDurationMs = 6_000;
 const trapDurationMs = 10_000;
 const trapCooldownMs = 10_000;
-const trapStunMs = 1_000;
+const trapStunMs = 1_500;
 const baseSpeed = 4.41;
 const turnWindow = 0.12;
 const centerCrossBias = 0.000001;
@@ -820,6 +820,7 @@ function visibleLogosFor(client) {
 function visibleTrapsFor(client, now) {
   if (!game.trap || now >= game.trap.expiresAt) return [];
   if (client.slot === null) return [{ ...game.trap }];
+  if (client.slot === 1) return [{ ...game.trap }];
   const viewerCell = centerCell(client);
   const trapCell = { x: game.trap.x, y: game.trap.y };
   if (!hasCellLineOfSight(viewerCell, trapCell)) return [];

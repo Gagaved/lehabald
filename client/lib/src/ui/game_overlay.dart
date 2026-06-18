@@ -25,8 +25,11 @@ class GameOverlay extends StatelessWidget {
               ),
               if (snapshot?.game.phase == GamePhase.waiting || snapshot == null)
                 _MainMenu(network: network, snapshot: snapshot),
-              if ((snapshot?.status ?? network.status).isNotEmpty && snapshot?.game.phase != GamePhase.waiting)
-                Center(child: _StatusCard(text: snapshot?.status ?? network.status)),
+              if ((snapshot?.status ?? network.status).isNotEmpty &&
+                  snapshot?.game.phase != GamePhase.waiting)
+                Center(
+                    child:
+                        _StatusCard(text: snapshot?.status ?? network.status)),
               if (MediaQuery.sizeOf(context).width < 720 &&
                   snapshot?.game.phase == GamePhase.playing &&
                   snapshot?.you.slot != null) ...[
@@ -66,9 +69,13 @@ class _Hud extends StatelessWidget {
     final isLeha = role == PlayerRole.leha;
     final isHunter = role == PlayerRole.hunter;
     final hunterKind = _hunterKind(s);
-    final myScore = s?.scores.where((score) => score.id == s.you.id).firstOrNull?.score ?? 0;
-    final time = _formatTime(s?.game.timeLeftMs ?? 120000);
-    final power = s?.game.lehaPowered == true ? ' BIG ${(s!.game.powerLeftMs / 1000).ceil()}с' : '';
+    final myScore =
+        s?.scores.where((score) => score.id == s.you.id).firstOrNull?.score ??
+            0;
+    final time = _formatTime(s?.game.timeLeftMs ?? 180000);
+    final power = s?.game.lehaPowered == true
+        ? ' BIG ${(s!.game.powerLeftMs / 1000).ceil()}с'
+        : '';
     final trapLabel = s == null
         ? 'Капкан'
         : s.game.trapActive
@@ -83,7 +90,8 @@ class _Hud extends StatelessWidget {
       HunterKind.sima => 'Сима',
       _ => 'Бахиркин',
     };
-    String cdLabel(String name, int ms) => ms > 0 ? '$name ${(ms / 1000).ceil()}с' : name;
+    String cdLabel(String name, int ms) =>
+        ms > 0 ? '$name ${(ms / 1000).ceil()}с' : name;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -92,30 +100,46 @@ class _Hud extends StatelessWidget {
         spacing: 8,
         runSpacing: 8,
         children: [
-          _Metric(label: 'Роль', value: isLeha ? 'Леха $myScore' : isHunter ? hunterName : 'Наблюдатель'),
           _Metric(
-            label: isLeha ? 'Время / TikTok' : isHunter ? 'Охота' : 'Просмотр',
+              label: 'Роль',
+              value: isLeha
+                  ? 'Леха $myScore'
+                  : isHunter
+                      ? hunterName
+                      : 'Наблюдатель'),
+          _Metric(
+            label: isLeha
+                ? 'Время / TikTok'
+                : isHunter
+                    ? 'Охота'
+                    : 'Просмотр',
             value: isLeha ? '$time / ${s?.logos.length ?? 0}$power' : time,
           ),
-          if (hunter != null) _Metric(label: '$hunterName HP', value: '${hunter.hp}'),
+          if (hunter != null)
+            _Metric(label: '$hunterName HP', value: '${hunter.hp}'),
           if (isHunter && hunterKind == HunterKind.sashaYakuza)
             FilledButton.tonal(
-              onPressed: s?.game.barrelAvailable == true ? network.useAbility : null,
+              onPressed:
+                  s?.game.barrelAvailable == true ? network.useAbility : null,
               child: Text(cdLabel('Бочка', s?.game.barrelCooldownMs ?? 0)),
             )
           else if (isHunter && hunterKind == HunterKind.sima)
             FilledButton.tonal(
-              onPressed: s?.game.femboyAvailable == true ? network.useAbility : null,
+              onPressed:
+                  s?.game.femboyAvailable == true ? network.useAbility : null,
               child: Text(cdLabel('Фембой', s?.game.femboyCooldownMs ?? 0)),
             )
           else
             FilledButton.tonal(
-              onPressed: isHunter && s?.game.trapAvailable == true ? network.placeTrap : null,
+              onPressed: isHunter && s?.game.trapAvailable == true
+                  ? network.placeTrap
+                  : null,
               child: Text(trapLabel),
             ),
           if (isLeha)
             FilledButton.tonal(
-              onPressed: s?.game.abilityAvailable == true ? network.useAbility : null,
+              onPressed:
+                  s?.game.abilityAvailable == true ? network.useAbility : null,
               child: Text(abilityLabel),
             ),
           FilledButton(
@@ -132,18 +156,32 @@ class _Hud extends StatelessWidget {
     if (s == null) return null;
     final me = s.players.where((player) => player.id == s.you.id).firstOrNull;
     if (me?.hunterKind != null) return me!.hunterKind;
-    return s.lobby.roles.where((r) => r.role == PlayerRole.hunter).firstOrNull?.hunterKind;
+    return s.lobby.roles
+        .where((r) => r.role == PlayerRole.hunter)
+        .firstOrNull
+        ?.hunterKind;
   }
 
   String _abilityLabel(GameSnapshotDto? snapshot) {
     final s = snapshot;
     if (s == null) return 'Способность';
     final aspect = s.you.role == PlayerRole.leha
-        ? s.players.where((player) => player.id == s.you.id).firstOrNull?.aspect ?? s.lobby.roles.firstOrNull?.aspect
+        ? s.players
+                .where((player) => player.id == s.you.id)
+                .firstOrNull
+                ?.aspect ??
+            s.lobby.roles.firstOrNull?.aspect
         : null;
-    if (aspect == LehaAspect.spider) return 'Паутина ${s.game.abilityCharges}';
+    if (aspect == LehaAspect.spider) {
+      if (s.game.abilityCharges <= 0 && s.game.abilityCooldownMs > 0) {
+        return 'Паутина ${(s.game.abilityCooldownMs / 1000).ceil()}с';
+      }
+      return 'Паутина ${s.game.abilityCharges}';
+    }
     if (aspect == LehaAspect.wizard) {
-      if (s.game.abilityCooldownMs > 0) return 'Портал ${(s.game.abilityCooldownMs / 1000).ceil()}с';
+      if (s.game.abilityCooldownMs > 0) {
+        return 'Портал ${(s.game.abilityCooldownMs / 1000).ceil()}с';
+      }
       return 'Портал';
     }
     return 'Способность';
@@ -152,7 +190,8 @@ class _Hud extends StatelessWidget {
 
 /// Selectable character: a side (role) plus the concrete variant within it.
 class _CharOption {
-  const _CharOption(this.name, this.asset, this.desc, this.role, {this.aspect, this.hunter});
+  const _CharOption(this.name, this.asset, this.desc, this.role,
+      {this.aspect, this.hunter});
 
   final String name;
   final String asset;
@@ -163,14 +202,23 @@ class _CharOption {
 }
 
 const _lehaChars = [
-  _CharOption('Супер-Леха', 'assets/images/player-head.png',
-      'Ест супер-тиктоки и превращается в BIG — тогда может съесть Охотника.', PlayerRole.leha,
+  _CharOption(
+      'Супер-Леха',
+      'assets/images/player-head.png',
+      'Ест супер-тиктоки и превращается в BIG — тогда может съесть Охотника.',
+      PlayerRole.leha,
       aspect: LehaAspect.superLeha),
-  _CharOption('Леха-Паук', 'assets/images/leha-spider.png',
-      'Плетёт паутину: проходит сквозь стены по ней, а Охотника она замедляет.', PlayerRole.leha,
+  _CharOption(
+      'Леха-Паук',
+      'assets/images/leha-spider.png',
+      'Плетёт паутину: проходит сквозь стены по ней, а Охотника она замедляет.',
+      PlayerRole.leha,
       aspect: LehaAspect.spider),
-  _CharOption('Леха-Маг', 'assets/images/leha-wizard.png',
-      'Ставит пару порталов для мгновенного телепорта по карте.', PlayerRole.leha,
+  _CharOption(
+      'Леха-Маг',
+      'assets/images/leha-wizard.png',
+      'Ставит пару порталов для мгновенного телепорта по карте.',
+      PlayerRole.leha,
       aspect: LehaAspect.wizard),
 ];
 
@@ -178,11 +226,16 @@ const _hunterChars = [
   _CharOption('Бахиркин', 'assets/images/chaser-head.png',
       'Ставит капканы, которые оглушают Леху на месте.', PlayerRole.hunter,
       hunter: HunterKind.bakhirkin),
-  _CharOption('Саша-якудза', 'assets/images/sasha-head.png',
-      'Пускает бочку: рикошетит от стен, оглушает и ослепляет Леху. КД 20с.', PlayerRole.hunter,
+  _CharOption(
+      'Саша-якудза',
+      'assets/images/sasha-head.png',
+      'Пускает бочку: рикошетит от стен, оглушает и ослепляет Леху. КД 10с.',
+      PlayerRole.hunter,
       hunter: HunterKind.sashaYakuza),
-  _CharOption('Сима', 'assets/images/sima-head.png',
-      'Превращается в фембоя на 3с: Леха с прямой видимостью медленно тянется к Симе. КД 20с.',
+  _CharOption(
+      'Сима',
+      'assets/images/sima-head.png',
+      'Превращается в фембоя на 1с: Леха с прямой видимостью медленно тянется к Симе. КД 20с.',
       PlayerRole.hunter,
       hunter: HunterKind.sima),
 ];
@@ -259,9 +312,11 @@ class _LobbyState extends State<_Lobby> {
     }
   }
 
-  Widget _botButton(RoleStateDto? state, PlayerRole role, String name, String? myId) {
+  Widget _botButton(
+      RoleStateDto? state, PlayerRole role, String name, String? myId) {
     final isBot = state?.bot == true;
-    final takenByHuman = state?.taken == true && !isBot && state?.playerId != myId;
+    final takenByHuman =
+        state?.taken == true && !isBot && state?.playerId != myId;
     if (isBot) {
       return FilledButton.tonal(
         onPressed: () => widget.network.removeBot(role),
@@ -279,18 +334,28 @@ class _LobbyState extends State<_Lobby> {
     final snapshot = widget.snapshot;
     final lobby = snapshot?.lobby;
     final myId = snapshot?.you.id;
-    final myName = (snapshot?.you.name.isNotEmpty == true ? snapshot!.you.name : widget.network.nickname).trim();
+    final myName = (snapshot?.you.name.isNotEmpty == true
+            ? snapshot!.you.name
+            : widget.network.nickname)
+        .trim();
     final myRole = snapshot?.you.role ?? PlayerRole.spectator;
-    final myRoleState = lobby?.roles.where((role) => role.playerId == myId).firstOrNull;
-    final leha = lobby?.roles.where((role) => role.role == PlayerRole.leha).firstOrNull;
-    final hunter = lobby?.roles.where((role) => role.role == PlayerRole.hunter).firstOrNull;
+    final myRoleState =
+        lobby?.roles.where((role) => role.playerId == myId).firstOrNull;
+    final leha =
+        lobby?.roles.where((role) => role.role == PlayerRole.leha).firstOrNull;
+    final hunter = lobby?.roles
+        .where((role) => role.role == PlayerRole.hunter)
+        .firstOrNull;
 
     final lehaTakenByOther = leha?.taken == true && leha?.playerId != myId;
-    final hunterTakenByOther = hunter?.taken == true && hunter?.playerId != myId;
+    final hunterTakenByOther =
+        hunter?.taken == true && hunter?.playerId != myId;
 
     bool isSelected(_CharOption o) {
       if (myRole != o.role) return false;
-      if (o.role == PlayerRole.leha) return (myRoleState?.aspect ?? LehaAspect.superLeha) == o.aspect;
+      if (o.role == PlayerRole.leha) {
+        return (myRoleState?.aspect ?? LehaAspect.superLeha) == o.aspect;
+      }
       return (myRoleState?.hunterKind ?? HunterKind.bakhirkin) == o.hunter;
     }
 
@@ -302,7 +367,9 @@ class _LobbyState extends State<_Lobby> {
     String readyText(RoleStateDto? state) {
       if (state?.ready == true) return 'готов';
       final timeoutMs = state?.readyTimeoutMs;
-      if (timeoutMs != null) return 'не готов, освободится через ${(timeoutMs / 1000).ceil()}с';
+      if (timeoutMs != null) {
+        return 'не готов, освободится через ${(timeoutMs / 1000).ceil()}с';
+      }
       return 'не готов';
     }
 
@@ -336,7 +403,8 @@ class _LobbyState extends State<_Lobby> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text('Выбор персонажа',
-                  textAlign: TextAlign.center, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -365,7 +433,9 @@ class _LobbyState extends State<_Lobby> {
                   padding: const EdgeInsets.only(top: 2, bottom: 4),
                   child: Text('Вы вошли как: $myName',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Color(0xff00f2ea), fontWeight: FontWeight.w600)),
+                      style: const TextStyle(
+                          color: Color(0xff00f2ea),
+                          fontWeight: FontWeight.w600)),
                 ),
               const SizedBox(height: 12),
               const _SectionLabel('Леха'),
@@ -378,7 +448,8 @@ class _LobbyState extends State<_Lobby> {
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
                   color: const Color(0xdd0a0f1c),
                   border: Border.all(color: const Color(0x3300f2ea)),
@@ -386,12 +457,15 @@ class _LobbyState extends State<_Lobby> {
                 ),
                 child: selected == null
                     ? const Text('Выберите персонажа выше.',
-                        textAlign: TextAlign.center, style: TextStyle(color: Color(0xffaeb9ca)))
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xffaeb9ca)))
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(selected.name,
-                              style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xff00f2ea))),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xff00f2ea))),
                           const SizedBox(height: 4),
                           Text(selected.desc),
                         ],
@@ -402,9 +476,13 @@ class _LobbyState extends State<_Lobby> {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Expanded(child: _botButton(leha, PlayerRole.leha, 'Супер-Леха', myId)),
+                  Expanded(
+                      child: _botButton(
+                          leha, PlayerRole.leha, 'Супер-Леха', myId)),
                   const SizedBox(width: 8),
-                  Expanded(child: _botButton(hunter, PlayerRole.hunter, 'Бахиркин', myId)),
+                  Expanded(
+                      child: _botButton(
+                          hunter, PlayerRole.hunter, 'Бахиркин', myId)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -412,15 +490,20 @@ class _LobbyState extends State<_Lobby> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: myRole == PlayerRole.spectator ? null : widget.network.spectate,
+                      onPressed: myRole == PlayerRole.spectator
+                          ? null
+                          : widget.network.spectate,
                       child: const Text('Наблюдатель'),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton(
-                      onPressed: myRoleState == null ? null : () => widget.network.ready(!myRoleState.ready),
-                      child: Text(myRoleState?.ready == true ? 'Готов: да' : 'Готов'),
+                      onPressed: myRoleState == null
+                          ? null
+                          : () => widget.network.ready(!myRoleState.ready),
+                      child: Text(
+                          myRoleState?.ready == true ? 'Готов: да' : 'Готов'),
                     ),
                   ),
                 ],
@@ -451,7 +534,11 @@ class _SectionLabel extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: Text(text.toUpperCase(),
-          style: const TextStyle(color: Color(0xffaeb9ca), fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+          style: const TextStyle(
+              color: Color(0xffaeb9ca),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2)),
     );
   }
 }
@@ -471,7 +558,8 @@ class _CharTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? const Color(0xff00f2ea) : const Color(0x33ffffff);
+    final borderColor =
+        selected ? const Color(0xff00f2ea) : const Color(0x33ffffff);
     return Opacity(
       opacity: disabled ? 0.4 : 1,
       child: InkWell(
@@ -494,7 +582,8 @@ class _CharTile extends StatelessWidget {
                 child: Image.asset(
                   option.asset,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 48),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.person, size: 48),
                 ),
               ),
               const SizedBox(height: 4),
@@ -538,11 +627,13 @@ class _DashboardPanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text('Дашборд',
-                  textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               const SizedBox(height: 10),
               if (you != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xdd0a0f1c),
                     border: Border.all(color: const Color(0x3300f2ea)),
@@ -551,31 +642,43 @@ class _DashboardPanel extends StatelessWidget {
                   child: Column(
                     children: [
                       const Text('Ваша статистика',
-                          style: TextStyle(color: Color(0xffaeb9ca), fontSize: 13)),
+                          style: TextStyle(
+                              color: Color(0xffaeb9ca), fontSize: 13)),
                       const SizedBox(height: 4),
                       Text('Победы ${you.wins} · Поражения ${you.losses}',
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16)),
                       Text('Винрейт ${_winrate(you)}',
-                          style: const TextStyle(color: Color(0xff00f2ea), fontWeight: FontWeight.w700)),
+                          style: const TextStyle(
+                              color: Color(0xff00f2ea),
+                              fontWeight: FontWeight.w700)),
                     ],
                   ),
                 )
               else
                 const Text('Введите ник, чтобы вести статистику.',
-                    textAlign: TextAlign.center, style: TextStyle(color: Color(0xffaeb9ca))),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xffaeb9ca))),
               const SizedBox(height: 12),
               const _SectionLabel('Лидерборд'),
               const SizedBox(height: 6),
               if (board.isEmpty)
                 const Text('Пока нет сыгранных игр.',
-                    textAlign: TextAlign.center, style: TextStyle(color: Color(0xffaeb9ca)))
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xffaeb9ca)))
               else ...[
                 const Row(
                   children: [
                     SizedBox(width: 22, child: Text('#', style: _thStyle)),
                     Expanded(child: Text('Игрок', style: _thStyle)),
-                    SizedBox(width: 36, child: Text('W', textAlign: TextAlign.right, style: _thStyle)),
-                    SizedBox(width: 36, child: Text('L', textAlign: TextAlign.right, style: _thStyle)),
+                    SizedBox(
+                        width: 36,
+                        child: Text('W',
+                            textAlign: TextAlign.right, style: _thStyle)),
+                    SizedBox(
+                        width: 36,
+                        child: Text('L',
+                            textAlign: TextAlign.right, style: _thStyle)),
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -590,13 +693,23 @@ class _DashboardPanel extends StatelessWidget {
                             board[i].name,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontWeight: _isMe(board[i].name) ? FontWeight.w700 : FontWeight.w400,
-                              color: _isMe(board[i].name) ? const Color(0xff00f2ea) : null,
+                              fontWeight: _isMe(board[i].name)
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                              color: _isMe(board[i].name)
+                                  ? const Color(0xff00f2ea)
+                                  : null,
                             ),
                           ),
                         ),
-                        SizedBox(width: 36, child: Text('${board[i].wins}', textAlign: TextAlign.right)),
-                        SizedBox(width: 36, child: Text('${board[i].losses}', textAlign: TextAlign.right)),
+                        SizedBox(
+                            width: 36,
+                            child: Text('${board[i].wins}',
+                                textAlign: TextAlign.right)),
+                        SizedBox(
+                            width: 36,
+                            child: Text('${board[i].losses}',
+                                textAlign: TextAlign.right)),
                       ],
                     ),
                   ),
@@ -608,7 +721,8 @@ class _DashboardPanel extends StatelessWidget {
     );
   }
 
-  bool _isMe(String name) => name == snapshot.you.name && snapshot.you.name.isNotEmpty;
+  bool _isMe(String name) =>
+      name == snapshot.you.name && snapshot.you.name.isNotEmpty;
 
   String _winrate(UserStatsDto s) {
     final total = s.wins + s.losses;
@@ -617,18 +731,25 @@ class _DashboardPanel extends StatelessWidget {
   }
 }
 
-const _thStyle = TextStyle(color: Color(0xffaeb9ca), fontSize: 13, fontWeight: FontWeight.w600);
+const _thStyle = TextStyle(
+    color: Color(0xffaeb9ca), fontSize: 13, fontWeight: FontWeight.w600);
 
 HunterKind? _hunterKindOf(GameSnapshotDto s) {
   final me = s.players.where((p) => p.id == s.you.id).firstOrNull;
   if (me?.hunterKind != null) return me!.hunterKind;
-  return s.lobby.roles.where((r) => r.role == PlayerRole.hunter).firstOrNull?.hunterKind;
+  return s.lobby.roles
+      .where((r) => r.role == PlayerRole.hunter)
+      .firstOrNull
+      ?.hunterKind;
 }
 
 LehaAspect? _aspectOf(GameSnapshotDto s) {
   final me = s.players.where((p) => p.id == s.you.id).firstOrNull;
   if (me?.aspect != null) return me!.aspect;
-  return s.lobby.roles.where((r) => r.role == PlayerRole.leha).firstOrNull?.aspect;
+  return s.lobby.roles
+      .where((r) => r.role == PlayerRole.leha)
+      .firstOrNull
+      ?.aspect;
 }
 
 /// Left-hand analog stick: drag to choose one of 8 directions; release to stop.
@@ -652,7 +773,8 @@ class _JoystickState extends State<_Joystick> {
     const center = Offset(_size / 2, _size / 2);
     final v = local - center;
     final radius = _size / 2 - _knob / 4;
-    final clamped = v.distance > radius ? Offset.fromDirection(v.direction, radius) : v;
+    final clamped =
+        v.distance > radius ? Offset.fromDirection(v.direction, radius) : v;
     final dir = v.distance < radius * 0.35 ? null : _dirFor(v);
     if (dir != _current) {
       _current = dir;
@@ -715,7 +837,9 @@ class _JoystickState extends State<_Joystick> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: const Color(0xcc00f2ea),
-                  boxShadow: const [BoxShadow(color: Color(0x6600f2ea), blurRadius: 12)],
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x6600f2ea), blurRadius: 12)
+                  ],
                 ),
               ),
             ),
@@ -781,7 +905,9 @@ class _ActionButton extends StatelessWidget {
           padding: EdgeInsets.zero,
           backgroundColor: const Color(0xcc00a39d),
         ),
-        child: Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+        child: Text(label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -806,8 +932,11 @@ class _Metric extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xffaeb9ca), fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
+          Text(label,
+              style: const TextStyle(color: Color(0xffaeb9ca), fontSize: 13)),
+          Text(value,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
         ],
       ),
     );
@@ -827,7 +956,9 @@ class _StatusCard extends StatelessWidget {
         color: const Color(0xee070a12),
         child: Padding(
           padding: const EdgeInsets.all(18),
-          child: Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18)),
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18)),
         ),
       ),
     );

@@ -34,7 +34,7 @@ let scores = [];
 let trail = [];
 let game = {
   phase: "waiting",
-  timeLeftMs: 120_000,
+  timeLeftMs: 180_000,
   lehaPowered: false,
   powerLeftMs: 0,
 };

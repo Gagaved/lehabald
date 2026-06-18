@@ -36,12 +36,14 @@ class PlayerConnection {
   int simaCooldownUntil = 0;
   int trapCharges = 0;
   int webCharges = 0;
+  int webCooldownUntil = 0;
   int portalCooldownUntil = 0;
   int stunnedUntil = 0;
   int invulnerableUntil = 0;
   int webSlowedUntil = 0;
   int webPhaseUntil = 0;
   double speed = 0;
+
   /// Cell key ('x,y') the player occupied last tick — used so a portal only
   /// fires when the player freshly steps onto it, never when the second portal
   /// opens beneath a player already standing on the first.
@@ -87,6 +89,7 @@ class BarrelState {
   double dirY;
   final int spawnedAt;
   final String ownerId;
+
   /// While now < slowUntil the barrel crawls (set when it touches Spider's web).
   int slowUntil = 0;
 }
@@ -127,5 +130,6 @@ class GameRound {
   List<BarrelState> barrels = [];
   List<PortalState> portals = [];
   List<int> pendingTrapRechargeAt = [];
+  List<int> pendingWebRechargeAt = [];
   Map<int, List<TrailPoint>> trails = {0: [], 1: []};
 }
