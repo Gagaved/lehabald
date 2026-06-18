@@ -265,7 +265,7 @@ class GameEngine {
       return;
     }
     final cell = centerCell(client);
-    if (maze.isWall(cell.x, cell.y)) return;
+    if (maze.isWall(cell.x, cell.y) || maze.isBush(cell.x, cell.y)) return;
     client.trapCharges -= 1;
     round.traps.add(TrapState(
       x: cell.x,
@@ -324,6 +324,7 @@ class GameEngine {
     final bx = (cell.x + dir.dx).round();
     final by = (cell.y + dir.dy).round();
     if (bx < 0 || bx >= maze.cols || by < 0 || by >= maze.rows) return;
+    if (maze.isBush(bx, by)) return;
     if (round.webs.any((web) => web.x == bx && web.y == by)) return;
     client.webCharges -= 1;
     round.webs.add(WebState(x: bx, y: by, createdAt: now));
@@ -336,7 +337,7 @@ class GameEngine {
     final direction = client.lastDirection;
     final cell = Point((current.x + direction.dx).round(), (current.y + direction.dy).round());
     if (cell.x < 0 || cell.x >= maze.cols || cell.y < 0 || cell.y >= maze.rows) return;
-    if (maze.isWall(cell.x, cell.y)) return;
+    if (maze.isWall(cell.x, cell.y) || maze.isBush(cell.x, cell.y)) return;
     round.portals.add(PortalState(x: cell.x, y: cell.y, createdAt: now));
     if (round.portals.length > 2) {
       round.portals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -708,6 +709,10 @@ class GameEngine {
       rows: maze.rows,
       cols: maze.cols,
       maze: maze.maze,
+      bushes: maze.bushes.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
       logos: visibleLogosFor(viewer)
           .where((key) {
             if (!lehaBlinded) return true;
@@ -918,6 +923,8 @@ class GameEngine {
   void updateTrail(PlayerConnection player, int now) {
     final slot = player.slot;
     if (slot == null) return;
+    // No scent is left while hiding in a bush.
+    if (maze.isBush(player.x.floor(), player.y.floor())) return;
     final trail = round.trails[slot] ?? <TrailPoint>[];
     final last = trail.isEmpty ? null : trail.last;
     // Add a new point only when player moved far enough — keeps point count manageable.
@@ -1327,6 +1334,12 @@ class GameEngine {
     if (isGhost(viewer, now) || isGhost(target, now)) return true;
     final vp = playerPos(viewer);
     final tp = playerPos(target);
+    // A target hiding in a bush can't be x-rayed; direct line of sight only
+    // works when the viewer is in a bush too (otherwise the bush conceals).
+    if (maze.isBush(target.x.floor(), target.y.floor())) {
+      if (!maze.isBush(viewer.x.floor(), viewer.y.floor())) return false;
+      return maze.hasLineOfSight(vp, tp);
+    }
     return maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp);
   }
 

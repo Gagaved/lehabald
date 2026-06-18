@@ -79,6 +79,7 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     canvas.scale(scale);
 
     _drawBoard(canvas, snapshot);
+    _drawBushes(canvas, snapshot.bushes);
     _drawTrail(canvas, snapshot.trail);
     _drawWebs(canvas, snapshot.webs);
     _drawLogos(canvas, snapshot.logos);
@@ -218,6 +219,32 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
         );
         canvas.drawRRect(rect, wallPaint);
         canvas.drawRRect(rect, stroke);
+      }
+    }
+  }
+
+  void _drawBushes(Canvas canvas, List<Vec2i> bushes) {
+    for (final b in bushes) {
+      final cx = b.x * tile, cy = b.y * tile;
+      // Dark green base fills the cell so adjacent bush tiles read as one patch.
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(cx, cy, tile, tile), const Radius.circular(7)),
+        Paint()..color = const Color(0xff184d2b),
+      );
+      // Deterministic clustered foliage blobs (stable per cell).
+      final rnd = Random(b.x * 73856093 ^ b.y * 19349663);
+      for (var i = 0; i < 5; i++) {
+        final ox = cx + tile * (0.22 + rnd.nextDouble() * 0.56);
+        final oy = cy + tile * (0.22 + rnd.nextDouble() * 0.56);
+        final r = tile * (0.16 + rnd.nextDouble() * 0.15);
+        final shade = const [Color(0xff2f8a4a), Color(0xff37a155), Color(0xff268040)][i % 3];
+        canvas.drawCircle(Offset(ox, oy), r, Paint()..color = shade);
+      }
+      // A couple of bright highlights for depth.
+      for (var i = 0; i < 2; i++) {
+        final ox = cx + tile * (0.3 + rnd.nextDouble() * 0.4);
+        final oy = cy + tile * (0.3 + rnd.nextDouble() * 0.4);
+        canvas.drawCircle(Offset(ox, oy), tile * 0.06, Paint()..color = const Color(0x886fe39a));
       }
     }
   }

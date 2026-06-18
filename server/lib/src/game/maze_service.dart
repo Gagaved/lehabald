@@ -6,13 +6,18 @@ import 'maze_generator.dart';
 
 class MazeService {
   MazeService({List<String>? mazeData, Random? rng}) : maze = mazeData ?? GameConstants.maze {
+    final random = rng ?? Random();
     blockedVoidSpaces = _computeBlockedVoidSpaces(maze);
-    superLogoKeys = _pickSuperLogoKeys(maze, rng ?? Random());
+    superLogoKeys = _pickSuperLogoKeys(maze, random);
+    bushes = _computeBushes(random);
   }
 
   final List<String> maze;
   late final Set<String> blockedVoidSpaces;
   late final Set<String> superLogoKeys;
+  late final Set<String> bushes;
+
+  bool isBush(int x, int y) => bushes.contains('$x,$y');
 
   int get rows => maze.length;
   int get cols => maze.first.length;
@@ -102,7 +107,9 @@ class MazeService {
       for (var x = 0; x < cols; x++) {
         final key = '$x,$y';
         final cell = maze[y][x];
-        if (!startCells.contains(key) && (cell == '.' || superLogoKeys.contains(key))) {
+        if (!startCells.contains(key) &&
+            !bushes.contains(key) &&
+            (cell == '.' || superLogoKeys.contains(key))) {
           result.add(key);
         }
       }
@@ -132,6 +139,55 @@ class MazeService {
       }
       if (candidates.isNotEmpty) {
         result.add(candidates[rng.nextInt(candidates.length)]);
+      }
+    }
+    return result;
+  }
+
+  /// Grows several small bush patches on open floor, biased to cells next to
+  /// walls. Avoids spawn tiles, super-logo tiles and tunnels.
+  Set<String> _computeBushes(Random rng) {
+    final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    bool open(int x, int y) =>
+        !GameConstants.tunnelRows.contains(y) && x >= 0 && x < cols && y >= 0 && y < rows && !isWall(x, y);
+    bool allowed(int x, int y) {
+      final k = '$x,$y';
+      return open(x, y) && !starts.contains(k) && !superLogoKeys.contains(k);
+    }
+    bool nearWall(int x, int y) => isWall(x + 1, y) || isWall(x - 1, y) || isWall(x, y + 1) || isWall(x, y - 1);
+
+    final seeds = <Point<int>>[];
+    for (var y = 1; y < rows - 1; y++) {
+      for (var x = 1; x < cols - 1; x++) {
+        if (allowed(x, y) && nearWall(x, y)) seeds.add(Point(x, y));
+      }
+    }
+    seeds.shuffle(rng);
+
+    const patchCount = 8;
+    final result = <String>{};
+    var made = 0;
+    for (final seed in seeds) {
+      if (made >= patchCount) break;
+      if (result.contains('${seed.x},${seed.y}')) continue;
+      final target = 2 + rng.nextInt(4); // patch size 2..5
+      final patch = <Point<int>>[];
+      final queue = <Point<int>>[seed];
+      final seen = <String>{'${seed.x},${seed.y}'};
+      while (queue.isNotEmpty && patch.length < target) {
+        final cell = queue.removeAt(rng.nextInt(queue.length));
+        if (!allowed(cell.x, cell.y) || result.contains('${cell.x},${cell.y}')) continue;
+        patch.add(cell);
+        for (final d in const [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          final nx = cell.x + d[0], ny = cell.y + d[1];
+          if (seen.add('$nx,$ny') && allowed(nx, ny)) queue.add(Point(nx, ny));
+        }
+      }
+      if (patch.isNotEmpty) {
+        for (final c in patch) {
+          result.add('${c.x},${c.y}');
+        }
+        made++;
       }
     }
     return result;

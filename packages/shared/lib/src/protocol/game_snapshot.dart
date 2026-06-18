@@ -261,6 +261,7 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     required this.rows,
     required this.cols,
     required this.maze,
+    this.bushes = const [],
     required this.logos,
     required this.traps,
     required this.webs,
@@ -282,6 +283,8 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   final int rows;
   final int cols;
   final List<String> maze;
+  /// Static bush cells (cover): hide players from scent/xray.
+  final List<Vec2i> bushes;
   final List<LogoDto> logos;
   final List<TrapDto> traps;
   final List<WebDto> webs;

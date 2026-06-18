@@ -2091,6 +2091,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = GameSnapshotDtoMapper._());
       YouDtoMapper.ensureInitialized();
+      Vec2iMapper.ensureInitialized();
       LogoDtoMapper.ensureInitialized();
       TrapDtoMapper.ensureInitialized();
       WebDtoMapper.ensureInitialized();
@@ -2121,6 +2122,13 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
   static const Field<GameSnapshotDto, List<String>> _f$maze = Field(
     'maze',
     _$maze,
+  );
+  static List<Vec2i> _$bushes(GameSnapshotDto v) => v.bushes;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$bushes = Field(
+    'bushes',
+    _$bushes,
+    opt: true,
+    def: const [],
   );
   static List<LogoDto> _$logos(GameSnapshotDto v) => v.logos;
   static const Field<GameSnapshotDto, List<LogoDto>> _f$logos = Field(
@@ -2199,6 +2207,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #rows: _f$rows,
     #cols: _f$cols,
     #maze: _f$maze,
+    #bushes: _f$bushes,
     #logos: _f$logos,
     #traps: _f$traps,
     #webs: _f$webs,
@@ -2222,6 +2231,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       rows: data.dec(_f$rows),
       cols: data.dec(_f$cols),
       maze: data.dec(_f$maze),
+      bushes: data.dec(_f$bushes),
       logos: data.dec(_f$logos),
       traps: data.dec(_f$traps),
       webs: data.dec(_f$webs),
@@ -2303,6 +2313,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   YouDtoCopyWith<$R, YouDto, YouDto> get you;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get maze;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get bushes;
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos;
   ListCopyWith<$R, TrapDto, TrapDtoCopyWith<$R, TrapDto, TrapDto>> get traps;
   ListCopyWith<$R, WebDto, WebDtoCopyWith<$R, WebDto, WebDto>> get webs;
@@ -2335,6 +2346,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     int? rows,
     int? cols,
     List<String>? maze,
+    List<Vec2i>? bushes,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
@@ -2372,6 +2384,13 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         $value.maze,
         (v, t) => ObjectCopyWith(v, $identity, t),
         (v) => call(maze: v),
+      );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get bushes =>
+      ListCopyWith(
+        $value.bushes,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(bushes: v),
       );
   @override
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos =>
@@ -2460,6 +2479,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     int? rows,
     int? cols,
     List<String>? maze,
+    List<Vec2i>? bushes,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
@@ -2481,6 +2501,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (rows != null) #rows: rows,
       if (cols != null) #cols: cols,
       if (maze != null) #maze: maze,
+      if (bushes != null) #bushes: bushes,
       if (logos != null) #logos: logos,
       if (traps != null) #traps: traps,
       if (webs != null) #webs: webs,
@@ -2504,6 +2525,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     rows: data.get(#rows, or: $value.rows),
     cols: data.get(#cols, or: $value.cols),
     maze: data.get(#maze, or: $value.maze),
+    bushes: data.get(#bushes, or: $value.bushes),
     logos: data.get(#logos, or: $value.logos),
     traps: data.get(#traps, or: $value.traps),
     webs: data.get(#webs, or: $value.webs),
