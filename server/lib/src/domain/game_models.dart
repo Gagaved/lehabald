@@ -18,6 +18,7 @@ class PlayerConnection {
   int? slot;
   PlayerRole role = PlayerRole.spectator;
   bool ready = false;
+  int? readyTimeoutStartedAt;
   int score = 0;
   double x;
   double y;
@@ -41,6 +42,10 @@ class PlayerConnection {
   int webSlowedUntil = 0;
   int webPhaseUntil = 0;
   double speed = 0;
+  /// Cell key ('x,y') the player occupied last tick — used so a portal only
+  /// fires when the player freshly steps onto it, never when the second portal
+  /// opens beneath a player already standing on the first.
+  String? lastCellKey;
 }
 
 class TrapState {

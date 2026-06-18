@@ -11,7 +11,7 @@ import '../game/game_engine.dart';
 import '../game/maze_service.dart';
 
 class GameServer {
-  GameServer({required this.port}) : engine = GameEngine(maze: MazeService());
+  GameServer({required this.port}) : engine = GameEngine(maze: MazeService.generate());
 
   final int port;
   final GameEngine engine;

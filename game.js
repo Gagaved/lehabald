@@ -124,7 +124,7 @@ function updateHud() {
   const myScore = scores.find((score) => score.id === clientId)?.score ?? 0;
   scoreLabelEl.textContent = "Роль";
   scoreEl.textContent = isLeha ? `Леха ${myScore}` : isBakhirkin ? "Бахиркин" : "Наблюдатель";
-  remainingLabelEl.textContent = isLeha ? "TikTok / время" : isBakhirkin ? "Охота" : "Просмотр";
+  remainingLabelEl.textContent = isLeha ? "Время / TikTok" : isBakhirkin ? "Охота" : "Просмотр";
 
   const time = formatTime(game.timeLeftMs);
   trapButton.disabled = !(mySlot === 1 && game.phase === "playing" && game.trapAvailable);
@@ -138,7 +138,7 @@ function updateHud() {
   }
   if (isLeha) {
     const power = game.lehaPowered ? ` BIG ${Math.ceil(game.powerLeftMs / 1000)}с` : "";
-    remainingEl.textContent = `${logos.length} / ${time}${power}`;
+    remainingEl.textContent = `${time} / ${logos.length}${power}`;
   } else if (isBakhirkin) {
     remainingEl.textContent = time;
   } else {
@@ -167,9 +167,17 @@ function updateLobby() {
 
   const leha = lobby.roles?.find((role) => role.role === "leha");
   const bakhirkin = lobby.roles?.find((role) => role.role === "bakhirkin");
+  const readyText = (role) => {
+    if (role?.ready) return "готов";
+    if (role?.readyTimeoutMs !== null && role?.readyTimeoutMs !== undefined) {
+      return `не готов, освободится через ${Math.ceil(role.readyTimeoutMs / 1000)}с`;
+    }
+    return "не готов";
+  };
+  const slotText = (role) => role?.taken ? readyText(role) : "свободен";
   lobbyStatusEl.textContent = myRole === "spectator"
-    ? `Вы наблюдатель. Леха: ${leha?.taken ? "занят" : "свободен"}, Бахиркин: ${bakhirkin?.taken ? "занят" : "свободен"}.`
-    : `Леха ${leha?.ready ? "готов" : "не готов"}, Бахиркин ${bakhirkin?.ready ? "готов" : "не готов"}. Наблюдатели: ${lobby.spectators ?? 0}.`;
+    ? `Вы наблюдатель. Леха: ${slotText(leha)}, Бахиркин: ${slotText(bakhirkin)}.`
+    : `Леха ${readyText(leha)}, Бахиркин ${readyText(bakhirkin)}. Наблюдатели: ${lobby.spectators ?? 0}.`;
 }
 
 function formatTime(ms) {

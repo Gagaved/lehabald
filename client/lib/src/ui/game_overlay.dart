@@ -94,8 +94,8 @@ class _Hud extends StatelessWidget {
         children: [
           _Metric(label: 'Роль', value: isLeha ? 'Леха $myScore' : isHunter ? hunterName : 'Наблюдатель'),
           _Metric(
-            label: isLeha ? 'TikTok / время' : isHunter ? 'Охота' : 'Просмотр',
-            value: isLeha ? '${s?.logos.length ?? 0} / $time$power' : time,
+            label: isLeha ? 'Время / TikTok' : isHunter ? 'Охота' : 'Просмотр',
+            value: isLeha ? '$time / ${s?.logos.length ?? 0}$power' : time,
           ),
           if (hunter != null) _Metric(label: '$hunterName HP', value: '${hunter.hp}'),
           if (isHunter && hunterKind == HunterKind.sashaYakuza)
@@ -299,6 +299,18 @@ class _LobbyState extends State<_Lobby> {
       if (isSelected(o)) selected = o;
     }
 
+    String readyText(RoleStateDto? state) {
+      if (state?.ready == true) return 'готов';
+      final timeoutMs = state?.readyTimeoutMs;
+      if (timeoutMs != null) return 'не готов, освободится через ${(timeoutMs / 1000).ceil()}с';
+      return 'не готов';
+    }
+
+    String slotText(RoleStateDto? state) {
+      if (state?.taken != true) return 'свободен';
+      return readyText(state);
+    }
+
     Widget tilesFor(List<_CharOption> chars, bool takenByOther) => Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -416,8 +428,8 @@ class _LobbyState extends State<_Lobby> {
               const SizedBox(height: 10),
               Text(
                 myRole == PlayerRole.spectator
-                    ? 'Вы наблюдатель. Леха: ${leha?.taken == true ? 'занят' : 'свободен'}, Охотник: ${hunter?.taken == true ? 'занят' : 'свободен'}.'
-                    : 'Леха ${leha?.ready == true ? 'готов' : 'не готов'}, Охотник ${hunter?.ready == true ? 'готов' : 'не готов'}. Наблюдатели: ${lobby?.spectators ?? 0}.',
+                    ? 'Вы наблюдатель. Леха: ${slotText(leha)}, Охотник: ${slotText(hunter)}.'
+                    : 'Леха ${readyText(leha)}, Охотник ${readyText(hunter)}. Наблюдатели: ${lobby?.spectators ?? 0}.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Color(0xffaeb9ca), fontSize: 13),
               ),

@@ -77,11 +77,13 @@ class MazeService {
     final targetCellY = b.y.floor();
 
     while (true) {
-      // Check the current cell (skip the cell the viewer is standing in).
-      if ((cellX != a.x.floor() || cellY != a.y.floor()) && isWall(cellX, cellY)) {
-        return false;
-      }
+      final isViewerCell = cellX == a.x.floor() && cellY == a.y.floor();
+      // Walls block sight (skip the cell the viewer is standing in).
+      if (!isViewerCell && isWall(cellX, cellY)) return false;
       if (cellX == targetCellX && cellY == targetCellY) return true;
+      // Bushes conceal everything behind them: an intermediate bush blocks the
+      // ray (the target cell itself is allowed through above, handled by callers).
+      if (!isViewerCell && isBush(cellX, cellY)) return false;
 
       if (tMaxX < tMaxY) {
         tMaxX += tDeltaX;

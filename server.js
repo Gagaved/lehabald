@@ -9,6 +9,8 @@ const host = "0.0.0.0";
 const root = __dirname;
 const tickMs = 1000 / 60;
 const roundDurationMs = 120_000;
+const logoTimerReductionMs = 1_000;
+const readyTimeoutMs = 30_000;
 const powerDurationMs = 9_000;
 const ghostDurationMs = 6_000;
 const trapDurationMs = 10_000;
@@ -120,6 +122,7 @@ server.on("upgrade", (req, socket) => {
     score: 0,
     role: "spectator",
     ready: false,
+    readyTimeoutStartedAt: null,
     x: starts[0].x + 0.5,
     y: starts[0].y + 0.5,
     dir: { x: 0, y: 0 },
@@ -230,6 +233,7 @@ function applyMessage(client, raw) {
   if (message.type === "ready") {
     if (client.slot !== null) {
       client.ready = Boolean(message.ready);
+      client.readyTimeoutStartedAt = null;
       ensureRoundState();
       broadcastState();
     }
@@ -262,6 +266,7 @@ function resetGame() {
   for (const client of clients.values()) {
     client.score = 0;
     client.ready = false;
+    client.readyTimeoutStartedAt = null;
     const start = starts[client.slot ?? 0];
     client.x = start.x + 0.5;
     client.y = start.y + 0.5;
@@ -303,6 +308,7 @@ function selectRole(client, role) {
   client.slot = slot;
   client.role = roles[slot];
   client.ready = false;
+  client.readyTimeoutStartedAt = null;
   client.score = 0;
   client.x = starts[slot].x + 0.5;
   client.y = starts[slot].y + 0.5;
@@ -322,6 +328,7 @@ function becomeSpectator(client) {
   client.slot = null;
   client.role = "spectator";
   client.ready = false;
+  client.readyTimeoutStartedAt = null;
   client.score = 0;
   client.dir = { x: 0, y: 0 };
   client.nextDir = { x: 0, y: 0 };
@@ -358,10 +365,51 @@ function lobbyState() {
         taken: Boolean(player),
         ready: Boolean(player?.ready),
         playerId: player?.id ?? null,
+        readyTimeoutMs: readyTimeoutFor(player),
       };
     }),
     spectators: [...clients.values()].filter((client) => client.slot === null).length,
   };
+}
+
+function readyTimeoutFor(player) {
+  if (!player || player.ready || player.readyTimeoutStartedAt === null) return null;
+  return Math.max(0, readyTimeoutMs - (Date.now() - player.readyTimeoutStartedAt));
+}
+
+function releaseSlot(client) {
+  client.slot = null;
+  client.role = "spectator";
+  client.ready = false;
+  client.readyTimeoutStartedAt = null;
+  client.score = 0;
+  client.dir = { x: 0, y: 0 };
+  client.nextDir = { x: 0, y: 0 };
+  client.stopRequested = false;
+  client.ghostUntil = 0;
+  client.trapCooldownUntil = 0;
+  client.stunnedUntil = 0;
+}
+
+function enforceReadyTimeout(now) {
+  if (game.phase !== "waiting") return;
+  const players = roles.map((_, slot) => [...clients.values()].find((client) => client.slot === slot));
+  if (players.some((player) => !player)) {
+    for (const player of players) {
+      if (player) player.readyTimeoutStartedAt = null;
+    }
+    return;
+  }
+  for (const player of players) {
+    if (player.ready) {
+      player.readyTimeoutStartedAt = null;
+      continue;
+    }
+    player.readyTimeoutStartedAt ??= now;
+    if (now - player.readyTimeoutStartedAt >= readyTimeoutMs) {
+      releaseSlot(player);
+    }
+  }
 }
 
 function ensureRoundState() {
@@ -416,12 +464,13 @@ function createLogos() {
 
 function gameTick() {
   ensureRoundState();
+  const now = Date.now();
+  enforceReadyTimeout(now);
   if (game.phase !== "playing") {
     broadcastState();
     return;
   }
 
-  const now = Date.now();
   expireTrap(now);
   for (const client of clients.values()) {
     if (client.slot === null) continue;
@@ -438,9 +487,6 @@ function gameTick() {
   resolveTrap(leha, now);
   if (game.phase === "playing" && game.startedAt && now - game.startedAt >= roundDurationMs) {
     endGame(0, "Леха продержался 2 минуты.");
-  }
-  if (game.phase === "playing" && logos.size === 0) {
-    endGame(0, "Леха съел все TikTok-логотипы.");
   }
 
   broadcastState();
@@ -508,6 +554,9 @@ function collectLogo(player) {
   if (!logos.has(logoKey)) return;
   logos.delete(logoKey);
   player.score += 10;
+  if (game.phase === "playing" && game.startedAt) {
+    game.startedAt -= logoTimerReductionMs;
+  }
   if (superLogoCells.has(logoKey)) {
     game.lehaPowerUntil = Date.now() + powerDurationMs;
   }

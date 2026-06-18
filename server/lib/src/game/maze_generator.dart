@@ -1,24 +1,30 @@
 import 'dart:math';
 
+import '../domain/game_constants.dart';
+
 /// Generates a Pac-Man-style symmetric maze.
 ///
-/// - 21 cols × 21 rows, outer border always solid.
-/// - Left half (cols 0..9) generated with recursive-backtracker on a 2×2
-///   cell grid; col 10 (centre axis) and right half (11..20) are mirrored.
-/// - Rows 4, 10, 20 are open side-tunnels (border cells = ' ').
-/// - Spawn cells (10,16) and (10,4), plus super-logo cells, are forced open.
+/// - [cols] × [rows] (both odd), outer border always solid.
+/// - Left half (cols 1..centre-1) generated with a recursive-backtracker on a
+///   2×2 cell grid; the centre axis and right half are mirrored.
+/// - The [GameConstants.tunnelRows] are open side-tunnels (border cells = ' ').
+/// - Spawn cells (from [GameConstants.starts]) are forced open.
 class MazeGenerator {
-  static const int cols = 21;
-  static const int rows = 21;
-  static const _tunnelRows = {4, 10, 20};
-  static const _forceOpen = [
-    (10, 16), (10, 4),   // spawns
-    (1, 3), (19, 16), (10, 20), // super logos
-  ];
+  MazeGenerator({int? cols, int? rows, int? seed, Random? rng})
+      : cols = cols ?? GameConstants.mazeCols,
+        rows = rows ?? GameConstants.mazeRows,
+        _rng = rng ?? Random(seed);
 
+  final int cols;
+  final int rows;
   final Random _rng;
 
-  MazeGenerator({int? seed, Random? rng}) : _rng = rng ?? Random(seed);
+  Set<int> get _tunnelRows => GameConstants.tunnelRows;
+  int get _centre => cols ~/ 2;
+
+  /// Cells that must stay open (spawns) plus a symmetric cross around each.
+  List<(int, int)> get _forceOpen =>
+      GameConstants.starts.map((s) => (s.x, s.y)).toList();
 
   List<String> generate() {
     // Internal grid as a 2-D list of chars; (x, y).
@@ -36,16 +42,15 @@ class MazeGenerator {
   // ── Carving ────────────────────────────────────────────────────────────────
 
   void _carvePacmanMaze(List<List<String>> g) {
-    // Left half: cols 1..9 (col 0 = border, col 10 = centre axis).
-    // Cell grid: step 2 starting at (1,1).  Cell (cx,cy) → maze (1+cx*2, 1+cy*2).
-    const leftEdge = 1;   // first carveable col
-    const rightEdge = 9;  // last carveable col on left half
+    // Left half: cols 1..centre-1 (col 0 = border, col centre = mirror axis).
+    // Cell grid: step 2 starting at (1,1).
+    const leftEdge = 1; // first carveable col
+    final rightEdge = _centre - 1; // last carveable col on left half
     const topEdge = 1;
-    const bottomEdge = rows - 2; // row 19
+    final bottomEdge = rows - 2;
 
-    // How many 2-step cells fit: floor((rightEdge - leftEdge) / 2) + 1 = 5
-    final cellW = ((rightEdge - leftEdge) ~/ 2) + 1; // 5
-    final cellH = ((bottomEdge - topEdge) ~/ 2) + 1; // 10
+    final cellW = ((rightEdge - leftEdge) ~/ 2) + 1;
+    final cellH = ((bottomEdge - topEdge) ~/ 2) + 1;
 
     final visited = List.generate(cellH, (_) => List.filled(cellW, false));
 
@@ -88,16 +93,15 @@ class MazeGenerator {
       }
     }
 
-    // Centre column (col 10): open wherever neighbour col 9 is open.
+    // Centre column: open wherever the neighbouring left column is open.
     for (var y = topEdge; y <= bottomEdge; y++) {
-      if (g[y][9] == '.') g[y][10] = '.';
+      if (g[y][_centre - 1] == '.') g[y][_centre] = '.';
     }
   }
 
   // ── Mirror ─────────────────────────────────────────────────────────────────
 
   void _mirrorHorizontally(List<List<String>> g) {
-    // Right half col x (11..20) mirrors left half col (cols-1-x = 9..0).
     for (var y = 0; y < rows; y++) {
       for (var x = 0; x < cols ~/ 2; x++) {
         g[y][cols - 1 - x] = g[y][x];
@@ -109,6 +113,7 @@ class MazeGenerator {
 
   void _applyTunnelRows(List<List<String>> g) {
     for (final row in _tunnelRows) {
+      if (row < 0 || row >= rows) continue;
       for (var x = 0; x < cols; x++) {
         g[row][x] = (x == 0 || x == cols - 1) ? ' ' : '.';
       }
@@ -129,13 +134,13 @@ class MazeGenerator {
     }
   }
 
-  // ── Force-open spawns & logo cells ─────────────────────────────────────────
+  // ── Force-open spawns ────────────────────────────────────────────────────────
 
   void _forceOpenSpawns(List<List<String>> g) {
     for (final (x, y) in _forceOpen) {
       if (x >= 0 && x < cols && y >= 0 && y < rows) g[y][x] = '.';
       // Carve a small cross so the player is never enclosed.
-      for (final (dx, dy) in [(1,0),(-1,0),(0,1),(0,-1)]) {
+      for (final (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)]) {
         final nx = x + dx, ny = y + dy;
         if (nx > 0 && nx < cols - 1 && ny > 0 && ny < rows - 1 &&
             !_tunnelRows.contains(ny)) {
@@ -148,6 +153,7 @@ class MazeGenerator {
 
     // Re-apply tunnel border exits (mirroring may have overwritten ' ').
     for (final row in _tunnelRows) {
+      if (row < 0 || row >= rows) continue;
       g[row][0] = ' ';
       g[row][cols - 1] = ' ';
     }

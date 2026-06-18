@@ -1,15 +1,13 @@
 import 'dart:math';
 import 'dart:ui';
 
-import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show KeyEventResult;
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
 
-class LehaBaldGame extends FlameGame with KeyboardEvents {
+class LehaBaldGame extends FlameGame {
   LehaBaldGame({required this.network});
 
   static const tile = 32.0;
@@ -33,8 +31,19 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   Image? portalInactiveImage;
   Image? webImage;
 
+  // Single keyboard path: the HardwareKeyboard handler receives every key
+  // regardless of which widget holds focus. We intentionally do NOT use Flame's
+  // KeyboardEvents mixin too — that would deliver each press twice and fire
+  // one-shot actions (place portal / trap / ability) twice per keystroke.
+  bool _hardwareKeyHandler(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyUpEvent) return false;
+    _handleKey(event);
+    return false; // don't consume — let other handlers see it too
+  }
+
   @override
   Future<void> onLoad() async {
+    HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
     playerHead = await images.load('player-head.png');
     chaserHead = await images.load('chaser-head.png');
     poweredHead = await images.load('leha-powered.png');
@@ -49,6 +58,12 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     portalActiveImage = await _tryLoad('portal-active.png');
     portalInactiveImage = await _tryLoad('portal-inactive.png');
     webImage = await _tryLoad('web.png');
+  }
+
+  @override
+  void onRemove() {
+    HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
+    super.onRemove();
   }
 
   Future<Image?> _tryLoad(String name) async {
@@ -68,11 +83,15 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
       return;
     }
 
-    final scale = min(size.x / (snapshot.cols * tile), size.y / (snapshot.rows * tile));
+    // Reserve a strip at the top for the HUD overlay so it never covers the
+    // map; the board is centred within the remaining area.
+    const topInset = 88.0;
+    final availH = (size.y - topInset).clamp(1.0, size.y);
+    final scale = min(size.x / (snapshot.cols * tile), availH / (snapshot.rows * tile));
     final boardW = snapshot.cols * tile * scale;
     final boardH = snapshot.rows * tile * scale;
     final dx = (size.x - boardW) / 2;
-    final dy = (size.y - boardH) / 2;
+    final dy = topInset + (availH - boardH) / 2;
 
     canvas.save();
     canvas.translate(dx, dy);
@@ -155,10 +174,7 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     }
   }
 
-  @override
-  KeyEventResult onKeyEvent(KeyEvent event, Set<LogicalKeyboardKey> keysPressed) {
-    if (event is! KeyDownEvent && event is! KeyUpEvent) return KeyEventResult.ignored;
-
+  void _handleKey(KeyEvent event) {
     if (event.logicalKey == LogicalKeyboardKey.space && event is KeyDownEvent) {
       final snapshot = network.snapshot;
       if (snapshot?.you.role == PlayerRole.hunter) {
@@ -171,16 +187,16 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
       } else if (snapshot?.you.role == PlayerRole.leha) {
         network.useAbility();
       }
-      return KeyEventResult.handled;
+      return;
     }
 
     if ((event.logicalKey == LogicalKeyboardKey.keyE || event.logicalKey == LogicalKeyboardKey.keyQ) && event is KeyDownEvent) {
       network.useAbility();
-      return KeyEventResult.handled;
+      return;
     }
 
     final direction = _directionForKey(event.logicalKey);
-    if (direction == null) return KeyEventResult.ignored;
+    if (direction == null) return;
 
     if (event is KeyDownEvent) {
       _heldKeys[event.logicalKey] = direction;
@@ -194,7 +210,6 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     } else {
       network.input(combined);
     }
-    return KeyEventResult.handled;
   }
 
   void _drawEmpty(Canvas canvas) {

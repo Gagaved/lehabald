@@ -158,6 +158,7 @@ class RoleStateDto with RoleStateDtoMappable {
     required this.aspect,
     this.hunterKind,
     this.bot = false,
+    this.readyTimeoutMs,
   });
 
   final PlayerRole role;
@@ -169,6 +170,8 @@ class RoleStateDto with RoleStateDtoMappable {
   final HunterKind? hunterKind;
   /// True when this slot is occupied by an AI bot rather than a human.
   final bool bot;
+  /// Remaining time before an unready occupied slot is released.
+  final int? readyTimeoutMs;
 }
 
 @MappableClass()

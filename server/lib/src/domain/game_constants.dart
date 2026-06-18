@@ -5,6 +5,8 @@ class GameConstants {
 
   static const tickMs = 1000 ~/ 60;
   static const roundDurationMs = 120000;
+  static const logoTimerReductionMs = 1000;
+  static const readyTimeoutMs = 30000;
   static const powerDurationMs = 9000;
   static const trapDurationMs = 10000;
   static const trapCooldownMs = 9000;
@@ -17,7 +19,7 @@ class GameConstants {
   static const webDurationMs = 10000;
   static const trapTriggeredDisplayMs = 2500;
   static const webSlowMs = 3000;
-  static const trailLifetimeMs = 3000;
+  static const trailLifetimeMs = 2500;
   static const trailScentRadius = 4;     // Hunter's scent reach in cells
   static const trailVisibilityRadius = 4; // Leha's powered trail radius
   static const xrayRadius = 2;
@@ -38,14 +40,18 @@ class GameConstants {
   static const lehaBlindRadius = 2.4; // tiles Leha can still see while blinded
 
   // Sima femboy (charm) ability.
-  static const simaFemboyMs = 3000;
+  static const simaFemboyMs = 2000;
   static const simaFemboyCooldownMs = 20000;
-  static const simaSlowFactor = 0.5; // both Sima and a charmed Leha move at half speed
+  static const simaSlowFactor = 0.5; // charmed Leha is dragged at half speed
 
   static const roles = [PlayerRole.leha, PlayerRole.hunter];
-  static const starts = [Vec2i(10, 16), Vec2i(10, 4)];
-  static const tunnelRows = {4, 10, 20};
-  static const superLogoKeys = {'1,3', '19,16', '10,20'};
+
+  // Procedurally-generated maze size (both odd; centre axis at mazeCols ~/ 2 = 12).
+  static const mazeCols = 25;
+  static const mazeRows = 25;
+  static const starts = [Vec2i(12, 20), Vec2i(12, 4)];
+  static const tunnelRows = {4, 12, 24};
+  static const superLogoKeys = {'1,3', '23,20', '12,12'};
 
   static const maze = [
     '#####################',

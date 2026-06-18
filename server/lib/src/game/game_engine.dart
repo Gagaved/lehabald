@@ -68,6 +68,7 @@ class GameEngine {
       case ClientMessageType.ready:
         if (client.slot == null) return;
         client.ready = message.ready ?? false;
+        client.readyTimeoutStartedAt = null;
         ensureRoundState();
       case ClientMessageType.spectate:
         becomeSpectator(client);
@@ -106,6 +107,7 @@ class GameEngine {
       client
         ..score = 0
         ..ready = keepBotsReady && client.isBot
+        ..readyTimeoutStartedAt = null
         ..x = start.x + 0.5
         ..y = start.y + 0.5
         ..direction = null
@@ -146,6 +148,7 @@ class GameEngine {
       ..slot = slot
       ..role = role
       ..ready = false
+      ..readyTimeoutStartedAt = null
       ..score = 0
       ..x = start.x + 0.5
       ..y = start.y + 0.5
@@ -206,6 +209,7 @@ class GameEngine {
       ..slot = slot
       ..role = role
       ..ready = true
+      ..readyTimeoutStartedAt = null
       ..name = ''
       ..aspect = LehaAspect.superLeha
       ..hunterKind = HunterKind.bakhirkin
@@ -239,6 +243,7 @@ class GameEngine {
       ..slot = null
       ..role = PlayerRole.spectator
       ..ready = false
+      ..readyTimeoutStartedAt = null
       ..score = 0
       ..direction = null
       ..nextDirection = null
@@ -332,7 +337,9 @@ class GameEngine {
 
   void placePortal(PlayerConnection client) {
     final now = nowMs();
-    if (now < client.portalCooldownUntil) return;
+    // No cooldown while the pair is still being built (fewer than 2 portals);
+    // the cooldown only gates re-placing once both portals are already down.
+    if (round.portals.length >= 2 && now < client.portalCooldownUntil) return;
     final current = centerCell(client);
     final direction = client.lastDirection;
     final cell = Point((current.x + direction.dx).round(), (current.y + direction.dy).round());
@@ -648,11 +655,57 @@ class GameEngine {
     }
   }
 
+  void enforceReadyTimeout(int now) {
+    if (round.phase != GamePhase.waiting) return;
+
+    final leha = findPlayer(0);
+    final hunter = findPlayer(1);
+    if (leha == null || hunter == null) {
+      leha?.readyTimeoutStartedAt = null;
+      hunter?.readyTimeoutStartedAt = null;
+      return;
+    }
+
+    for (final player in [leha, hunter]) {
+      if (player.ready || player.isBot) {
+        player.readyTimeoutStartedAt = null;
+        continue;
+      }
+      final startedAt = player.readyTimeoutStartedAt ?? now;
+      player.readyTimeoutStartedAt = startedAt;
+      if (now - startedAt >= GameConstants.readyTimeoutMs) {
+        releaseSlot(player);
+      }
+    }
+  }
+
+  void releaseSlot(PlayerConnection client) {
+    client
+      ..slot = null
+      ..role = PlayerRole.spectator
+      ..ready = false
+      ..readyTimeoutStartedAt = null
+      ..score = 0
+      ..direction = null
+      ..nextDirection = null
+      ..lastDirection = MoveDirection.right
+      ..stopRequested = false
+      ..hp = 100
+      ..trapCharges = 0
+      ..trapCooldownUntil = 0
+      ..webCharges = 0
+      ..portalCooldownUntil = 0
+      ..stunnedUntil = 0
+      ..webSlowedUntil = 0
+      ..webPhaseUntil = 0;
+  }
+
   void tick() {
     ensureRoundState();
+    final now = nowMs();
+    enforceReadyTimeout(now);
     if (round.phase != GamePhase.playing) return;
 
-    final now = nowMs();
     expireTraps(now);
     expireWebs(now);
     rechargeTraps(now);
@@ -680,9 +733,6 @@ class GameEngine {
         startedAt != null &&
         now - startedAt >= GameConstants.roundDurationMs) {
       endGame(0, 'Леха продержался 2 минуты.');
-    }
-    if (round.phase == GamePhase.playing && logos.isEmpty) {
-      endGame(0, 'Леха съел все TikTok-логотипы.');
     }
   }
 
@@ -897,16 +947,13 @@ class GameEngine {
     final leha = findPlayer(0);
     if (player.slot == 1 && leha != null && now < leha.stunnedUntil) base *= 1.1;
     if (player.slot == 1 && now < player.webSlowedUntil) return base * 0.5;
-    // Sima crawls while in femboy form.
-    if (player.slot == 1 && player.hunterKind == HunterKind.sima && now < player.simaFemboyUntil) {
-      base *= GameConstants.simaSlowFactor;
-    }
     return base;
   }
 
   double speedForSlot(int? slot, int now) {
-    if (slot == 0) return now < round.lehaPowerUntil ? GameConstants.baseSpeed * 1.2 : GameConstants.baseSpeed;
-    if (slot == 1) return GameConstants.baseSpeed * 1.1;
+    // Hunters move at Leha's base speed; Super-Leha (powered) is 10% faster than a hunter.
+    if (slot == 0) return now < round.lehaPowerUntil ? GameConstants.baseSpeed * 1.1 : GameConstants.baseSpeed;
+    if (slot == 1) return GameConstants.baseSpeed;
     return GameConstants.baseSpeed;
   }
 
@@ -915,6 +962,10 @@ class GameEngine {
     final key = '${cell.x},${cell.y}';
     if (!logos.remove(key)) return;
     player.score += 10;
+    final startedAt = round.startedAt;
+    if (round.phase == GamePhase.playing && startedAt != null) {
+      round.startedAt = startedAt - GameConstants.logoTimerReductionMs;
+    }
     if (player.aspect == LehaAspect.superLeha && maze.superLogoKeys.contains(key)) {
       round.lehaPowerUntil = nowMs() + GameConstants.powerDurationMs;
     }
@@ -1146,6 +1197,7 @@ class GameEngine {
 
   RoleStateDto _roleState(int slot) {
     final player = clients.values.where((client) => client.slot == slot).firstOrNull;
+    final readyTimeoutMs = _readyTimeoutMs(player);
     return RoleStateDto(
       role: GameConstants.roles[slot],
       slot: slot,
@@ -1155,7 +1207,14 @@ class GameEngine {
       aspect: slot == 0 ? player?.aspect ?? LehaAspect.superLeha : null,
       hunterKind: slot == 1 ? player?.hunterKind ?? HunterKind.bakhirkin : null,
       bot: player?.isBot ?? false,
+      readyTimeoutMs: readyTimeoutMs,
     );
+  }
+
+  int? _readyTimeoutMs(PlayerConnection? player) {
+    final startedAt = player?.readyTimeoutStartedAt;
+    if (player == null || player.ready || player.isBot || startedAt == null) return null;
+    return max(0, GameConstants.readyTimeoutMs - (nowMs() - startedAt));
   }
 
   Iterable<String> visibleLogosFor(PlayerConnection viewer) {
@@ -1243,12 +1302,15 @@ class GameEngine {
     return switch (viewer.aspect) {
       LehaAspect.superLeha => false,
       LehaAspect.spider => viewer.webCharges > 0,
-      LehaAspect.wizard => now >= viewer.portalCooldownUntil,
+      // Free to place until the second portal is down; cooldown only applies
+      // once both portals exist.
+      LehaAspect.wizard => round.portals.length < 2 || now >= viewer.portalCooldownUntil,
     };
   }
 
   int abilityCooldownFor(PlayerConnection viewer, int now) {
     if (viewer.slot != 0 || viewer.aspect != LehaAspect.wizard) return 0;
+    if (round.portals.length < 2) return 0;
     return max(0, viewer.portalCooldownUntil - now);
   }
 
@@ -1346,8 +1408,18 @@ class GameEngine {
   Point<double> playerPos(PlayerConnection p) => Point(p.x, p.y);
 
   void resolvePortal(PlayerConnection player) {
-    if (player.aspect != LehaAspect.wizard || round.portals.length != 2) return;
+    if (player.aspect != LehaAspect.wizard) {
+      player.lastCellKey = null;
+      return;
+    }
     final cell = centerCell(player);
+    final cellKey = '${cell.x},${cell.y}';
+    final freshlyEntered = cellKey != player.lastCellKey;
+    player.lastCellKey = cellKey;
+
+    // Teleport only with both portals open AND on a fresh step onto a portal,
+    // so opening the second portal under a standing player doesn't yank them.
+    if (round.portals.length != 2 || !freshlyEntered) return;
     final portalIndex = round.portals.indexWhere((portal) => portal.x == cell.x && portal.y == cell.y);
     if (portalIndex == -1) return;
     final target = round.portals[portalIndex == 0 ? 1 : 0];
@@ -1355,7 +1427,8 @@ class GameEngine {
       ..x = target.x + 0.5
       ..y = target.y + 0.5
       ..direction = null
-      ..nextDirection = null;
+      ..nextDirection = null
+      ..lastCellKey = '${target.x},${target.y}';
     round.portals = [];
   }
 

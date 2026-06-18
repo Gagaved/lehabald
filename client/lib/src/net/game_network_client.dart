@@ -20,6 +20,15 @@ class GameNetworkClient extends ChangeNotifier {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
+  Timer? _watchdogTimer;
+  DateTime _lastMessageAt = DateTime.now();
+  // Monotonically increasing id for the current connection attempt. Callbacks
+  // from a superseded channel carry an older id and are ignored, so a late
+  // onDone/onError from a dead socket can never clobber a live connection.
+  int _generation = 0;
+  // The server broadcasts state every tick (~16ms); if nothing arrives for this
+  // long the socket is half-open (common on WiFi) and we force a reconnect.
+  static const _watchdogTimeout = Duration(seconds: 3);
 
   Future<void> _loadNickname() async {
     try {
@@ -61,6 +70,7 @@ class GameNetworkClient extends ChangeNotifier {
     _subscription?.cancel();
     _channel?.sink.close();
 
+    final generation = ++_generation;
     try {
       final channel = WebSocketChannel.connect(Uri.parse(serverUrl));
       _channel = channel;
@@ -68,19 +78,35 @@ class GameNetworkClient extends ChangeNotifier {
       notifyListeners();
       _subscription = channel.stream.listen(
         _onMessage,
-        onDone: _scheduleReconnect,
-        onError: (_) => _scheduleReconnect(),
+        onDone: () => _scheduleReconnect(generation),
+        onError: (_) => _scheduleReconnect(generation),
       );
+      _lastMessageAt = DateTime.now();
+      _startWatchdog();
       // Re-register our nickname: the server creates a fresh connection each time.
       _sendName();
     } catch (_) {
-      _scheduleReconnect();
+      _scheduleReconnect(generation);
     }
+  }
+
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_channel == null) return;
+      if (DateTime.now().difference(_lastMessageAt) > _watchdogTimeout) {
+        // Socket looks alive but the server went silent — tear it down and
+        // reconnect rather than keep firing input into a dead pipe.
+        _channel?.sink.close();
+        _scheduleReconnect();
+      }
+    });
   }
 
   @override
   void dispose() {
     _reconnectTimer?.cancel();
+    _watchdogTimer?.cancel();
     _subscription?.cancel();
     _channel?.sink.close();
     super.dispose();
@@ -141,6 +167,7 @@ class GameNetworkClient extends ChangeNotifier {
   }
 
   void _onMessage(dynamic raw) {
+    _lastMessageAt = DateTime.now();
     if (raw is! String) return;
     try {
       final decoded = jsonDecode(raw);
@@ -154,8 +181,11 @@ class GameNetworkClient extends ChangeNotifier {
     }
   }
 
-  void _scheduleReconnect() {
+  void _scheduleReconnect([int? generation]) {
+    // Ignore late callbacks from a channel we already replaced.
+    if (generation != null && generation != _generation) return;
     _channel = null;
+    _watchdogTimer?.cancel();
     status = 'Связь потеряна. Переподключение...';
     notifyListeners();
     _reconnectTimer?.cancel();

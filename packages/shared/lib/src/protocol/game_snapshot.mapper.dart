@@ -1228,6 +1228,12 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
     opt: true,
     def: false,
   );
+  static int? _$readyTimeoutMs(RoleStateDto v) => v.readyTimeoutMs;
+  static const Field<RoleStateDto, int> _f$readyTimeoutMs = Field(
+    'readyTimeoutMs',
+    _$readyTimeoutMs,
+    opt: true,
+  );
 
   @override
   final MappableFields<RoleStateDto> fields = const {
@@ -1239,6 +1245,7 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
     #aspect: _f$aspect,
     #hunterKind: _f$hunterKind,
     #bot: _f$bot,
+    #readyTimeoutMs: _f$readyTimeoutMs,
   };
 
   static RoleStateDto _instantiate(DecodingData data) {
@@ -1251,6 +1258,7 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
       aspect: data.dec(_f$aspect),
       hunterKind: data.dec(_f$hunterKind),
       bot: data.dec(_f$bot),
+      readyTimeoutMs: data.dec(_f$readyTimeoutMs),
     );
   }
 
@@ -1325,6 +1333,7 @@ abstract class RoleStateDtoCopyWith<$R, $In extends RoleStateDto, $Out>
     LehaAspect? aspect,
     HunterKind? hunterKind,
     bool? bot,
+    int? readyTimeoutMs,
   });
   RoleStateDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1347,6 +1356,7 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
     Object? aspect = $none,
     Object? hunterKind = $none,
     bool? bot,
+    Object? readyTimeoutMs = $none,
   }) => $apply(
     FieldCopyWithData({
       if (role != null) #role: role,
@@ -1357,6 +1367,7 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
       if (aspect != $none) #aspect: aspect,
       if (hunterKind != $none) #hunterKind: hunterKind,
       if (bot != null) #bot: bot,
+      if (readyTimeoutMs != $none) #readyTimeoutMs: readyTimeoutMs,
     }),
   );
   @override
@@ -1369,6 +1380,7 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
     aspect: data.get(#aspect, or: $value.aspect),
     hunterKind: data.get(#hunterKind, or: $value.hunterKind),
     bot: data.get(#bot, or: $value.bot),
+    readyTimeoutMs: data.get(#readyTimeoutMs, or: $value.readyTimeoutMs),
   );
 
   @override
@@ -2547,4 +2559,3 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     Then<$Out2, $R2> t,
   ) => _GameSnapshotDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
-
