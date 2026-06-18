@@ -54,3 +54,9 @@ fvm flutter run --dart-define=SERVER_URL=ws://10.53.213.23:4173/ws
 - `GameNetworkClient` владеет сетевым подключением Flutter-клиента.
 - `LehaBaldGame` только рендерит snapshot и отправляет ввод.
 - `GameOverlay` содержит Flutter UI: лобби, HUD, кнопки, мобильное управление.
+
+## Атрибуция ассетов
+
+Иконки капкана, портала и паутины — на основе работ автора **Lorc** с
+[game-icons.net](https://game-icons.net), лицензия **CC BY 3.0**
+(перекрашены и отрендерены в PNG).

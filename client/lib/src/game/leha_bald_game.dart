@@ -28,6 +28,10 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   Image? barrelImage;
   Image? simaHead;
   Image? simaFemboy;
+  Image? trapImage;
+  Image? portalActiveImage;
+  Image? portalInactiveImage;
+  Image? webImage;
 
   @override
   Future<void> onLoad() async {
@@ -41,6 +45,10 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
     barrelImage = await _tryLoad('barrel.png');
     simaHead = await _tryLoad('sima-head.png');
     simaFemboy = await _tryLoad('sima-femboy.png');
+    trapImage = await _tryLoad('trap.png');
+    portalActiveImage = await _tryLoad('portal-active.png');
+    portalInactiveImage = await _tryLoad('portal-inactive.png');
+    webImage = await _tryLoad('web.png');
   }
 
   Future<Image?> _tryLoad(String name) async {
@@ -266,6 +274,10 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
             ..strokeWidth = 3,
         );
         canvas.drawCircle(center, tile * 0.22, Paint()..color = const Color(0xccffcc44));
+      } else if (trapImage != null) {
+        // Faint danger ring under the steel trap sprite.
+        canvas.drawCircle(center, tile * 0.5, Paint()..color = const Color(0x33ff0050));
+        _drawImage(canvas, trapImage!, center, tile * 1.1, 1);
       } else {
         canvas.drawCircle(center, tile * 0.36, Paint()..color = const Color(0x44ff0050));
         canvas.drawCircle(
@@ -281,6 +293,15 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   }
 
   void _drawWebs(Canvas canvas, List<WebDto> webs) {
+    final image = webImage;
+    if (image != null) {
+      for (final web in webs) {
+        final center = Offset(web.x * tile + tile / 2, web.y * tile + tile / 2);
+        _drawImage(canvas, image, center, tile * 1.02, 0.92);
+      }
+      return;
+    }
+    // Fallback: procedural web.
     final fill = Paint()..color = const Color(0x5588f4ff);
     final stroke = Paint()
       ..color = const Color(0xaae7fbff)
@@ -296,8 +317,33 @@ class LehaBaldGame extends FlameGame with KeyboardEvents {
   }
 
   void _drawPortals(Canvas canvas, List<PortalDto> portals) {
+    final t = DateTime.now().millisecondsSinceEpoch;
     for (final portal in portals) {
       final center = Offset(portal.x * tile + tile / 2, portal.y * tile + tile / 2);
+      final image = portal.active ? portalActiveImage : portalInactiveImage;
+      if (image != null) {
+        if (portal.active) {
+          // Active: pulsing violet glow + slow spin.
+          final pulse = 0.5 + 0.5 * sin(t / 300.0);
+          canvas.drawCircle(
+            center,
+            tile * (0.5 + 0.08 * pulse),
+            Paint()
+              ..color = Color.fromRGBO(181, 108, 255, 0.22 + 0.16 * pulse)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+          );
+          canvas.save();
+          canvas.translate(center.dx, center.dy);
+          canvas.rotate(t / 1300.0);
+          _drawImage(canvas, image, Offset.zero, tile * 1.05, 1);
+          canvas.restore();
+        } else {
+          // Inactive: dim, static, slightly transparent.
+          _drawImage(canvas, image, center, tile * 0.92, 0.7);
+        }
+        continue;
+      }
+      // Fallback: procedural rings.
       final color = portal.active ? const Color(0xffb56cff) : const Color(0xff6f7890);
       canvas.drawCircle(
         center,
