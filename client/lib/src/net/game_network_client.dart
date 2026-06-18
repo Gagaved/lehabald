@@ -162,6 +162,10 @@ class GameNetworkClient extends ChangeNotifier {
     send(const ClientMessage(type: ClientMessageType.useAbility));
   }
 
+  void layClutch() {
+    send(const ClientMessage(type: ClientMessageType.layClutch));
+  }
+
   void restart() {
     send(const ClientMessage(type: ClientMessageType.restart));
   }

@@ -92,6 +92,7 @@ class _Hud extends StatelessWidget {
     };
     String cdLabel(String name, int ms) =>
         ms > 0 ? '$name ${(ms / 1000).ceil()}с' : name;
+    final spiderMode = s?.game.spiderMode == true;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -109,12 +110,23 @@ class _Hud extends StatelessWidget {
                       : 'Наблюдатель'),
           _Metric(
             label: isLeha
-                ? 'Время / TikTok'
+                ? (spiderMode ? 'Рафаэлки' : 'Время / TikTok')
                 : isHunter
                     ? 'Охота'
                     : 'Просмотр',
-            value: isLeha ? '$time / ${s?.logos.length ?? 0}$power' : time,
+            value: isLeha
+                ? (spiderMode
+                    ? '${s?.game.rafaelkiEaten ?? 0}/${s?.game.rafaelkiNeeded ?? 4}'
+                    : '$time / ${s?.logos.length ?? 0}$power')
+                : time,
           ),
+          // Clutch alert / hatch countdown — the hunter's notice that a clutch
+          // was laid (he still has to find it), and Leha's hatch timer.
+          if (s?.game.clutchActive == true)
+            _Metric(
+              label: isHunter ? '⚠ Кладка' : 'Кладка',
+              value: '${((s!.game.clutchHatchMs) / 1000).ceil()}с',
+            ),
           if (hunter != null)
             _Metric(label: '$hunterName HP', value: '${hunter.hp}'),
           if (isHunter && hunterKind == HunterKind.sashaYakuza)
@@ -141,6 +153,12 @@ class _Hud extends StatelessWidget {
               onPressed:
                   s?.game.abilityAvailable == true ? network.useAbility : null,
               child: Text(abilityLabel),
+            ),
+          if (isLeha && spiderMode)
+            FilledButton.tonal(
+              onPressed:
+                  s?.game.clutchAvailable == true ? network.layClutch : null,
+              child: const Text('Кладка (F)'),
             ),
           FilledButton(
             onPressed: network.restart,
@@ -205,37 +223,50 @@ const _lehaChars = [
   _CharOption(
       'Супер-Леха',
       'assets/images/player-head.png',
-      'Ест супер-тиктоки и превращается в BIG — тогда может съесть Охотника.',
+      'Ест тиктоки. Супер-тикток даёт форму BIG — в ней можно съесть Охотника '
+          '(дважды = победа). Победа: съесть Охотника 2 раза или продержаться 3 минуты. '
+          'Поражение: попасться без BIG.',
       PlayerRole.leha,
       aspect: LehaAspect.superLeha),
   _CharOption(
       'Леха-Паук',
       'assets/images/leha-spider.png',
-      'Плетёт паутину: проходит сквозь стены по ней, а Охотника она замедляет.',
+      'Не ест тиктоки — собирает рафаэлки (нужно 4 из 5, видит только обычным зрением). '
+          'На F кладёт кладку (можно в кусты, не на стены/паутину); зреет 10с — '
+          'не найдёт Охотник = победа. Паутина: проход сквозь стены, Охотника замедляет. '
+          'Победы по таймеру нет. Поражение: попасться.',
       PlayerRole.leha,
       aspect: LehaAspect.spider),
   _CharOption(
       'Леха-Маг',
       'assets/images/leha-wizard.png',
-      'Ставит пару порталов для мгновенного телепорта по карте.',
+      'Ставит пару порталов для телепорта. Через них проходят и Леха, и Охотник; '
+          'после прыжка кд 12с, порталы исчезают. Победа: продержаться 3 минуты. '
+          'Поражение: попасться.',
       PlayerRole.leha,
       aspect: LehaAspect.wizard),
 ];
 
 const _hunterChars = [
-  _CharOption('Бахиркин', 'assets/images/chaser-head.png',
-      'Ставит капканы, которые оглушают Леху на месте.', PlayerRole.hunter,
+  _CharOption(
+      'Бахиркин',
+      'assets/images/chaser-head.png',
+      'Ставит 2 капкана — оглушают Леху на месте. Чует свежий след Лехи рядом. '
+          'Цель: поймать Леху (а Паука — не дать высидеть кладку).',
+      PlayerRole.hunter,
       hunter: HunterKind.bakhirkin),
   _CharOption(
       'Саша-якудза',
       'assets/images/sasha-head.png',
-      'Пускает бочку: рикошетит от стен, оглушает и ослепляет Леху. КД 10с.',
+      'Кидает бочку: рикошетит от стен, оглушает и ослепляет Леху. КД 10с. '
+          'Цель: поймать Леху.',
       PlayerRole.hunter,
       hunter: HunterKind.sashaYakuza),
   _CharOption(
       'Сима',
       'assets/images/sima-head.png',
-      'Превращается в фембоя на 1с: Леха с прямой видимостью медленно тянется к Симе. КД 20с.',
+      'Фембой на 1с: Леха в прямой видимости медленно тянется к Симе. КД 20с. '
+          'Цель: поймать Леху.',
       PlayerRole.hunter,
       hunter: HunterKind.sima),
 ];

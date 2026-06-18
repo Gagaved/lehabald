@@ -911,6 +911,134 @@ class _PortalDtoCopyWithImpl<$R, $Out>
   ) => _PortalDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class ClutchDtoMapper extends ClassMapperBase<ClutchDto> {
+  ClutchDtoMapper._();
+
+  static ClutchDtoMapper? _instance;
+  static ClutchDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ClutchDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'ClutchDto';
+
+  static int _$x(ClutchDto v) => v.x;
+  static const Field<ClutchDto, int> _f$x = Field('x', _$x);
+  static int _$y(ClutchDto v) => v.y;
+  static const Field<ClutchDto, int> _f$y = Field('y', _$y);
+  static int _$hatchMs(ClutchDto v) => v.hatchMs;
+  static const Field<ClutchDto, int> _f$hatchMs = Field('hatchMs', _$hatchMs);
+
+  @override
+  final MappableFields<ClutchDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #hatchMs: _f$hatchMs,
+  };
+
+  static ClutchDto _instantiate(DecodingData data) {
+    return ClutchDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      hatchMs: data.dec(_f$hatchMs),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static ClutchDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<ClutchDto>(map);
+  }
+
+  static ClutchDto fromJson(String json) {
+    return ensureInitialized().decodeJson<ClutchDto>(json);
+  }
+}
+
+mixin ClutchDtoMappable {
+  String toJson() {
+    return ClutchDtoMapper.ensureInitialized().encodeJson<ClutchDto>(
+      this as ClutchDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return ClutchDtoMapper.ensureInitialized().encodeMap<ClutchDto>(
+      this as ClutchDto,
+    );
+  }
+
+  ClutchDtoCopyWith<ClutchDto, ClutchDto, ClutchDto> get copyWith =>
+      _ClutchDtoCopyWithImpl<ClutchDto, ClutchDto>(
+        this as ClutchDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return ClutchDtoMapper.ensureInitialized().stringifyValue(
+      this as ClutchDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return ClutchDtoMapper.ensureInitialized().equalsValue(
+      this as ClutchDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return ClutchDtoMapper.ensureInitialized().hashValue(this as ClutchDto);
+  }
+}
+
+extension ClutchDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, ClutchDto, $Out> {
+  ClutchDtoCopyWith<$R, ClutchDto, $Out> get $asClutchDto =>
+      $base.as((v, t, t2) => _ClutchDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class ClutchDtoCopyWith<$R, $In extends ClutchDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? x, int? y, int? hatchMs});
+  ClutchDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _ClutchDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, ClutchDto, $Out>
+    implements ClutchDtoCopyWith<$R, ClutchDto, $Out> {
+  _ClutchDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<ClutchDto> $mapper =
+      ClutchDtoMapper.ensureInitialized();
+  @override
+  $R call({int? x, int? y, int? hatchMs}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (hatchMs != null) #hatchMs: hatchMs,
+    }),
+  );
+  @override
+  ClutchDto $make(CopyWithData data) => ClutchDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    hatchMs: data.get(#hatchMs, or: $value.hatchMs),
+  );
+
+  @override
+  ClutchDtoCopyWith<$R2, ClutchDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _ClutchDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
 class TrailPointDtoMapper extends ClassMapperBase<TrailPointDto> {
   TrailPointDtoMapper._();
 
@@ -1635,6 +1763,48 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     opt: true,
     def: 0,
   );
+  static bool _$spiderMode(GameInfoDto v) => v.spiderMode;
+  static const Field<GameInfoDto, bool> _f$spiderMode = Field(
+    'spiderMode',
+    _$spiderMode,
+    opt: true,
+    def: false,
+  );
+  static int _$rafaelkiEaten(GameInfoDto v) => v.rafaelkiEaten;
+  static const Field<GameInfoDto, int> _f$rafaelkiEaten = Field(
+    'rafaelkiEaten',
+    _$rafaelkiEaten,
+    opt: true,
+    def: 0,
+  );
+  static int _$rafaelkiNeeded(GameInfoDto v) => v.rafaelkiNeeded;
+  static const Field<GameInfoDto, int> _f$rafaelkiNeeded = Field(
+    'rafaelkiNeeded',
+    _$rafaelkiNeeded,
+    opt: true,
+    def: 0,
+  );
+  static bool _$clutchAvailable(GameInfoDto v) => v.clutchAvailable;
+  static const Field<GameInfoDto, bool> _f$clutchAvailable = Field(
+    'clutchAvailable',
+    _$clutchAvailable,
+    opt: true,
+    def: false,
+  );
+  static bool _$clutchActive(GameInfoDto v) => v.clutchActive;
+  static const Field<GameInfoDto, bool> _f$clutchActive = Field(
+    'clutchActive',
+    _$clutchActive,
+    opt: true,
+    def: false,
+  );
+  static int _$clutchHatchMs(GameInfoDto v) => v.clutchHatchMs;
+  static const Field<GameInfoDto, int> _f$clutchHatchMs = Field(
+    'clutchHatchMs',
+    _$clutchHatchMs,
+    opt: true,
+    def: 0,
+  );
 
   @override
   final MappableFields<GameInfoDto> fields = const {
@@ -1655,6 +1825,12 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     #barrelCooldownMs: _f$barrelCooldownMs,
     #femboyAvailable: _f$femboyAvailable,
     #femboyCooldownMs: _f$femboyCooldownMs,
+    #spiderMode: _f$spiderMode,
+    #rafaelkiEaten: _f$rafaelkiEaten,
+    #rafaelkiNeeded: _f$rafaelkiNeeded,
+    #clutchAvailable: _f$clutchAvailable,
+    #clutchActive: _f$clutchActive,
+    #clutchHatchMs: _f$clutchHatchMs,
   };
 
   static GameInfoDto _instantiate(DecodingData data) {
@@ -1676,6 +1852,12 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
       barrelCooldownMs: data.dec(_f$barrelCooldownMs),
       femboyAvailable: data.dec(_f$femboyAvailable),
       femboyCooldownMs: data.dec(_f$femboyCooldownMs),
+      spiderMode: data.dec(_f$spiderMode),
+      rafaelkiEaten: data.dec(_f$rafaelkiEaten),
+      rafaelkiNeeded: data.dec(_f$rafaelkiNeeded),
+      clutchAvailable: data.dec(_f$clutchAvailable),
+      clutchActive: data.dec(_f$clutchActive),
+      clutchHatchMs: data.dec(_f$clutchHatchMs),
     );
   }
 
@@ -1757,6 +1939,12 @@ abstract class GameInfoDtoCopyWith<$R, $In extends GameInfoDto, $Out>
     int? barrelCooldownMs,
     bool? femboyAvailable,
     int? femboyCooldownMs,
+    bool? spiderMode,
+    int? rafaelkiEaten,
+    int? rafaelkiNeeded,
+    bool? clutchAvailable,
+    bool? clutchActive,
+    int? clutchHatchMs,
   });
   GameInfoDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1788,6 +1976,12 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     int? barrelCooldownMs,
     bool? femboyAvailable,
     int? femboyCooldownMs,
+    bool? spiderMode,
+    int? rafaelkiEaten,
+    int? rafaelkiNeeded,
+    bool? clutchAvailable,
+    bool? clutchActive,
+    int? clutchHatchMs,
   }) => $apply(
     FieldCopyWithData({
       if (phase != null) #phase: phase,
@@ -1807,6 +2001,12 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
       if (barrelCooldownMs != null) #barrelCooldownMs: barrelCooldownMs,
       if (femboyAvailable != null) #femboyAvailable: femboyAvailable,
       if (femboyCooldownMs != null) #femboyCooldownMs: femboyCooldownMs,
+      if (spiderMode != null) #spiderMode: spiderMode,
+      if (rafaelkiEaten != null) #rafaelkiEaten: rafaelkiEaten,
+      if (rafaelkiNeeded != null) #rafaelkiNeeded: rafaelkiNeeded,
+      if (clutchAvailable != null) #clutchAvailable: clutchAvailable,
+      if (clutchActive != null) #clutchActive: clutchActive,
+      if (clutchHatchMs != null) #clutchHatchMs: clutchHatchMs,
     }),
   );
   @override
@@ -1831,6 +2031,12 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     barrelCooldownMs: data.get(#barrelCooldownMs, or: $value.barrelCooldownMs),
     femboyAvailable: data.get(#femboyAvailable, or: $value.femboyAvailable),
     femboyCooldownMs: data.get(#femboyCooldownMs, or: $value.femboyCooldownMs),
+    spiderMode: data.get(#spiderMode, or: $value.spiderMode),
+    rafaelkiEaten: data.get(#rafaelkiEaten, or: $value.rafaelkiEaten),
+    rafaelkiNeeded: data.get(#rafaelkiNeeded, or: $value.rafaelkiNeeded),
+    clutchAvailable: data.get(#clutchAvailable, or: $value.clutchAvailable),
+    clutchActive: data.get(#clutchActive, or: $value.clutchActive),
+    clutchHatchMs: data.get(#clutchHatchMs, or: $value.clutchHatchMs),
   );
 
   @override
@@ -2109,6 +2315,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       WebDtoMapper.ensureInitialized();
       BarrelDtoMapper.ensureInitialized();
       PortalDtoMapper.ensureInitialized();
+      ClutchDtoMapper.ensureInitialized();
       TrailPointDtoMapper.ensureInitialized();
       PlayerDtoMapper.ensureInitialized();
       ScoreDtoMapper.ensureInitialized();
@@ -2166,6 +2373,12 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
   static const Field<GameSnapshotDto, List<PortalDto>> _f$portals = Field(
     'portals',
     _$portals,
+  );
+  static ClutchDto? _$clutch(GameSnapshotDto v) => v.clutch;
+  static const Field<GameSnapshotDto, ClutchDto> _f$clutch = Field(
+    'clutch',
+    _$clutch,
+    opt: true,
   );
   static List<TrailPointDto> _$trail(GameSnapshotDto v) => v.trail;
   static const Field<GameSnapshotDto, List<TrailPointDto>> _f$trail = Field(
@@ -2225,6 +2438,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #webs: _f$webs,
     #barrels: _f$barrels,
     #portals: _f$portals,
+    #clutch: _f$clutch,
     #trail: _f$trail,
     #players: _f$players,
     #scores: _f$scores,
@@ -2249,6 +2463,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       webs: data.dec(_f$webs),
       barrels: data.dec(_f$barrels),
       portals: data.dec(_f$portals),
+      clutch: data.dec(_f$clutch),
       trail: data.dec(_f$trail),
       players: data.dec(_f$players),
       scores: data.dec(_f$scores),
@@ -2333,6 +2548,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   get barrels;
   ListCopyWith<$R, PortalDto, PortalDtoCopyWith<$R, PortalDto, PortalDto>>
   get portals;
+  ClutchDtoCopyWith<$R, ClutchDto, ClutchDto>? get clutch;
   ListCopyWith<
     $R,
     TrailPointDto,
@@ -2364,6 +2580,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     List<WebDto>? webs,
     List<BarrelDto>? barrels,
     List<PortalDto>? portals,
+    ClutchDto? clutch,
     List<TrailPointDto>? trail,
     List<PlayerDto>? players,
     List<ScoreDto>? scores,
@@ -2440,6 +2657,9 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     (v) => call(portals: v),
   );
   @override
+  ClutchDtoCopyWith<$R, ClutchDto, ClutchDto>? get clutch =>
+      $value.clutch?.copyWith.$chain((v) => call(clutch: v));
+  @override
   ListCopyWith<
     $R,
     TrailPointDto,
@@ -2497,6 +2717,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     List<WebDto>? webs,
     List<BarrelDto>? barrels,
     List<PortalDto>? portals,
+    Object? clutch = $none,
     List<TrailPointDto>? trail,
     List<PlayerDto>? players,
     List<ScoreDto>? scores,
@@ -2519,6 +2740,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (webs != null) #webs: webs,
       if (barrels != null) #barrels: barrels,
       if (portals != null) #portals: portals,
+      if (clutch != $none) #clutch: clutch,
       if (trail != null) #trail: trail,
       if (players != null) #players: players,
       if (scores != null) #scores: scores,
@@ -2543,6 +2765,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     webs: data.get(#webs, or: $value.webs),
     barrels: data.get(#barrels, or: $value.barrels),
     portals: data.get(#portals, or: $value.portals),
+    clutch: data.get(#clutch, or: $value.clutch),
     trail: data.get(#trail, or: $value.trail),
     players: data.get(#players, or: $value.players),
     scores: data.get(#scores, or: $value.scores),
@@ -2559,3 +2782,4 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     Then<$Out2, $R2> t,
   ) => _GameSnapshotDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
+

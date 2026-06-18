@@ -42,12 +42,20 @@ class PlayerConnection {
   int invulnerableUntil = 0;
   int webSlowedUntil = 0;
   int webPhaseUntil = 0;
+  /// Cooldown after teleporting through a portal (12s); blocks further teleports.
+  int portalTeleportUntil = 0;
   double speed = 0;
 
   /// Cell key ('x,y') the player occupied last tick — used so a portal only
   /// fires when the player freshly steps onto it, never when the second portal
   /// opens beneath a player already standing on the first.
   String? lastCellKey;
+
+  /// Wall cell the Spider is currently traversing via a web. Its web is
+  /// consumed only once she has fully cleared the cell (her collision circle no
+  /// longer overlaps it), so she's never stranded overlapping a tile that
+  /// turned solid mid-move.
+  String? wallWebCellKey;
 }
 
 class TrapState {
@@ -118,6 +126,16 @@ class TrailPoint {
   int at;
 }
 
+/// Spider-Leha's egg clutch. Hatches at [hatchAt] (Spider wins) unless the
+/// hunter reaches its cell first and destroys it.
+class ClutchState {
+  ClutchState({required this.x, required this.y, required this.hatchAt});
+
+  final int x;
+  final int y;
+  final int hatchAt;
+}
+
 class GameRound {
   GamePhase phase = GamePhase.waiting;
   int? startedAt;
@@ -131,5 +149,8 @@ class GameRound {
   List<PortalState> portals = [];
   List<int> pendingTrapRechargeAt = [];
   List<int> pendingWebRechargeAt = [];
+  // Spider "Raffaello" mode: collect Raffaellos to lay an egg clutch.
+  ClutchState? clutch;
+  int rafaelkiEaten = 0;
   Map<int, List<TrailPoint>> trails = {0: [], 1: []};
 }

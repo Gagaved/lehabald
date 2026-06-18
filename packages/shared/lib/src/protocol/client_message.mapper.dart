@@ -41,6 +41,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.placeTrap;
       case r'useAbility':
         return ClientMessageType.useAbility;
+      case r'layClutch':
+        return ClientMessageType.layClutch;
       case r'selectAspect':
         return ClientMessageType.selectAspect;
       case r'selectHunter':
@@ -75,6 +77,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'placeTrap';
       case ClientMessageType.useAbility:
         return r'useAbility';
+      case ClientMessageType.layClutch:
+        return r'layClutch';
       case ClientMessageType.selectAspect:
         return r'selectAspect';
       case ClientMessageType.selectHunter:

@@ -12,12 +12,16 @@ class GameConstants {
   static const trapCooldownMs = 9000;
   static const trapStunMs = 1500;
   static const hunterStunMs = 3000;
-  static const baseSpeed = 3.97;
+  static const baseSpeed = 3.573; // -10% across the board
   static const collisionRadius = 0.32;
   static const corridorWindow = 0.42;
   static const webPhaseMs =
       450; // safety cap; phase exits early once Spider reaches open cell
   static const webCooldownMs = 10000;
+  // A wall web is a temporary shortcut: it vanishes after this long, and if the
+  // Spider is still inside that wall when it does, she is ejected to open ground
+  // (so she can't camp inside a wall and run out the clock).
+  static const wallWebLifetimeMs = 10000;
   static const trapTriggeredDisplayMs = 2500;
   static const webSlowMs = 3000;
   static const trailLifetimeMs = 2500;
@@ -27,6 +31,13 @@ class GameConstants {
   static const maxTrapCharges = 2;
   static const maxWebCharges = 2;
   static const portalCooldownMs = 15000;
+  /// Cooldown after teleporting through a portal (applies to whoever passed).
+  static const portalTeleportCooldownMs = 12000;
+
+  // Spider "Raffaello" mode.
+  static const rafaelkiCount = 5; // Raffaellos scattered on the map
+  static const rafaelkiNeeded = 4; // how many to eat before laying a clutch
+  static const clutchHatchMs = 10000; // clutch hatches after this if undisturbed
 
   // Sasha-yakuza barrel ability.
   static const barrelSpeedMultiplier = 1.84; // of baseSpeed

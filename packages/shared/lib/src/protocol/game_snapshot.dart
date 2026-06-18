@@ -120,6 +120,20 @@ class PortalDto with PortalDtoMappable {
 }
 
 @MappableClass()
+class ClutchDto with ClutchDtoMappable {
+  const ClutchDto({
+    required this.x,
+    required this.y,
+    required this.hatchMs,
+  });
+
+  final int x;
+  final int y;
+  /// Milliseconds remaining until it hatches (for the growing visual).
+  final int hatchMs;
+}
+
+@MappableClass()
 class TrailPointDto with TrailPointDtoMappable {
   const TrailPointDto({
     required this.x,
@@ -205,6 +219,12 @@ class GameInfoDto with GameInfoDtoMappable {
     this.barrelCooldownMs = 0,
     this.femboyAvailable = false,
     this.femboyCooldownMs = 0,
+    this.spiderMode = false,
+    this.rafaelkiEaten = 0,
+    this.rafaelkiNeeded = 0,
+    this.clutchAvailable = false,
+    this.clutchActive = false,
+    this.clutchHatchMs = 0,
   });
 
   final GamePhase phase;
@@ -226,6 +246,16 @@ class GameInfoDto with GameInfoDtoMappable {
   /// Sima femboy (charm) ability readiness (hunter slot only).
   final bool femboyAvailable;
   final int femboyCooldownMs;
+  /// Spider-Leha "Raffaello" mode: collect Raffaellos to lay an egg clutch.
+  final bool spiderMode;
+  final int rafaelkiEaten;
+  final int rafaelkiNeeded;
+  /// True when the Spider has eaten enough Raffaellos to lay a clutch (key F).
+  final bool clutchAvailable;
+  /// True while an egg clutch is on the map (drives the hunter's alert banner).
+  final bool clutchActive;
+  /// Milliseconds left until the clutch hatches (Spider wins).
+  final int clutchHatchMs;
 }
 
 @MappableClass()
@@ -270,6 +300,7 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     required this.webs,
     required this.barrels,
     required this.portals,
+    this.clutch,
     required this.trail,
     required this.players,
     required this.scores,
@@ -293,6 +324,8 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   final List<WebDto> webs;
   final List<BarrelDto> barrels;
   final List<PortalDto> portals;
+  /// The Spider's egg clutch, when one is laid and visible to the viewer.
+  final ClutchDto? clutch;
   final List<TrailPointDto> trail;
   final List<PlayerDto> players;
   final List<ScoreDto> scores;

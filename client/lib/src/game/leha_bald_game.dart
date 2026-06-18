@@ -30,6 +30,8 @@ class LehaBaldGame extends FlameGame {
   Image? portalActiveImage;
   Image? portalInactiveImage;
   Image? webImage;
+  Image? rafaelkaImage;
+  Image? clutchImage;
 
   // Single keyboard path: the HardwareKeyboard handler receives every key
   // regardless of which widget holds focus. We intentionally do NOT use Flame's
@@ -58,6 +60,8 @@ class LehaBaldGame extends FlameGame {
     portalActiveImage = await _tryLoad('portal-active.png');
     portalInactiveImage = await _tryLoad('portal-inactive.png');
     webImage = await _tryLoad('web.png');
+    rafaelkaImage = await _tryLoad('rafaelka.png');
+    clutchImage = await _tryLoad('clutch.png');
   }
 
   @override
@@ -101,7 +105,8 @@ class LehaBaldGame extends FlameGame {
     _drawBushes(canvas, snapshot.bushes);
     _drawTrail(canvas, snapshot.trail);
     _drawWebs(canvas, snapshot.webs);
-    _drawLogos(canvas, snapshot.logos);
+    _drawLogos(canvas, snapshot.logos, snapshot.game.spiderMode);
+    _drawClutch(canvas, snapshot.clutch);
     _drawPortals(canvas, snapshot.portals);
     _drawTraps(canvas, snapshot.traps);
     _drawBarrels(canvas, snapshot.barrels);
@@ -195,6 +200,12 @@ class LehaBaldGame extends FlameGame {
       return;
     }
 
+    // Spider lays an egg clutch on F.
+    if (event.logicalKey == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
+      network.layClutch();
+      return;
+    }
+
     final direction = _directionForKey(event.logicalKey);
     if (direction == null) return;
 
@@ -283,10 +294,22 @@ class LehaBaldGame extends FlameGame {
     }
   }
 
-  void _drawLogos(Canvas canvas, List<LogoDto> logos) {
+  void _drawLogos(Canvas canvas, List<LogoDto> logos, bool spiderMode) {
     for (final logo in logos) {
-      final size = logo.power ? tile * 0.92 : tile * 0.25;
       final center = Offset(logo.x * tile + tile / 2, logo.y * tile + tile / 2);
+      // Spider mode: the collectibles are Raffaellos, not TikTok logos.
+      if (spiderMode) {
+        final rafaelka = rafaelkaImage;
+        if (rafaelka != null) {
+          _drawImage(canvas, rafaelka, center, tile * 0.82, 1);
+        } else {
+          canvas.drawCircle(center, tile * 0.3, Paint()..color = const Color(0xfffff3e0));
+          canvas.drawCircle(center, tile * 0.3,
+              Paint()..color = const Color(0x55cc2222)..style = PaintingStyle.stroke..strokeWidth = 2);
+        }
+        continue;
+      }
+      final size = logo.power ? tile * 0.92 : tile * 0.25;
       if (logo.power) {
         canvas.drawCircle(
           center,
@@ -298,6 +321,35 @@ class LehaBaldGame extends FlameGame {
         );
       }
       _drawImage(canvas, logoImage, center, size, 1);
+    }
+  }
+
+  /// The Spider's egg clutch — grows as it nears hatching. Uses clutch.png if
+  /// present, otherwise a procedural nest of eggs.
+  void _drawClutch(Canvas canvas, ClutchDto? clutch) {
+    if (clutch == null) return;
+    final center = Offset(clutch.x * tile + tile / 2, clutch.y * tile + tile / 2);
+    // hatchMs counts down from 10000 → 0; grow from 55% to full as it ripens.
+    final ripeness = (1.0 - (clutch.hatchMs / 10000)).clamp(0.0, 1.0);
+    final scale = 0.55 + 0.45 * ripeness;
+    // Pulsing aura so it's noticeable.
+    canvas.drawCircle(center, tile * (0.55 + 0.1 * ripeness),
+        Paint()..color = Color.fromRGBO(120, 230, 150, 0.18 + 0.12 * ripeness));
+    final img = clutchImage;
+    if (img != null) {
+      _drawImage(canvas, img, center, tile * scale, 1);
+      return;
+    }
+    // Procedural nest: a brown nest with three white eggs.
+    canvas.drawCircle(center, tile * 0.42 * scale, Paint()..color = const Color(0xff6b4a2b));
+    canvas.drawCircle(center, tile * 0.34 * scale, Paint()..color = const Color(0xff8a6239));
+    final eggPaint = Paint()..color = const Color(0xfff5f0e6);
+    for (final off in [const Offset(-0.16, 0.04), const Offset(0.16, 0.04), const Offset(0, -0.16)]) {
+      final c = center + Offset(off.dx * tile * scale, off.dy * tile * scale);
+      canvas.drawOval(
+        Rect.fromCenter(center: c, width: tile * 0.22 * scale, height: tile * 0.3 * scale),
+        eggPaint,
+      );
     }
   }
 
@@ -504,6 +556,8 @@ class LehaBaldGame extends FlameGame {
     if (player.aspect == LehaAspect.spider) return tile * 2.02;
     if (player.aspect == LehaAspect.wizard) return tile * 1.36;
     if (player.slot == 1 && player.hunterKind == HunterKind.sashaYakuza) return tile * 1.7;
+    // Sima reads small at default scale — bump her up in both forms.
+    if (player.slot == 1 && player.hunterKind == HunterKind.sima) return tile * 1.7;
     return isMe ? tile * 1.08 : tile * 1.02;
   }
 

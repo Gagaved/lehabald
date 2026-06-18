@@ -30,6 +30,7 @@ class GameEngine {
   var round = GameRound();
   var logos = <String>{};
   int _nextId = 1;
+  final _rng = Random();
 
   PlayerConnection createClient(WebSocket socket) {
     final start = GameConstants.starts.first;
@@ -80,6 +81,8 @@ class GameEngine {
         placeTrap(client);
       case ClientMessageType.useAbility:
         useAbility(client);
+      case ClientMessageType.layClutch:
+        layClutch(client);
       case ClientMessageType.selectAspect:
         final aspect = message.aspect;
         if (aspect != null) selectAspect(client, aspect);
@@ -104,7 +107,9 @@ class GameEngine {
 
   void reset({bool keepBotsReady = true}) {
     _maze = MazeService.generate();
-    logos = _maze.createLogos();
+    logos = findPlayer(0)?.aspect == LehaAspect.spider
+        ? _spawnRafaelki()
+        : _maze.createLogos();
     round = GameRound();
     for (final client in clients.values) {
       final start = GameConstants.starts[client.slot ?? 0];
@@ -250,6 +255,9 @@ class GameEngine {
           aspect == LehaAspect.spider ? GameConstants.maxWebCharges : 0
       ..webCooldownUntil = 0
       ..portalCooldownUntil = 0;
+    // Keep the lobby board's collectibles in sync with the chosen aspect:
+    // Spider shows 5 Raffaellos, everyone else the TikTok logos.
+    logos = aspect == LehaAspect.spider ? _spawnRafaelki() : _maze.createLogos();
     ensureRoundState();
   }
 
@@ -341,6 +349,9 @@ class GameEngine {
     if (client.webCharges <= 0) return;
     final now = nowMs();
     final cell = centerCell(client);
+    // Can't spin a new web while standing inside a wall — otherwise she could
+    // chain webs cell-by-cell and camp inside walls indefinitely.
+    if (maze.isWall(cell.x, cell.y)) return;
     final dir = client.lastDirection;
     // Place ONE web directly in front of Leha (same as facing direction).
     final bx = (cell.x + dir.dx).round();
@@ -355,9 +366,8 @@ class GameEngine {
 
   void placePortal(PlayerConnection client) {
     final now = nowMs();
-    // No cooldown while the pair is still being built (fewer than 2 portals);
-    // the cooldown only gates re-placing once both portals are already down.
-    if (round.portals.length >= 2 && now < client.portalCooldownUntil) return;
+    // Placing portals is free (no cooldown); the only cooldown is the 12s after
+    // someone teleports through a pair.
     final current = centerCell(client);
     final direction = client.lastDirection;
     final cell = Point(
@@ -373,9 +383,6 @@ class GameEngine {
     if (round.portals.length > 2) {
       round.portals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       round.portals.removeAt(0);
-    }
-    if (round.portals.length == 2) {
-      client.portalCooldownUntil = now + GameConstants.portalCooldownMs;
     }
   }
 
@@ -659,7 +666,16 @@ class GameEngine {
         ..portals = []
         ..pendingTrapRechargeAt = []
         ..pendingWebRechargeAt = []
+        ..clutch = null
+        ..rafaelkiEaten = 0
         ..trails = {0: [], 1: []};
+      // Spider plays the Raffaello mode (5 candies, no TikToks); other Lehas
+      // keep the classic TikTok logos.
+      if (findPlayer(0)?.aspect == LehaAspect.spider) {
+        logos = _spawnRafaelki();
+      } else {
+        logos = _maze.createLogos();
+      }
       final hunter = findPlayer(1);
       if (hunter != null) {
         hunter
@@ -757,10 +773,9 @@ class GameEngine {
       if (client.slot == null) continue;
       updatePlayerState(client, now);
       movePlayer(client, GameConstants.tickMs / 1000);
-      if (client.slot == 0) {
-        collectLogo(client);
-        resolvePortal(client);
-      }
+      if (client.slot == 0) collectLogo(client);
+      // Both Leha and the hunter can step through Wizard-Leha's portals.
+      if (client.slot == 0 || client.slot == 1) resolvePortal(client, now);
     }
 
     final leha = findPlayer(0);
@@ -770,12 +785,37 @@ class GameEngine {
     updateBarrels(leha, now, GameConstants.tickMs / 1000);
     resolveCollision(leha, hunter, now);
     resolveTrap(leha, now);
+    resolveClutch(hunter, now);
+    if (round.phase != GamePhase.playing) return;
 
     final startedAt = round.startedAt;
-    if (round.phase == GamePhase.playing &&
+    // Spider's Raffaello mode has no survival timer — only a hatched clutch
+    // (Spider wins) or being caught (hunter wins) ends the round.
+    if (!_isSpiderRound() &&
         startedAt != null &&
         now - startedAt >= GameConstants.roundDurationMs) {
       endGame(0, 'Леха продержался 3 минуты.');
+    }
+  }
+
+  /// Hatches the Spider's clutch (she wins) or, if the hunter reaches it first,
+  /// destroys it and respawns a fresh batch of Raffaellos to try again.
+  void resolveClutch(PlayerConnection? hunter, int now) {
+    final clutch = round.clutch;
+    if (clutch == null) return;
+    if (hunter != null) {
+      final hc = centerCell(hunter);
+      if (hc.x == clutch.x && hc.y == clutch.y) {
+        round
+          ..clutch = null
+          ..rafaelkiEaten = 0;
+        logos = _spawnRafaelki();
+        logger.log({'event': 'clutch_destroyed'});
+        return;
+      }
+    }
+    if (now >= clutch.hatchAt) {
+      endGame(0, 'Кладка вылупилась — Леха-паук победил!');
     }
   }
 
@@ -827,6 +867,7 @@ class GameEngine {
       webs: visibleWebsFor(viewer),
       barrels: visibleBarrelsFor(viewer, now),
       portals: visiblePortalsFor(viewer),
+      clutch: visibleClutchFor(viewer, now),
       trail: trailForClient(viewer, now),
       players: visiblePlayers,
       scores: clients.values
@@ -876,6 +917,17 @@ class GameEngine {
             viewer.slot == 1 && viewer.hunterKind == HunterKind.sima
                 ? max(0, viewer.simaCooldownUntil - now)
                 : 0,
+        spiderMode: _isSpiderRound(),
+        rafaelkiEaten: round.rafaelkiEaten,
+        rafaelkiNeeded: GameConstants.rafaelkiNeeded,
+        clutchAvailable: viewer.slot == 0 &&
+            _isSpiderRound() &&
+            round.phase == GamePhase.playing &&
+            round.clutch == null &&
+            round.rafaelkiEaten >= GameConstants.rafaelkiNeeded,
+        clutchActive: round.clutch != null,
+        clutchHatchMs:
+            round.clutch == null ? 0 : max(0, round.clutch!.hatchAt - now),
       ),
       status: statusFor(viewer),
       leaderboard: stats
@@ -913,11 +965,10 @@ class GameEngine {
       final sima = _activeSima(now);
       if (sima != null &&
           maze.hasLineOfSight(playerPos(player), playerPos(sima))) {
-        final beforeCell = centerCell(player);
         _charmMove(player, sima, dt, now);
         _wrapTunnel(player);
         resolveWebContact(player, now);
-        consumePassedWallWeb(player, beforeCell);
+        consumePassedWallWeb(player);
         return;
       }
     }
@@ -932,14 +983,13 @@ class GameEngine {
     player
       ..direction = requested
       ..lastDirection = requested;
-    final beforeCell = centerCell(player);
     if (!_moveWithCornering(player, requested, distance, now)) {
       player.direction = null;
     }
 
     _wrapTunnel(player);
     resolveWebContact(player, now);
-    consumePassedWallWeb(player, beforeCell);
+    consumePassedWallWeb(player);
   }
 
   /// Moves [player] by [dist] in [dir]. If a cardinal move is blocked only
@@ -1026,6 +1076,11 @@ class GameEngine {
     final cell = centerCell(player);
     final key = '${cell.x},${cell.y}';
     if (!logos.remove(key)) return;
+    // Spider eats Raffaellos toward a clutch — no score, power or timer change.
+    if (_isSpiderRound()) {
+      round.rafaelkiEaten += 1;
+      return;
+    }
     player.score += 10;
     final startedAt = round.startedAt;
     if (round.phase == GamePhase.playing && startedAt != null) {
@@ -1035,6 +1090,45 @@ class GameEngine {
         maze.superLogoKeys.contains(key)) {
       round.lehaPowerUntil = nowMs() + GameConstants.powerDurationMs;
     }
+  }
+
+  bool _isSpiderRound() => findPlayer(0)?.aspect == LehaAspect.spider;
+
+  /// Picks [GameConstants.rafaelkiCount] random open cells for Raffaellos.
+  Set<String> _spawnRafaelki() {
+    final spawns = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    final open = <String>[];
+    for (var y = 0; y < maze.rows; y += 1) {
+      for (var x = 0; x < maze.cols; x += 1) {
+        final key = '$x,$y';
+        if (maze.isWall(x, y) || spawns.contains(key)) continue;
+        open.add(key);
+      }
+    }
+    open.shuffle(_rng);
+    return open.take(GameConstants.rafaelkiCount).toSet();
+  }
+
+  /// Spider lays an egg clutch once she's eaten enough Raffaellos. Allowed on
+  /// floor and in bushes, but not on walls or webs. One clutch at a time.
+  void layClutch(PlayerConnection client) {
+    if (round.phase != GamePhase.playing) return;
+    if (client.slot != 0 || client.aspect != LehaAspect.spider) return;
+    if (round.clutch != null) return;
+    if (round.rafaelkiEaten < GameConstants.rafaelkiNeeded) return;
+    final cell = centerCell(client);
+    if (maze.isWall(cell.x, cell.y)) return;
+    if (round.webs.any((w) => w.x == cell.x && w.y == cell.y)) return;
+    round
+      ..clutch = ClutchState(
+        x: cell.x,
+        y: cell.y,
+        hatchAt: nowMs() + GameConstants.clutchHatchMs,
+      )
+      ..rafaelkiEaten = 0;
+    // Remaining Raffaellos no longer matter while the clutch is incubating.
+    logos = {};
+    logger.log({'event': 'clutch_laid', 'x': cell.x, 'y': cell.y});
   }
 
   void updateTrail(PlayerConnection player, int now) {
@@ -1070,9 +1164,33 @@ class GameEngine {
     }
   }
 
-  void expireWebs(int _) {
-    // Webs do not expire by timer: floor webs are consumed by the hunter,
-    // wall webs are consumed after Spider Leha passes through them.
+  void expireWebs(int now) {
+    // Floor webs persist until the hunter steps on them; wall webs are a
+    // temporary shortcut that expires by timer. If the Spider is still inside
+    // an expiring wall web she's ejected to open ground — no camping in walls.
+    final spider = findPlayer(0);
+    round.webs.removeWhere((web) {
+      if (!maze.isWall(web.x, web.y)) return false;
+      if (now - web.createdAt < GameConstants.wallWebLifetimeMs) return false;
+      if (spider != null &&
+          spider.aspect == LehaAspect.spider &&
+          _circleOverlapsCell(spider.x, spider.y, web.x, web.y)) {
+        _ejectFromWall(spider);
+      }
+      return true;
+    });
+  }
+
+  /// Snaps the Spider to the nearest open cell centre (used when she'd otherwise
+  /// be left overlapping a wall tile, e.g. an expiring wall web).
+  void _ejectFromWall(PlayerConnection spider) {
+    final target = nearestOpenCell(centerCell(spider));
+    spider
+      ..x = target.x + 0.5
+      ..y = target.y + 0.5
+      ..direction = null
+      ..nextDirection = null
+      ..wallWebCellKey = null;
   }
 
   void expireTraps(int now) {
@@ -1309,6 +1427,17 @@ class GameEngine {
   }
 
   Iterable<String> visibleLogosFor(PlayerConnection viewer) {
+    // Spider's Raffaellos are seen only with normal sight (no map-wide reveal),
+    // by both Leha and the hunter.
+    if (_isSpiderRound()) {
+      if (viewer.slot == null) return logos;
+      final vp = playerPos(viewer);
+      return logos.where((key) {
+        final p = key.split(',');
+        final tp = Point(int.parse(p[0]) + 0.5, int.parse(p[1]) + 0.5);
+        return maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp);
+      });
+    }
     if (viewer.slot == null || viewer.slot == 0) return logos;
     // Hunter sees super-logo positions only when Leha is actually Super Leha.
     final leha = findPlayer(0);
@@ -1316,6 +1445,23 @@ class GameEngine {
       return logos.where(maze.superLogoKeys.contains);
     }
     return const [];
+  }
+
+  /// The clutch as seen by [viewer]: Leha and spectators always see their own;
+  /// the hunter must find it with normal sight (it can hide in a bush).
+  ClutchDto? visibleClutchFor(PlayerConnection viewer, int now) {
+    final c = round.clutch;
+    if (c == null) return null;
+    final dto = ClutchDto(x: c.x, y: c.y, hatchMs: max(0, c.hatchAt - now));
+    if (viewer.slot == 0 || viewer.slot == null) return dto;
+    final vp = playerPos(viewer);
+    if (maze.isBush(c.x, c.y) &&
+        !maze.isBush(viewer.x.floor(), viewer.y.floor())) {
+      return null;
+    }
+    final tp = Point(c.x + 0.5, c.y + 0.5);
+    if (maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp)) return dto;
+    return null;
   }
 
   List<TrapDto> visibleTrapsFor(PlayerConnection viewer, int now) {
@@ -1402,10 +1548,8 @@ class GameEngine {
     return switch (viewer.aspect) {
       LehaAspect.superLeha => false,
       LehaAspect.spider => viewer.webCharges > 0,
-      // Free to place until the second portal is down; cooldown only applies
-      // once both portals exist.
-      LehaAspect.wizard =>
-        round.portals.length < 2 || now >= viewer.portalCooldownUntil,
+      // Placing portals is always free; the cooldown is on teleporting, not placing.
+      LehaAspect.wizard => true,
     };
   }
 
@@ -1416,8 +1560,7 @@ class GameEngine {
       LehaAspect.spider => viewer.webCharges >= GameConstants.maxWebCharges
           ? 0
           : max(0, viewer.webCooldownUntil - now),
-      LehaAspect.wizard =>
-        round.portals.length < 2 ? 0 : max(0, viewer.portalCooldownUntil - now),
+      LehaAspect.wizard => 0,
     };
   }
 
@@ -1521,19 +1664,16 @@ class GameEngine {
 
   Point<double> playerPos(PlayerConnection p) => Point(p.x, p.y);
 
-  void resolvePortal(PlayerConnection player) {
-    if (player.aspect != LehaAspect.wizard) {
-      player.lastCellKey = null;
-      return;
-    }
+  void resolvePortal(PlayerConnection player, int now) {
     final cell = centerCell(player);
     final cellKey = '${cell.x},${cell.y}';
     final freshlyEntered = cellKey != player.lastCellKey;
     player.lastCellKey = cellKey;
 
-    // Teleport only with both portals open AND on a fresh step onto a portal,
-    // so opening the second portal under a standing player doesn't yank them.
+    // Teleport only with both portals open, on a fresh step onto a portal, and
+    // when this player isn't on their post-teleport cooldown.
     if (round.portals.length != 2 || !freshlyEntered) return;
+    if (now < player.portalTeleportUntil) return;
     final portalIndex = round.portals
         .indexWhere((portal) => portal.x == cell.x && portal.y == cell.y);
     if (portalIndex == -1) return;
@@ -1543,7 +1683,9 @@ class GameEngine {
       ..y = target.y + 0.5
       ..direction = null
       ..nextDirection = null
-      ..lastCellKey = '${target.x},${target.y}';
+      ..lastCellKey = '${target.x},${target.y}'
+      ..portalTeleportUntil = now + GameConstants.portalTeleportCooldownMs;
+    // Portals are consumed on use.
     round.portals = [];
   }
 
@@ -1580,15 +1722,37 @@ class GameEngine {
     );
   }
 
-  void consumePassedWallWeb(PlayerConnection player, Point<int> beforeCell) {
+  /// Tracks the wall cell the Spider is passing through and only consumes its
+  /// web once she has *fully* cleared the cell. Removing it the instant her
+  /// centre crosses out — while her body still overlaps the tile — would turn
+  /// the tile solid beneath her and strand her (the classic "stuck in wall").
+  void consumePassedWallWeb(PlayerConnection player) {
     if (player.slot != 0 || player.aspect != LehaAspect.spider) return;
-    final afterCell = centerCell(player);
-    if (afterCell == beforeCell || !maze.isWall(beforeCell.x, beforeCell.y)) {
+    final cell = centerCell(player);
+    if (maze.isWall(cell.x, cell.y)) {
+      // Still inside a wall cell — remember it so we can consume it on exit.
+      player.wallWebCellKey = '${cell.x},${cell.y}';
       return;
     }
-    final index = round.webs
-        .indexWhere((web) => web.x == beforeCell.x && web.y == beforeCell.y);
+    final key = player.wallWebCellKey;
+    if (key == null) return;
+    final parts = key.split(',');
+    final wx = int.parse(parts[0]);
+    final wy = int.parse(parts[1]);
+    // Wait until her collision circle no longer touches the wall cell.
+    if (_circleOverlapsCell(player.x, player.y, wx, wy)) return;
+    final index = round.webs.indexWhere((web) => web.x == wx && web.y == wy);
     if (index != -1) round.webs.removeAt(index);
+    player.wallWebCellKey = null;
+  }
+
+  bool _circleOverlapsCell(double x, double y, int cx, int cy) {
+    final r = GameConstants.collisionRadius;
+    final closestX = x.clamp(cx.toDouble(), cx + 1.0);
+    final closestY = y.clamp(cy.toDouble(), cy + 1.0);
+    final ddx = x - closestX;
+    final ddy = y - closestY;
+    return ddx * ddx + ddy * ddy < r * r;
   }
 
   void endWebPhase(PlayerConnection player) {
