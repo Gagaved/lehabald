@@ -38,12 +38,16 @@ class PlayerDto with PlayerDtoMappable {
   final bool invulnerable;
   final int hp;
   final LehaAspect? aspect;
+
   /// Hunter variant — only sent for the hunter slot (Hunter / Sasha-yakuza).
   final HunterKind? hunterKind;
+
   /// True while Leha's vision radius is collapsed after a barrel hit.
   final bool blinded;
+
   /// True while Sima is in femboy form (charm ability active).
   final bool femboy;
+
   /// Facing direction — only sent for Spider and Wizard Leha (direction indicator).
   final MoveDirection? facing;
 }
@@ -119,6 +123,89 @@ class PortalDto with PortalDtoMappable {
   final bool active;
 }
 
+/// A crystal's mirror projection of a player. Drawn like the mimicked player
+/// but with [opacity] (fades with the crystal-to-player distance).
+@MappableClass()
+class IllusionDto with IllusionDtoMappable {
+  const IllusionDto({
+    required this.x,
+    required this.y,
+    required this.slot,
+    required this.opacity,
+    this.aspect,
+    this.hunterKind,
+    this.powered = false,
+    this.femboy = false,
+  });
+
+  final double x;
+  final double y;
+  final int? slot;
+  final double opacity;
+  final LehaAspect? aspect;
+  final HunterKind? hunterKind;
+  final bool powered;
+  final bool femboy;
+}
+
+@MappableClass()
+class SarcophagusDto with SarcophagusDtoMappable {
+  const SarcophagusDto({
+    required this.x,
+    required this.y,
+    required this.cracked,
+    required this.hasMummy,
+  });
+
+  final int x;
+  final int y;
+  final bool cracked;
+  final bool hasMummy;
+}
+
+@MappableClass()
+class MummyDto with MummyDtoMappable {
+  const MummyDto({
+    required this.x,
+    required this.y,
+    required this.fleeing,
+  });
+
+  final double x;
+  final double y;
+  final bool fleeing;
+}
+
+@MappableClass()
+class ChimeDto with ChimeDtoMappable {
+  const ChimeDto({
+    required this.x,
+    required this.y,
+    required this.progress,
+  });
+
+  final double x;
+  final double y;
+
+  /// 0..1 expansion progress of the pulse (drives ring radius and fade).
+  final double progress;
+}
+
+@MappableClass()
+class MushroomDto with MushroomDtoMappable {
+  const MushroomDto({
+    required this.x,
+    required this.y,
+    required this.stage,
+  });
+
+  final int x;
+  final int y;
+
+  /// Growth stage 0 (sprout) .. max (mature).
+  final int stage;
+}
+
 @MappableClass()
 class ClutchDto with ClutchDtoMappable {
   const ClutchDto({
@@ -129,6 +216,7 @@ class ClutchDto with ClutchDtoMappable {
 
   final int x;
   final int y;
+
   /// Milliseconds remaining until it hatches (for the growing visual).
   final int hatchMs;
 }
@@ -182,8 +270,10 @@ class RoleStateDto with RoleStateDtoMappable {
   final String? playerId;
   final LehaAspect? aspect;
   final HunterKind? hunterKind;
+
   /// True when this slot is occupied by an AI bot rather than a human.
   final bool bot;
+
   /// Remaining time before an unready occupied slot is released.
   final int? readyTimeoutMs;
 }
@@ -240,20 +330,26 @@ class GameInfoDto with GameInfoDtoMappable {
   final bool abilityAvailable;
   final int abilityCooldownMs;
   final int abilityCharges;
+
   /// Sasha-yakuza barrel ability readiness (hunter slot only).
   final bool barrelAvailable;
   final int barrelCooldownMs;
+
   /// Sima femboy (charm) ability readiness (hunter slot only).
   final bool femboyAvailable;
   final int femboyCooldownMs;
+
   /// Spider-Leha "Raffaello" mode: collect Raffaellos to lay an egg clutch.
   final bool spiderMode;
   final int rafaelkiEaten;
   final int rafaelkiNeeded;
+
   /// True when the Spider has eaten enough Raffaellos to lay a clutch (key F).
   final bool clutchAvailable;
+
   /// True while an egg clutch is on the map (drives the hunter's alert banner).
   final bool clutchActive;
+
   /// Milliseconds left until the clutch hatches (Spider wins).
   final int clutchHatchMs;
 }
@@ -298,6 +394,16 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     this.crackedWalls = const [],
     this.biome = CaveBiome.forest,
     this.stoneSeed = 0,
+    this.crystals = const [],
+    this.quicksand = const [],
+    this.amethystShards = const [],
+    this.chimes = const [],
+    this.mushrooms = const [],
+    this.spores = const [],
+    this.illusions = const [],
+    this.sarcophagi = const [],
+    this.mummies = const [],
+    this.enabledBiomes = const [],
     required this.logos,
     required this.traps,
     required this.webs,
@@ -320,19 +426,54 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   final int rows;
   final int cols;
   final List<String> maze;
+
   /// Static bush cells (cover): hide players from scent/xray.
   final List<Vec2i> bushes;
+
   /// Cracked wall cells — the only places Spider-Leha may spin a web.
   final List<Vec2i> crackedWalls;
+
   /// The cave's visual theme (drives wall/bush palette on the client).
   final CaveBiome biome;
+
   /// Per-map seed so the stone colour varies between maps of the same biome.
   final int stoneSeed;
+
+  /// Ice-biome crystal entities — each projects mirror illusions of players.
+  final List<Vec2i> crystals;
+
+  /// Sandstone-biome quicksand cells — anyone standing on them moves slower.
+  final List<Vec2i> quicksand;
+
+  /// Amethyst-biome intact shard cells (shatter & ring out when stepped on).
+  final List<Vec2i> amethystShards;
+
+  /// Active amethyst chimes — expanding pulses revealing a stepper's position.
+  final List<ChimeDto> chimes;
+
+  /// Amethyst-biome mushroom colony entities (grow, then die into spores).
+  final List<MushroomDto> mushrooms;
+
+  /// Amethyst-biome spore cells — conceal like bushes and slow movement.
+  final List<Vec2i> spores;
+
+  /// Crystal-projected player illusions visible to this viewer.
+  final List<IllusionDto> illusions;
+
+  /// Sandstone-biome sarcophagi that can crack and release mummies.
+  final List<SarcophagusDto> sarcophagi;
+
+  /// Active mummy-zombies released from sarcophagi.
+  final List<MummyDto> mummies;
+
+  /// Which biomes are enabled for the next map (lobby checkboxes).
+  final List<CaveBiome> enabledBiomes;
   final List<LogoDto> logos;
   final List<TrapDto> traps;
   final List<WebDto> webs;
   final List<BarrelDto> barrels;
   final List<PortalDto> portals;
+
   /// The Spider's egg clutch, when one is laid and visible to the viewer.
   final ClutchDto? clutch;
   final List<TrailPointDto> trail;
@@ -342,8 +483,10 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   final LobbyDto lobby;
   final GameInfoDto game;
   final String status;
+
   /// Win/loss leaderboard across all registered nicknames (top entries).
   final List<UserStatsDto> leaderboard;
+
   /// The viewing user's own stats, if they registered a nickname.
   final UserStatsDto? yourStats;
 }

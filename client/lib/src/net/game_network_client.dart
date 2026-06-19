@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dart_mappable/dart_mappable.dart';
 import 'package:flutter/widgets.dart';
@@ -37,6 +38,18 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   Timer? _reconnectTimer;
   Timer? _watchdogTimer;
   DateTime _lastMessageAt = DateTime.now();
+  int _lastMessageMs = 0;
+  int _snapshotCount = 0;
+  int _snapshotReceivedMs = 0;
+  int _sentCount = 0;
+  int _inputCount = 0;
+  int _protocolErrors = 0;
+  int _reconnects = 0;
+  double _gapEwmaMs = 0;
+  int _minGapMs = 1 << 30;
+  int _maxGapMs = 0;
+  int _lastPayloadBytes = 0;
+  final List<String> _logLines = <String>[];
   // Monotonically increasing id for the current connection attempt. Callbacks
   // from a superseded channel carry an older id and are ignored, so a late
   // onDone/onError from a dead socket can never clobber a live connection.
@@ -44,6 +57,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   // The server broadcasts state every tick (~16ms); if nothing arrives for this
   // long the socket is half-open (common on WiFi) and we force a reconnect.
   static const _watchdogTimeout = Duration(seconds: 3);
+  static const _maxLogLines = 260;
 
   Future<void> _loadNickname() async {
     try {
@@ -78,6 +92,13 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   GameSnapshotDto? snapshot;
   String status = 'Подключение к серверу...';
   bool get connected => _channel != null;
+  int get snapshotVersion => _snapshotCount;
+  int get snapshotReceivedMs => _snapshotReceivedMs;
+  String get diagnosticsText => _buildDiagnosticsText();
+
+  void addClientLog(String event, [Map<String, Object?> fields = const {}]) {
+    _addLog(event, fields);
+  }
 
   void connect([String? url]) {
     if (url != null && url.isNotEmpty) serverUrl = url;
@@ -90,6 +111,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       final channel = WebSocketChannel.connect(Uri.parse(serverUrl));
       _channel = channel;
       status = 'Ожидание сервера...';
+      _addLog('connect', {'url': serverUrl, 'generation': generation});
       notifyListeners();
       _subscription = channel.stream.listen(
         _onMessage,
@@ -101,6 +123,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       // Re-register our nickname: the server creates a fresh connection each time.
       _sendName();
     } catch (_) {
+      _addLog('connect-error', {'url': serverUrl});
       _scheduleReconnect(generation);
     }
   }
@@ -114,6 +137,9 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       if (DateTime.now().difference(_lastMessageAt) > _watchdogTimeout) {
         // Socket looks alive but the server went silent — tear it down and
         // reconnect rather than keep firing input into a dead pipe.
+        _addLog('watchdog-timeout', {
+          'silentMs': DateTime.now().difference(_lastMessageAt).inMilliseconds,
+        });
         _channel?.sink.close();
         _scheduleReconnect();
       }
@@ -132,7 +158,15 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
 
   void send(ClientMessage message) {
     final channel = _channel;
-    if (channel == null) return;
+    if (channel == null) {
+      _addLog('send-drop', {'type': message.type.name, 'reason': 'no-channel'});
+      return;
+    }
+    _sentCount += 1;
+    if (message.type == ClientMessageType.input ||
+        message.type == ClientMessageType.stop) {
+      _inputCount += 1;
+    }
     channel.sink.add(jsonEncode(message.toMap()));
   }
 
@@ -188,16 +222,27 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
     send(const ClientMessage(type: ClientMessageType.restart));
   }
 
+  void setBiomes(List<CaveBiome> biomes) {
+    send(ClientMessage(type: ClientMessageType.setBiomes, biomes: biomes));
+  }
+
   void _onMessage(dynamic raw) {
-    _lastMessageAt = DateTime.now();
+    final receivedAt = DateTime.now();
+    final receivedMs = receivedAt.millisecondsSinceEpoch;
+    _lastMessageAt = receivedAt;
     if (raw is! String) return;
     try {
+      final decodeWatch = Stopwatch()..start();
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
       snapshot = MapperContainer.globals.fromMap<GameSnapshotDto>(decoded);
+      decodeWatch.stop();
+      _recordSnapshot(raw.length, receivedMs, decodeWatch.elapsedMicroseconds);
       status = snapshot?.status ?? '';
       notifyListeners();
     } catch (error) {
+      _protocolErrors += 1;
+      _addLog('protocol-error', {'error': '$error'});
       status = 'Ошибка протокола: $error';
       notifyListeners();
     }
@@ -206,11 +251,77 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   void _scheduleReconnect([int? generation]) {
     // Ignore late callbacks from a channel we already replaced.
     if (generation != null && generation != _generation) return;
+    _reconnects += 1;
+    _addLog('reconnect-scheduled', {
+      if (generation != null) 'generation': generation,
+      'total': _reconnects,
+    });
     _channel = null;
     _watchdogTimer?.cancel();
     status = 'Связь потеряна. Переподключение...';
     notifyListeners();
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(milliseconds: 900), connect);
+  }
+
+  void _recordSnapshot(int payloadBytes, int receivedMs, int decodeUs) {
+    _snapshotCount += 1;
+    _snapshotReceivedMs = receivedMs;
+    _lastPayloadBytes = payloadBytes;
+    if (_lastMessageMs != 0) {
+      final gap = max(0, receivedMs - _lastMessageMs);
+      _minGapMs = min(_minGapMs, gap);
+      _maxGapMs = max(_maxGapMs, gap);
+      _gapEwmaMs =
+          _gapEwmaMs == 0 ? gap.toDouble() : _gapEwmaMs * 0.92 + gap * 0.08;
+      if (gap > 80) {
+        _addLog('snapshot-gap', {'gapMs': gap, 'bytes': payloadBytes});
+      }
+    }
+    _lastMessageMs = receivedMs;
+    if (_snapshotCount == 1 || _snapshotCount % 300 == 0) {
+      _addLog('snapshot-stats', {
+        'count': _snapshotCount,
+        'gapAvgMs': _gapEwmaMs.toStringAsFixed(1),
+        'gapMaxMs': _maxGapMs,
+        'decodeUs': decodeUs,
+        'bytes': payloadBytes,
+      });
+    }
+  }
+
+  void _addLog(String event, [Map<String, Object?> fields = const {}]) {
+    final ts = DateTime.now().toIso8601String();
+    final suffix = fields.entries
+        .where((entry) => entry.value != null)
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(' ');
+    _logLines.add(suffix.isEmpty ? '$ts $event' : '$ts $event $suffix');
+    if (_logLines.length > _maxLogLines) {
+      _logLines.removeRange(0, _logLines.length - _maxLogLines);
+    }
+  }
+
+  String _buildDiagnosticsText() {
+    final now = DateTime.now();
+    final silentMs = now.difference(_lastMessageAt).inMilliseconds;
+    final minGap = _minGapMs == 1 << 30 ? 0 : _minGapMs;
+    final summary = <String>[
+      'Leha Bald client diagnostics',
+      'time=${now.toIso8601String()}',
+      'url=$serverUrl',
+      'connected=$connected',
+      'status=$status',
+      'snapshots=$_snapshotCount',
+      'snapshotGapMs avg=${_gapEwmaMs.toStringAsFixed(1)} min=$minGap max=$_maxGapMs lastSilent=$silentMs',
+      'lastPayloadBytes=$_lastPayloadBytes',
+      'sent=$_sentCount inputOrStop=$_inputCount reconnects=$_reconnects protocolErrors=$_protocolErrors',
+      if (snapshot != null)
+        'you id=${snapshot!.you.id} role=${snapshot!.you.role.name} slot=${snapshot!.you.slot} phase=${snapshot!.game.phase.name} players=${snapshot!.players.length}',
+      '',
+      'Recent log:',
+      ..._logLines,
+    ];
+    return summary.join('\n');
   }
 }

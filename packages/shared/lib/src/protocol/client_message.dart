@@ -21,6 +21,7 @@ enum ClientMessageType {
   addBot,
   removeBot,
   restart,
+  setBiomes,
 }
 
 @MappableClass()
@@ -33,6 +34,7 @@ class ClientMessage with ClientMessageMappable {
     this.hunter,
     this.name,
     this.ready,
+    this.biomes,
   });
 
   final ClientMessageType type;
@@ -42,4 +44,6 @@ class ClientMessage with ClientMessageMappable {
   final HunterKind? hunter;
   final String? name;
   final bool? ready;
+  /// Biomes enabled for the next map (for [ClientMessageType.setBiomes]).
+  final List<CaveBiome>? biomes;
 }

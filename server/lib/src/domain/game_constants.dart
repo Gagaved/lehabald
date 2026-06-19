@@ -40,10 +40,53 @@ class GameConstants {
   // Spider may spin a web. Kept small so they're a deliberate, scarce resource.
   static const crackedWallCount = 8;
 
+  // Ice biome crystals: scattered clusters that project mirror illusions on the
+  // perpendicular through the crystal relative to the player→crystal ray.
+  static const crystalSpots = 8; // clusters
+  static const crystalIllusionFadeStart = 3.0; // full opacity within this range
+  static const crystalIllusionMaxRange = 5.0; // invisible beyond this
+  static const crystalIllusionCullRange = 5.5; // keep zero-opacity edge stable
+
+  // Sandstone biome: mummies are sealed inside sandstone wall blocks. A block
+  // cracks when a player passes nearby, then releases its mummy (destroying the
+  // block) when a player enters the radius again. A fleeing mummy dives into any
+  // other sandstone wall to seal a fresh lair.
+  static const sarcophagusCount = 10;
+  static const sarcophagusTriggerRadius = 1.35;
+  static const mummyChaseSpeedMultiplier = 2.0;
+  static const mummyFleeSpeedMultiplier = 1.0;
+  static const mummyStunMs = 2000;
+  static const mummyHitRadius = 0.62;
+  static const mummyHideRadius = 0.35;
+
+  // Sandstone biome quicksand: scattered patches of open floor that slow anyone
+  // walking through them to a crawl.
+  static const quicksandSpots = 6; // patch seeds
+  static const quicksandSlowFactor = 0.5;
+
+  // Amethyst biome shards: purple crystals scattered on the floor. Stepping on
+  // one shatters it and rings out an expanding purple pulse that lingers and
+  // reveals the stepper's position to everyone.
+  static const amethystShardCount = 18;
+  static const chimeDurationMs = 5000;
+  static const chimeMaxRadius = 4.0; // tiles the pulse expands to
+
+  // Amethyst biome mushroom colony: mushrooms grow through stages, then die and
+  // release purple spores in a 1-cell radius. Spores conceal (like bushes) and
+  // slow movement. Trampling an immature mushroom drops one spore and resets it.
+  static const mushroomStartCount = 10;
+  static const mushroomMaxCount = 24;
+  static const mushroomMaxStage = 3; // 0=sprout .. 3=mature (dies next grow)
+  static const mushroomGrowIntervalMs = 12000;
+  static const mushroomSporeDurationMs = 8000;
+  static const mushroomSporeSlowFactor = 0.7;
+  static const mushroomSpreadRadius = 3;
+
   // Spider "Raffaello" mode.
   static const rafaelkiCount = 6; // Raffaellos scattered on the map
   static const rafaelkiNeeded = 5; // how many to eat before laying a clutch
-  static const clutchHatchMs = 20000; // clutch hatches after this if undisturbed
+  static const clutchHatchMs =
+      20000; // clutch hatches after this if undisturbed
 
   // Sasha-yakuza barrel ability.
   static const barrelSpeedMultiplier = 1.84; // of baseSpeed

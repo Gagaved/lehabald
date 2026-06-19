@@ -911,6 +911,735 @@ class _PortalDtoCopyWithImpl<$R, $Out>
   ) => _PortalDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class IllusionDtoMapper extends ClassMapperBase<IllusionDto> {
+  IllusionDtoMapper._();
+
+  static IllusionDtoMapper? _instance;
+  static IllusionDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = IllusionDtoMapper._());
+      LehaAspectMapper.ensureInitialized();
+      HunterKindMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'IllusionDto';
+
+  static double _$x(IllusionDto v) => v.x;
+  static const Field<IllusionDto, double> _f$x = Field('x', _$x);
+  static double _$y(IllusionDto v) => v.y;
+  static const Field<IllusionDto, double> _f$y = Field('y', _$y);
+  static int? _$slot(IllusionDto v) => v.slot;
+  static const Field<IllusionDto, int> _f$slot = Field('slot', _$slot);
+  static double _$opacity(IllusionDto v) => v.opacity;
+  static const Field<IllusionDto, double> _f$opacity = Field(
+    'opacity',
+    _$opacity,
+  );
+  static LehaAspect? _$aspect(IllusionDto v) => v.aspect;
+  static const Field<IllusionDto, LehaAspect> _f$aspect = Field(
+    'aspect',
+    _$aspect,
+    opt: true,
+  );
+  static HunterKind? _$hunterKind(IllusionDto v) => v.hunterKind;
+  static const Field<IllusionDto, HunterKind> _f$hunterKind = Field(
+    'hunterKind',
+    _$hunterKind,
+    opt: true,
+  );
+  static bool _$powered(IllusionDto v) => v.powered;
+  static const Field<IllusionDto, bool> _f$powered = Field(
+    'powered',
+    _$powered,
+    opt: true,
+    def: false,
+  );
+  static bool _$femboy(IllusionDto v) => v.femboy;
+  static const Field<IllusionDto, bool> _f$femboy = Field(
+    'femboy',
+    _$femboy,
+    opt: true,
+    def: false,
+  );
+
+  @override
+  final MappableFields<IllusionDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #slot: _f$slot,
+    #opacity: _f$opacity,
+    #aspect: _f$aspect,
+    #hunterKind: _f$hunterKind,
+    #powered: _f$powered,
+    #femboy: _f$femboy,
+  };
+
+  static IllusionDto _instantiate(DecodingData data) {
+    return IllusionDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      slot: data.dec(_f$slot),
+      opacity: data.dec(_f$opacity),
+      aspect: data.dec(_f$aspect),
+      hunterKind: data.dec(_f$hunterKind),
+      powered: data.dec(_f$powered),
+      femboy: data.dec(_f$femboy),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static IllusionDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<IllusionDto>(map);
+  }
+
+  static IllusionDto fromJson(String json) {
+    return ensureInitialized().decodeJson<IllusionDto>(json);
+  }
+}
+
+mixin IllusionDtoMappable {
+  String toJson() {
+    return IllusionDtoMapper.ensureInitialized().encodeJson<IllusionDto>(
+      this as IllusionDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return IllusionDtoMapper.ensureInitialized().encodeMap<IllusionDto>(
+      this as IllusionDto,
+    );
+  }
+
+  IllusionDtoCopyWith<IllusionDto, IllusionDto, IllusionDto> get copyWith =>
+      _IllusionDtoCopyWithImpl<IllusionDto, IllusionDto>(
+        this as IllusionDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return IllusionDtoMapper.ensureInitialized().stringifyValue(
+      this as IllusionDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return IllusionDtoMapper.ensureInitialized().equalsValue(
+      this as IllusionDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return IllusionDtoMapper.ensureInitialized().hashValue(this as IllusionDto);
+  }
+}
+
+extension IllusionDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, IllusionDto, $Out> {
+  IllusionDtoCopyWith<$R, IllusionDto, $Out> get $asIllusionDto =>
+      $base.as((v, t, t2) => _IllusionDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class IllusionDtoCopyWith<$R, $In extends IllusionDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({
+    double? x,
+    double? y,
+    int? slot,
+    double? opacity,
+    LehaAspect? aspect,
+    HunterKind? hunterKind,
+    bool? powered,
+    bool? femboy,
+  });
+  IllusionDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _IllusionDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, IllusionDto, $Out>
+    implements IllusionDtoCopyWith<$R, IllusionDto, $Out> {
+  _IllusionDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<IllusionDto> $mapper =
+      IllusionDtoMapper.ensureInitialized();
+  @override
+  $R call({
+    double? x,
+    double? y,
+    Object? slot = $none,
+    double? opacity,
+    Object? aspect = $none,
+    Object? hunterKind = $none,
+    bool? powered,
+    bool? femboy,
+  }) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (slot != $none) #slot: slot,
+      if (opacity != null) #opacity: opacity,
+      if (aspect != $none) #aspect: aspect,
+      if (hunterKind != $none) #hunterKind: hunterKind,
+      if (powered != null) #powered: powered,
+      if (femboy != null) #femboy: femboy,
+    }),
+  );
+  @override
+  IllusionDto $make(CopyWithData data) => IllusionDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    slot: data.get(#slot, or: $value.slot),
+    opacity: data.get(#opacity, or: $value.opacity),
+    aspect: data.get(#aspect, or: $value.aspect),
+    hunterKind: data.get(#hunterKind, or: $value.hunterKind),
+    powered: data.get(#powered, or: $value.powered),
+    femboy: data.get(#femboy, or: $value.femboy),
+  );
+
+  @override
+  IllusionDtoCopyWith<$R2, IllusionDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _IllusionDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class SarcophagusDtoMapper extends ClassMapperBase<SarcophagusDto> {
+  SarcophagusDtoMapper._();
+
+  static SarcophagusDtoMapper? _instance;
+  static SarcophagusDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SarcophagusDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'SarcophagusDto';
+
+  static int _$x(SarcophagusDto v) => v.x;
+  static const Field<SarcophagusDto, int> _f$x = Field('x', _$x);
+  static int _$y(SarcophagusDto v) => v.y;
+  static const Field<SarcophagusDto, int> _f$y = Field('y', _$y);
+  static bool _$cracked(SarcophagusDto v) => v.cracked;
+  static const Field<SarcophagusDto, bool> _f$cracked = Field(
+    'cracked',
+    _$cracked,
+  );
+  static bool _$hasMummy(SarcophagusDto v) => v.hasMummy;
+  static const Field<SarcophagusDto, bool> _f$hasMummy = Field(
+    'hasMummy',
+    _$hasMummy,
+  );
+
+  @override
+  final MappableFields<SarcophagusDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #cracked: _f$cracked,
+    #hasMummy: _f$hasMummy,
+  };
+
+  static SarcophagusDto _instantiate(DecodingData data) {
+    return SarcophagusDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      cracked: data.dec(_f$cracked),
+      hasMummy: data.dec(_f$hasMummy),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static SarcophagusDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<SarcophagusDto>(map);
+  }
+
+  static SarcophagusDto fromJson(String json) {
+    return ensureInitialized().decodeJson<SarcophagusDto>(json);
+  }
+}
+
+mixin SarcophagusDtoMappable {
+  String toJson() {
+    return SarcophagusDtoMapper.ensureInitialized().encodeJson<SarcophagusDto>(
+      this as SarcophagusDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return SarcophagusDtoMapper.ensureInitialized().encodeMap<SarcophagusDto>(
+      this as SarcophagusDto,
+    );
+  }
+
+  SarcophagusDtoCopyWith<SarcophagusDto, SarcophagusDto, SarcophagusDto>
+  get copyWith => _SarcophagusDtoCopyWithImpl<SarcophagusDto, SarcophagusDto>(
+    this as SarcophagusDto,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return SarcophagusDtoMapper.ensureInitialized().stringifyValue(
+      this as SarcophagusDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return SarcophagusDtoMapper.ensureInitialized().equalsValue(
+      this as SarcophagusDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return SarcophagusDtoMapper.ensureInitialized().hashValue(
+      this as SarcophagusDto,
+    );
+  }
+}
+
+extension SarcophagusDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, SarcophagusDto, $Out> {
+  SarcophagusDtoCopyWith<$R, SarcophagusDto, $Out> get $asSarcophagusDto =>
+      $base.as((v, t, t2) => _SarcophagusDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class SarcophagusDtoCopyWith<$R, $In extends SarcophagusDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? x, int? y, bool? cracked, bool? hasMummy});
+  SarcophagusDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _SarcophagusDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, SarcophagusDto, $Out>
+    implements SarcophagusDtoCopyWith<$R, SarcophagusDto, $Out> {
+  _SarcophagusDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<SarcophagusDto> $mapper =
+      SarcophagusDtoMapper.ensureInitialized();
+  @override
+  $R call({int? x, int? y, bool? cracked, bool? hasMummy}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (cracked != null) #cracked: cracked,
+      if (hasMummy != null) #hasMummy: hasMummy,
+    }),
+  );
+  @override
+  SarcophagusDto $make(CopyWithData data) => SarcophagusDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    cracked: data.get(#cracked, or: $value.cracked),
+    hasMummy: data.get(#hasMummy, or: $value.hasMummy),
+  );
+
+  @override
+  SarcophagusDtoCopyWith<$R2, SarcophagusDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _SarcophagusDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class MummyDtoMapper extends ClassMapperBase<MummyDto> {
+  MummyDtoMapper._();
+
+  static MummyDtoMapper? _instance;
+  static MummyDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = MummyDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'MummyDto';
+
+  static double _$x(MummyDto v) => v.x;
+  static const Field<MummyDto, double> _f$x = Field('x', _$x);
+  static double _$y(MummyDto v) => v.y;
+  static const Field<MummyDto, double> _f$y = Field('y', _$y);
+  static bool _$fleeing(MummyDto v) => v.fleeing;
+  static const Field<MummyDto, bool> _f$fleeing = Field('fleeing', _$fleeing);
+
+  @override
+  final MappableFields<MummyDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #fleeing: _f$fleeing,
+  };
+
+  static MummyDto _instantiate(DecodingData data) {
+    return MummyDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      fleeing: data.dec(_f$fleeing),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static MummyDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<MummyDto>(map);
+  }
+
+  static MummyDto fromJson(String json) {
+    return ensureInitialized().decodeJson<MummyDto>(json);
+  }
+}
+
+mixin MummyDtoMappable {
+  String toJson() {
+    return MummyDtoMapper.ensureInitialized().encodeJson<MummyDto>(
+      this as MummyDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return MummyDtoMapper.ensureInitialized().encodeMap<MummyDto>(
+      this as MummyDto,
+    );
+  }
+
+  MummyDtoCopyWith<MummyDto, MummyDto, MummyDto> get copyWith =>
+      _MummyDtoCopyWithImpl<MummyDto, MummyDto>(
+        this as MummyDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return MummyDtoMapper.ensureInitialized().stringifyValue(this as MummyDto);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return MummyDtoMapper.ensureInitialized().equalsValue(
+      this as MummyDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return MummyDtoMapper.ensureInitialized().hashValue(this as MummyDto);
+  }
+}
+
+extension MummyDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, MummyDto, $Out> {
+  MummyDtoCopyWith<$R, MummyDto, $Out> get $asMummyDto =>
+      $base.as((v, t, t2) => _MummyDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class MummyDtoCopyWith<$R, $In extends MummyDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({double? x, double? y, bool? fleeing});
+  MummyDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _MummyDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, MummyDto, $Out>
+    implements MummyDtoCopyWith<$R, MummyDto, $Out> {
+  _MummyDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<MummyDto> $mapper =
+      MummyDtoMapper.ensureInitialized();
+  @override
+  $R call({double? x, double? y, bool? fleeing}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (fleeing != null) #fleeing: fleeing,
+    }),
+  );
+  @override
+  MummyDto $make(CopyWithData data) => MummyDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    fleeing: data.get(#fleeing, or: $value.fleeing),
+  );
+
+  @override
+  MummyDtoCopyWith<$R2, MummyDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _MummyDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class ChimeDtoMapper extends ClassMapperBase<ChimeDto> {
+  ChimeDtoMapper._();
+
+  static ChimeDtoMapper? _instance;
+  static ChimeDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ChimeDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'ChimeDto';
+
+  static double _$x(ChimeDto v) => v.x;
+  static const Field<ChimeDto, double> _f$x = Field('x', _$x);
+  static double _$y(ChimeDto v) => v.y;
+  static const Field<ChimeDto, double> _f$y = Field('y', _$y);
+  static double _$progress(ChimeDto v) => v.progress;
+  static const Field<ChimeDto, double> _f$progress = Field(
+    'progress',
+    _$progress,
+  );
+
+  @override
+  final MappableFields<ChimeDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #progress: _f$progress,
+  };
+
+  static ChimeDto _instantiate(DecodingData data) {
+    return ChimeDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      progress: data.dec(_f$progress),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static ChimeDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<ChimeDto>(map);
+  }
+
+  static ChimeDto fromJson(String json) {
+    return ensureInitialized().decodeJson<ChimeDto>(json);
+  }
+}
+
+mixin ChimeDtoMappable {
+  String toJson() {
+    return ChimeDtoMapper.ensureInitialized().encodeJson<ChimeDto>(
+      this as ChimeDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return ChimeDtoMapper.ensureInitialized().encodeMap<ChimeDto>(
+      this as ChimeDto,
+    );
+  }
+
+  ChimeDtoCopyWith<ChimeDto, ChimeDto, ChimeDto> get copyWith =>
+      _ChimeDtoCopyWithImpl<ChimeDto, ChimeDto>(
+        this as ChimeDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return ChimeDtoMapper.ensureInitialized().stringifyValue(this as ChimeDto);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return ChimeDtoMapper.ensureInitialized().equalsValue(
+      this as ChimeDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return ChimeDtoMapper.ensureInitialized().hashValue(this as ChimeDto);
+  }
+}
+
+extension ChimeDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, ChimeDto, $Out> {
+  ChimeDtoCopyWith<$R, ChimeDto, $Out> get $asChimeDto =>
+      $base.as((v, t, t2) => _ChimeDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class ChimeDtoCopyWith<$R, $In extends ChimeDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({double? x, double? y, double? progress});
+  ChimeDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _ChimeDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, ChimeDto, $Out>
+    implements ChimeDtoCopyWith<$R, ChimeDto, $Out> {
+  _ChimeDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<ChimeDto> $mapper =
+      ChimeDtoMapper.ensureInitialized();
+  @override
+  $R call({double? x, double? y, double? progress}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (progress != null) #progress: progress,
+    }),
+  );
+  @override
+  ChimeDto $make(CopyWithData data) => ChimeDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    progress: data.get(#progress, or: $value.progress),
+  );
+
+  @override
+  ChimeDtoCopyWith<$R2, ChimeDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _ChimeDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class MushroomDtoMapper extends ClassMapperBase<MushroomDto> {
+  MushroomDtoMapper._();
+
+  static MushroomDtoMapper? _instance;
+  static MushroomDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = MushroomDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'MushroomDto';
+
+  static int _$x(MushroomDto v) => v.x;
+  static const Field<MushroomDto, int> _f$x = Field('x', _$x);
+  static int _$y(MushroomDto v) => v.y;
+  static const Field<MushroomDto, int> _f$y = Field('y', _$y);
+  static int _$stage(MushroomDto v) => v.stage;
+  static const Field<MushroomDto, int> _f$stage = Field('stage', _$stage);
+
+  @override
+  final MappableFields<MushroomDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #stage: _f$stage,
+  };
+
+  static MushroomDto _instantiate(DecodingData data) {
+    return MushroomDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      stage: data.dec(_f$stage),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static MushroomDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<MushroomDto>(map);
+  }
+
+  static MushroomDto fromJson(String json) {
+    return ensureInitialized().decodeJson<MushroomDto>(json);
+  }
+}
+
+mixin MushroomDtoMappable {
+  String toJson() {
+    return MushroomDtoMapper.ensureInitialized().encodeJson<MushroomDto>(
+      this as MushroomDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return MushroomDtoMapper.ensureInitialized().encodeMap<MushroomDto>(
+      this as MushroomDto,
+    );
+  }
+
+  MushroomDtoCopyWith<MushroomDto, MushroomDto, MushroomDto> get copyWith =>
+      _MushroomDtoCopyWithImpl<MushroomDto, MushroomDto>(
+        this as MushroomDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return MushroomDtoMapper.ensureInitialized().stringifyValue(
+      this as MushroomDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return MushroomDtoMapper.ensureInitialized().equalsValue(
+      this as MushroomDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return MushroomDtoMapper.ensureInitialized().hashValue(this as MushroomDto);
+  }
+}
+
+extension MushroomDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, MushroomDto, $Out> {
+  MushroomDtoCopyWith<$R, MushroomDto, $Out> get $asMushroomDto =>
+      $base.as((v, t, t2) => _MushroomDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class MushroomDtoCopyWith<$R, $In extends MushroomDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? x, int? y, int? stage});
+  MushroomDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _MushroomDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, MushroomDto, $Out>
+    implements MushroomDtoCopyWith<$R, MushroomDto, $Out> {
+  _MushroomDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<MushroomDto> $mapper =
+      MushroomDtoMapper.ensureInitialized();
+  @override
+  $R call({int? x, int? y, int? stage}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (stage != null) #stage: stage,
+    }),
+  );
+  @override
+  MushroomDto $make(CopyWithData data) => MushroomDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    stage: data.get(#stage, or: $value.stage),
+  );
+
+  @override
+  MushroomDtoCopyWith<$R2, MushroomDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _MushroomDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
 class ClutchDtoMapper extends ClassMapperBase<ClutchDto> {
   ClutchDtoMapper._();
 
@@ -2311,6 +3040,11 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       YouDtoMapper.ensureInitialized();
       Vec2iMapper.ensureInitialized();
       CaveBiomeMapper.ensureInitialized();
+      ChimeDtoMapper.ensureInitialized();
+      MushroomDtoMapper.ensureInitialized();
+      IllusionDtoMapper.ensureInitialized();
+      SarcophagusDtoMapper.ensureInitialized();
+      MummyDtoMapper.ensureInitialized();
       LogoDtoMapper.ensureInitialized();
       TrapDtoMapper.ensureInitialized();
       WebDtoMapper.ensureInitialized();
@@ -2370,6 +3104,72 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     _$stoneSeed,
     opt: true,
     def: 0,
+  );
+  static List<Vec2i> _$crystals(GameSnapshotDto v) => v.crystals;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$crystals = Field(
+    'crystals',
+    _$crystals,
+    opt: true,
+    def: const [],
+  );
+  static List<Vec2i> _$quicksand(GameSnapshotDto v) => v.quicksand;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$quicksand = Field(
+    'quicksand',
+    _$quicksand,
+    opt: true,
+    def: const [],
+  );
+  static List<Vec2i> _$amethystShards(GameSnapshotDto v) => v.amethystShards;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$amethystShards = Field(
+    'amethystShards',
+    _$amethystShards,
+    opt: true,
+    def: const [],
+  );
+  static List<ChimeDto> _$chimes(GameSnapshotDto v) => v.chimes;
+  static const Field<GameSnapshotDto, List<ChimeDto>> _f$chimes = Field(
+    'chimes',
+    _$chimes,
+    opt: true,
+    def: const [],
+  );
+  static List<MushroomDto> _$mushrooms(GameSnapshotDto v) => v.mushrooms;
+  static const Field<GameSnapshotDto, List<MushroomDto>> _f$mushrooms = Field(
+    'mushrooms',
+    _$mushrooms,
+    opt: true,
+    def: const [],
+  );
+  static List<Vec2i> _$spores(GameSnapshotDto v) => v.spores;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$spores = Field(
+    'spores',
+    _$spores,
+    opt: true,
+    def: const [],
+  );
+  static List<IllusionDto> _$illusions(GameSnapshotDto v) => v.illusions;
+  static const Field<GameSnapshotDto, List<IllusionDto>> _f$illusions = Field(
+    'illusions',
+    _$illusions,
+    opt: true,
+    def: const [],
+  );
+  static List<SarcophagusDto> _$sarcophagi(GameSnapshotDto v) => v.sarcophagi;
+  static const Field<GameSnapshotDto, List<SarcophagusDto>> _f$sarcophagi =
+      Field('sarcophagi', _$sarcophagi, opt: true, def: const []);
+  static List<MummyDto> _$mummies(GameSnapshotDto v) => v.mummies;
+  static const Field<GameSnapshotDto, List<MummyDto>> _f$mummies = Field(
+    'mummies',
+    _$mummies,
+    opt: true,
+    def: const [],
+  );
+  static List<CaveBiome> _$enabledBiomes(GameSnapshotDto v) => v.enabledBiomes;
+  static const Field<GameSnapshotDto, List<CaveBiome>> _f$enabledBiomes = Field(
+    'enabledBiomes',
+    _$enabledBiomes,
+    opt: true,
+    def: const [],
   );
   static List<LogoDto> _$logos(GameSnapshotDto v) => v.logos;
   static const Field<GameSnapshotDto, List<LogoDto>> _f$logos = Field(
@@ -2458,6 +3258,16 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #crackedWalls: _f$crackedWalls,
     #biome: _f$biome,
     #stoneSeed: _f$stoneSeed,
+    #crystals: _f$crystals,
+    #quicksand: _f$quicksand,
+    #amethystShards: _f$amethystShards,
+    #chimes: _f$chimes,
+    #mushrooms: _f$mushrooms,
+    #spores: _f$spores,
+    #illusions: _f$illusions,
+    #sarcophagi: _f$sarcophagi,
+    #mummies: _f$mummies,
+    #enabledBiomes: _f$enabledBiomes,
     #logos: _f$logos,
     #traps: _f$traps,
     #webs: _f$webs,
@@ -2486,6 +3296,16 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       crackedWalls: data.dec(_f$crackedWalls),
       biome: data.dec(_f$biome),
       stoneSeed: data.dec(_f$stoneSeed),
+      crystals: data.dec(_f$crystals),
+      quicksand: data.dec(_f$quicksand),
+      amethystShards: data.dec(_f$amethystShards),
+      chimes: data.dec(_f$chimes),
+      mushrooms: data.dec(_f$mushrooms),
+      spores: data.dec(_f$spores),
+      illusions: data.dec(_f$illusions),
+      sarcophagi: data.dec(_f$sarcophagi),
+      mummies: data.dec(_f$mummies),
+      enabledBiomes: data.dec(_f$enabledBiomes),
       logos: data.dec(_f$logos),
       traps: data.dec(_f$traps),
       webs: data.dec(_f$webs),
@@ -2570,6 +3390,34 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get maze;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get bushes;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crackedWalls;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crystals;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get quicksand;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get amethystShards;
+  ListCopyWith<$R, ChimeDto, ChimeDtoCopyWith<$R, ChimeDto, ChimeDto>>
+  get chimes;
+  ListCopyWith<
+    $R,
+    MushroomDto,
+    MushroomDtoCopyWith<$R, MushroomDto, MushroomDto>
+  >
+  get mushrooms;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get spores;
+  ListCopyWith<
+    $R,
+    IllusionDto,
+    IllusionDtoCopyWith<$R, IllusionDto, IllusionDto>
+  >
+  get illusions;
+  ListCopyWith<
+    $R,
+    SarcophagusDto,
+    SarcophagusDtoCopyWith<$R, SarcophagusDto, SarcophagusDto>
+  >
+  get sarcophagi;
+  ListCopyWith<$R, MummyDto, MummyDtoCopyWith<$R, MummyDto, MummyDto>>
+  get mummies;
+  ListCopyWith<$R, CaveBiome, ObjectCopyWith<$R, CaveBiome, CaveBiome>>
+  get enabledBiomes;
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos;
   ListCopyWith<$R, TrapDto, TrapDtoCopyWith<$R, TrapDto, TrapDto>> get traps;
   ListCopyWith<$R, WebDto, WebDtoCopyWith<$R, WebDto, WebDto>> get webs;
@@ -2607,6 +3455,16 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     List<Vec2i>? crackedWalls,
     CaveBiome? biome,
     int? stoneSeed,
+    List<Vec2i>? crystals,
+    List<Vec2i>? quicksand,
+    List<Vec2i>? amethystShards,
+    List<ChimeDto>? chimes,
+    List<MushroomDto>? mushrooms,
+    List<Vec2i>? spores,
+    List<IllusionDto>? illusions,
+    List<SarcophagusDto>? sarcophagi,
+    List<MummyDto>? mummies,
+    List<CaveBiome>? enabledBiomes,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
@@ -2660,6 +3518,88 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         (v, t) => v.copyWith.$chain(t),
         (v) => call(crackedWalls: v),
       );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crystals =>
+      ListCopyWith(
+        $value.crystals,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(crystals: v),
+      );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get quicksand =>
+      ListCopyWith(
+        $value.quicksand,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(quicksand: v),
+      );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get amethystShards =>
+      ListCopyWith(
+        $value.amethystShards,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(amethystShards: v),
+      );
+  @override
+  ListCopyWith<$R, ChimeDto, ChimeDtoCopyWith<$R, ChimeDto, ChimeDto>>
+  get chimes => ListCopyWith(
+    $value.chimes,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(chimes: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    MushroomDto,
+    MushroomDtoCopyWith<$R, MushroomDto, MushroomDto>
+  >
+  get mushrooms => ListCopyWith(
+    $value.mushrooms,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(mushrooms: v),
+  );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get spores =>
+      ListCopyWith(
+        $value.spores,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(spores: v),
+      );
+  @override
+  ListCopyWith<
+    $R,
+    IllusionDto,
+    IllusionDtoCopyWith<$R, IllusionDto, IllusionDto>
+  >
+  get illusions => ListCopyWith(
+    $value.illusions,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(illusions: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    SarcophagusDto,
+    SarcophagusDtoCopyWith<$R, SarcophagusDto, SarcophagusDto>
+  >
+  get sarcophagi => ListCopyWith(
+    $value.sarcophagi,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(sarcophagi: v),
+  );
+  @override
+  ListCopyWith<$R, MummyDto, MummyDtoCopyWith<$R, MummyDto, MummyDto>>
+  get mummies => ListCopyWith(
+    $value.mummies,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(mummies: v),
+  );
+  @override
+  ListCopyWith<$R, CaveBiome, ObjectCopyWith<$R, CaveBiome, CaveBiome>>
+  get enabledBiomes => ListCopyWith(
+    $value.enabledBiomes,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(enabledBiomes: v),
+  );
   @override
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos =>
       ListCopyWith(
@@ -2754,6 +3694,16 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     List<Vec2i>? crackedWalls,
     CaveBiome? biome,
     int? stoneSeed,
+    List<Vec2i>? crystals,
+    List<Vec2i>? quicksand,
+    List<Vec2i>? amethystShards,
+    List<ChimeDto>? chimes,
+    List<MushroomDto>? mushrooms,
+    List<Vec2i>? spores,
+    List<IllusionDto>? illusions,
+    List<SarcophagusDto>? sarcophagi,
+    List<MummyDto>? mummies,
+    List<CaveBiome>? enabledBiomes,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
@@ -2780,6 +3730,16 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (crackedWalls != null) #crackedWalls: crackedWalls,
       if (biome != null) #biome: biome,
       if (stoneSeed != null) #stoneSeed: stoneSeed,
+      if (crystals != null) #crystals: crystals,
+      if (quicksand != null) #quicksand: quicksand,
+      if (amethystShards != null) #amethystShards: amethystShards,
+      if (chimes != null) #chimes: chimes,
+      if (mushrooms != null) #mushrooms: mushrooms,
+      if (spores != null) #spores: spores,
+      if (illusions != null) #illusions: illusions,
+      if (sarcophagi != null) #sarcophagi: sarcophagi,
+      if (mummies != null) #mummies: mummies,
+      if (enabledBiomes != null) #enabledBiomes: enabledBiomes,
       if (logos != null) #logos: logos,
       if (traps != null) #traps: traps,
       if (webs != null) #webs: webs,
@@ -2808,6 +3768,16 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     crackedWalls: data.get(#crackedWalls, or: $value.crackedWalls),
     biome: data.get(#biome, or: $value.biome),
     stoneSeed: data.get(#stoneSeed, or: $value.stoneSeed),
+    crystals: data.get(#crystals, or: $value.crystals),
+    quicksand: data.get(#quicksand, or: $value.quicksand),
+    amethystShards: data.get(#amethystShards, or: $value.amethystShards),
+    chimes: data.get(#chimes, or: $value.chimes),
+    mushrooms: data.get(#mushrooms, or: $value.mushrooms),
+    spores: data.get(#spores, or: $value.spores),
+    illusions: data.get(#illusions, or: $value.illusions),
+    sarcophagi: data.get(#sarcophagi, or: $value.sarcophagi),
+    mummies: data.get(#mummies, or: $value.mummies),
+    enabledBiomes: data.get(#enabledBiomes, or: $value.enabledBiomes),
     logos: data.get(#logos, or: $value.logos),
     traps: data.get(#traps, or: $value.traps),
     webs: data.get(#webs, or: $value.webs),

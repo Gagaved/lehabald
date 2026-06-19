@@ -64,6 +64,8 @@ class MazeGenerator {
     _applyTunnelRows();
     _applyTunnelCols();
     _forceOpenSpawns();
+    _thickenOpenAreas(); // break wide-open plazas into corridors
+    _removeLonePillars(); // clear most scattered single-cell rocks
     _addLoops(); // braid in a few extra passages so it isn't all dead-ends
     _connectAll(); // guarantee every open cell is reachable
     _applyBorder();
@@ -198,12 +200,12 @@ class MazeGenerator {
 
   void _carveRooms() {
     final centres = <Point<int>>[];
-    final count = 8 + _rng.nextInt(4);
+    final count = 7 + _rng.nextInt(4);
     var attempts = 0;
     while (centres.length < count && attempts < 80) {
       attempts++;
-      final w = 3 + _rng.nextInt(3);
-      final h = 3 + _rng.nextInt(3);
+      final w = 2 + _rng.nextInt(3);
+      final h = 2 + _rng.nextInt(3);
       final x = 1 + _rng.nextInt(max(1, cols - 2 - w));
       final y = 1 + _rng.nextInt(max(1, rows - 2 - h));
       for (var yy = y; yy < y + h && yy < rows - 1; yy++) {
@@ -296,6 +298,47 @@ class MazeGenerator {
     }
   }
 
+  /// Breaks up wide-open plazas: any interior open cell whose entire 3x3
+  /// neighbourhood is open gets re-walled with a moderate chance, carving big
+  /// rooms into more deliberate corridors. [_connectAll] later repairs any split.
+  void _thickenOpenAreas() {
+    for (var y = 2; y < rows - 2; y++) {
+      if (_tunnelRows.contains(y)) continue;
+      for (var x = 2; x < cols - 2; x++) {
+        if (_tunnelCols.contains(x)) continue;
+        if (_g[y][x] != '.') continue;
+        if (_forceOpen.any((s) => s.$1 == x && s.$2 == y)) continue;
+        var allOpen = true;
+        for (var dy = -1; dy <= 1 && allOpen; dy++) {
+          for (var dx = -1; dx <= 1; dx++) {
+            if (_g[y + dy][x + dx] != '.') {
+              allOpen = false;
+              break;
+            }
+          }
+        }
+        if (allOpen && _rng.nextDouble() < 0.40) _g[y][x] = '#';
+      }
+    }
+  }
+
+  /// Clears most lone pillars — single wall cells open on all four sides — which
+  /// otherwise read as scattered rocks. A few are kept for variety.
+  void _removeLonePillars() {
+    for (var y = 1; y < rows - 1; y++) {
+      if (_tunnelRows.contains(y)) continue;
+      for (var x = 1; x < cols - 1; x++) {
+        if (_tunnelCols.contains(x)) continue;
+        if (_g[y][x] != '#') continue;
+        final lone = _g[y][x - 1] == '.' &&
+            _g[y][x + 1] == '.' &&
+            _g[y - 1][x] == '.' &&
+            _g[y + 1][x] == '.';
+        if (lone && _rng.nextDouble() < 0.60) _g[y][x] = '.';
+      }
+    }
+  }
+
   /// Opens up the map so Leha always has escape routes: knocks down a good
   /// fraction of interior walls that sit between two open cells (creating loops
   /// and through-passages), then drills out the worst dead-end pockets.
@@ -306,7 +349,8 @@ class MazeGenerator {
         if (_g[y][x] != '#') continue;
         final horiz = _g[y][x - 1] == '.' && _g[y][x + 1] == '.';
         final vert = _g[y - 1][x] == '.' && _g[y + 1][x] == '.';
-        if ((horiz || vert) && _rng.nextDouble() < 0.22) _g[y][x] = '.';
+        // Lighter braiding keeps corridors longer and narrower.
+        if ((horiz || vert) && _rng.nextDouble() < 0.12) _g[y][x] = '.';
       }
     }
     _breakDeadEnds();

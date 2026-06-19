@@ -29,6 +29,9 @@ class GameEngine {
   final Map<String, PlayerConnection> clients = {};
   var round = GameRound();
   var logos = <String>{};
+
+  /// Biomes the next generated map may use (toggled from the lobby).
+  Set<CaveBiome> enabledBiomes = CaveBiome.values.toSet();
   int _nextId = 1;
   final _rng = Random();
 
@@ -102,11 +105,16 @@ class GameEngine {
         // A spectator (e.g. watching two bots) returns everyone to the lobby;
         // an actual player triggers a rematch.
         reset(keepBotsReady: client.slot != null);
+      case ClientMessageType.setBiomes:
+        final biomes = message.biomes;
+        if (biomes != null && biomes.isNotEmpty) {
+          enabledBiomes = biomes.toSet();
+        }
     }
   }
 
   void reset({bool keepBotsReady = true}) {
-    _maze = MazeService.generate();
+    _maze = MazeService.generate(biomes: enabledBiomes);
     logos = findPlayer(0)?.aspect == LehaAspect.spider
         ? _spawnRafaelki()
         : _maze.createLogos();
@@ -257,7 +265,8 @@ class GameEngine {
       ..portalCooldownUntil = 0;
     // Keep the lobby board's collectibles in sync with the chosen aspect:
     // Spider shows 5 Raffaellos, everyone else the TikTok logos.
-    logos = aspect == LehaAspect.spider ? _spawnRafaelki() : _maze.createLogos();
+    logos =
+        aspect == LehaAspect.spider ? _spawnRafaelki() : _maze.createLogos();
     ensureRoundState();
   }
 
@@ -353,8 +362,8 @@ class GameEngine {
     client.barrelCooldownUntil = now + GameConstants.barrelCooldownMs;
     // Lock on if Leha is in a clear line of sight at the moment of the throw.
     final leha = findPlayer(0);
-    final homing = leha != null &&
-        maze.hasLineOfSight(playerPos(client), playerPos(leha));
+    final homing =
+        leha != null && maze.hasLineOfSight(playerPos(client), playerPos(leha));
     round.barrels.add(BarrelState(
       x: client.x,
       y: client.y,
@@ -542,9 +551,9 @@ class GameEngine {
 
   /// Wraps an out-of-bounds cell (a player caught mid-tunnel-wrap) back into the
   /// grid so it can be used as a grid index.
-  Point<int> _wrapCell(Point<int> c) =>
-      Point((c.x % maze.cols + maze.cols) % maze.cols,
-          (c.y % maze.rows + maze.rows) % maze.rows);
+  Point<int> _wrapCell(Point<int> c) => Point(
+      (c.x % maze.cols + maze.cols) % maze.cols,
+      (c.y % maze.rows + maze.rows) % maze.rows);
 
   /// Open neighbor that maximizes distance from [threat].
   MoveDirection? _fleeStep(Point<int> rawFrom, Point<int> threat) {
@@ -739,8 +748,15 @@ class GameEngine {
         ..pendingTrapRechargeAt = []
         ..pendingWebRechargeAt = []
         ..clutch = null
+        ..sarcophagi = _spawnSarcophagi()
+        ..mummies = []
+        ..shardsIntact = Set<String>.from(maze.amethystShards)
+        ..chimes = []
+        ..mushrooms = _spawnMushrooms()
+        ..spores = []
         ..rafaelkiEaten = 0
         ..trails = {0: [], 1: []};
+      maze.dynamicCover.clear();
       // Spider plays the Raffaello mode (5 candies, no TikToks); other Lehas
       // keep the classic TikTok logos.
       if (findPlayer(0)?.aspect == LehaAspect.spider) {
@@ -782,6 +798,171 @@ class GameEngine {
         'logos': logos.length,
       });
     }
+  }
+
+  List<SarcophagusState> _spawnSarcophagi() {
+    return maze.sarcophagi.map((key) {
+      final parts = key.split(',').map(int.parse).toList();
+      return SarcophagusState(x: parts[0], y: parts[1]);
+    }).toList();
+  }
+
+  /// Seeds the initial amethyst mushroom colony on open floor. Starting stages
+  /// are randomised so some mushrooms are already mature at kickoff.
+  List<MushroomState> _spawnMushrooms() {
+    if (maze.biome != CaveBiome.amethyst) return [];
+    final now = nowMs();
+    final cells = _openFloorCells()..shuffle(_rng);
+    return cells.take(GameConstants.mushroomStartCount).map((p) {
+      final stage = _rng.nextInt(GameConstants.mushroomMaxStage + 1);
+      return MushroomState(
+        x: p.x,
+        y: p.y,
+        stage: stage,
+        nextGrowAt: now + _rng.nextInt(GameConstants.mushroomGrowIntervalMs),
+      );
+    }).toList();
+  }
+
+  /// Interior open-floor cells away from spawns and tunnels.
+  List<Point<int>> _openFloorCells() {
+    final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    final cells = <Point<int>>[];
+    for (var y = 1; y < maze.rows - 1; y++) {
+      if (GameConstants.tunnelRows.contains(y)) continue;
+      for (var x = 1; x < maze.cols - 1; x++) {
+        if (GameConstants.tunnelCols.contains(x)) continue;
+        if (maze.isWall(x, y) || starts.contains('$x,$y')) continue;
+        cells.add(Point(x, y));
+      }
+    }
+    return cells;
+  }
+
+  /// Fires a chime when a player steps onto an intact amethyst shard, shattering
+  /// it and ringing out a pulse that reveals where they were.
+  void resolveAmethystShard(PlayerConnection player, int now) {
+    if (round.shardsIntact.isEmpty) return;
+    final cx = player.x.floor(), cy = player.y.floor();
+    final key = '$cx,$cy';
+    if (!round.shardsIntact.remove(key)) return;
+    round.chimes.add(ChimeState(x: cx + 0.5, y: cy + 0.5, firedAt: now));
+  }
+
+  void updateChimes(int now) {
+    if (round.chimes.isEmpty) return;
+    round.chimes.removeWhere(
+        (c) => now - c.firedAt >= GameConstants.chimeDurationMs);
+  }
+
+  /// Trampling a mushroom drops a single spore and resets it to a sprout — it is
+  /// always passable and simply regrows.
+  void resolveMushroomTrample(PlayerConnection player, int now) {
+    if (round.mushrooms.isEmpty) return;
+    final cx = player.x.floor(), cy = player.y.floor();
+    for (final m in round.mushrooms) {
+      if (m.x != cx || m.y != cy) continue;
+      _addSpore(cx, cy, now);
+      m
+        ..stage = 0
+        ..nextGrowAt = now + GameConstants.mushroomGrowIntervalMs;
+      break;
+    }
+  }
+
+  void _addSpore(int x, int y, int now) {
+    if (maze.isWall(x, y)) return;
+    final expiresAt = now + GameConstants.mushroomSporeDurationMs;
+    for (final s in round.spores) {
+      if (s.x == x && s.y == y) {
+        s.expiresAt = max(s.expiresAt, expiresAt);
+        return;
+      }
+    }
+    round.spores.add(SporeState(x: x, y: y, expiresAt: expiresAt));
+  }
+
+  /// Advances the mushroom colony: grows mushrooms, kills mature ones into spore
+  /// bursts that spawn fresh sprouts nearby, and expires old spores.
+  void updateMushrooms(int now) {
+    if (maze.biome != CaveBiome.amethyst) return;
+
+    final survivors = <MushroomState>[];
+    final newborns = <MushroomState>[];
+    for (final m in round.mushrooms) {
+      if (now < m.nextGrowAt) {
+        survivors.add(m);
+        continue;
+      }
+      if (m.stage < GameConstants.mushroomMaxStage) {
+        m
+          ..stage += 1
+          ..nextGrowAt = now + GameConstants.mushroomGrowIntervalMs;
+        survivors.add(m);
+        continue;
+      }
+      // Mature mushroom dies: burst spores in a 1-cell radius, spread sprouts.
+      for (var dy = -1; dy <= 1; dy++) {
+        for (var dx = -1; dx <= 1; dx++) {
+          _addSpore(m.x + dx, m.y + dy, now);
+        }
+      }
+      newborns.addAll(_spreadSprouts(m, now,
+          survivors.length + newborns.length + round.mushrooms.length));
+    }
+    survivors.addAll(newborns);
+    round.mushrooms = survivors;
+
+    // Expire old spores, then publish the live cover set for visibility checks.
+    round.spores.removeWhere((s) => now >= s.expiresAt);
+    maze.dynamicCover
+      ..clear()
+      ..addAll(round.spores.map((s) => '${s.x},${s.y}'));
+  }
+
+  /// Spawns 1-2 fresh sprouts near a dead mushroom so the colony crawls outward,
+  /// respecting the population cap.
+  List<MushroomState> _spreadSprouts(MushroomState parent, int now, int liveCount) {
+    final result = <MushroomState>[];
+    final occupied = {
+      for (final m in round.mushrooms) '${m.x},${m.y}',
+    };
+    final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    final want = 1 + _rng.nextInt(2); // 1 or 2
+    const r = GameConstants.mushroomSpreadRadius;
+    final candidates = <Point<int>>[];
+    for (var dy = -r; dy <= r; dy++) {
+      for (var dx = -r; dx <= r; dx++) {
+        if (dx == 0 && dy == 0) continue;
+        final nx = parent.x + dx, ny = parent.y + dy;
+        if (nx <= 0 || nx >= maze.cols - 1 || ny <= 0 || ny >= maze.rows - 1) {
+          continue;
+        }
+        if (GameConstants.tunnelRows.contains(ny) ||
+            GameConstants.tunnelCols.contains(nx)) {
+          continue;
+        }
+        final key = '$nx,$ny';
+        if (maze.isWall(nx, ny) || occupied.contains(key) ||
+            starts.contains(key)) {
+          continue;
+        }
+        candidates.add(Point(nx, ny));
+      }
+    }
+    candidates.shuffle(_rng);
+    for (final c in candidates) {
+      if (result.length >= want) break;
+      if (liveCount + result.length >= GameConstants.mushroomMaxCount) break;
+      occupied.add('${c.x},${c.y}');
+      result.add(MushroomState(
+        x: c.x,
+        y: c.y,
+        stage: 0,
+        nextGrowAt: now + GameConstants.mushroomGrowIntervalMs,
+      ));
+    }
+    return result;
   }
 
   void enforceReadyTimeout(int now) {
@@ -847,6 +1028,9 @@ class GameEngine {
       if (client.slot == 0) collectLogo(client);
       // Both Leha and the hunter can step through Wizard-Leha's portals.
       if (client.slot == 0 || client.slot == 1) resolvePortal(client, now);
+      // Amethyst-biome floor reactions to whoever just moved.
+      resolveAmethystShard(client, now);
+      resolveMushroomTrample(client, now);
     }
 
     final leha = findPlayer(0);
@@ -854,6 +1038,10 @@ class GameEngine {
     if (leha != null) updateTrail(leha, now);
     if (hunter != null) updateTrail(hunter, now);
     updateBarrels(leha, now, GameConstants.tickMs / 1000);
+    updateSarcophagi(now);
+    updateMummies(now, GameConstants.tickMs / 1000);
+    updateMushrooms(now);
+    updateChimes(now);
     resolveCollision(leha, hunter, now);
     resolveTrap(leha, now);
     resolveClutch(hunter, now);
@@ -871,6 +1059,295 @@ class GameEngine {
 
   /// Hatches the Spider's clutch (she wins) or, if the hunter reaches it first,
   /// destroys it and respawns a fresh batch of Raffaellos to try again.
+  void updateSarcophagi(int now) {
+    if (round.sarcophagi.isEmpty) return;
+    final players =
+        clients.values.where((client) => client.slot != null).toList();
+    for (final sarcophagus in round.sarcophagi) {
+      if (!sarcophagus.hasMummy) {
+        sarcophagus.playersInRadius.clear();
+        continue;
+      }
+      final current = <String>{};
+      final sx = sarcophagus.x + 0.5;
+      final sy = sarcophagus.y + 0.5;
+      for (final player in players) {
+        final dx = player.x - sx;
+        final dy = player.y - sy;
+        if (dx * dx + dy * dy <=
+            GameConstants.sarcophagusTriggerRadius *
+                GameConstants.sarcophagusTriggerRadius) {
+          current.add(player.id);
+        }
+      }
+      final entered =
+          current.difference(sarcophagus.playersInRadius).isNotEmpty;
+      if (entered) {
+        if (!sarcophagus.cracked) {
+          sarcophagus.cracked = true;
+        } else {
+          _releaseMummy(sarcophagus);
+          current.clear();
+        }
+      }
+      sarcophagus.playersInRadius
+        ..clear()
+        ..addAll(current);
+    }
+    // A flushed-out lair is now an open, destroyed block — drop it.
+    round.sarcophagi.removeWhere((s) => !s.hasMummy);
+  }
+
+  void _releaseMummy(SarcophagusState sarcophagus) {
+    sarcophagus
+      ..hasMummy = false
+      ..cracked = false;
+    round.mummies.add(MummyState(
+      x: sarcophagus.x + 0.5,
+      y: sarcophagus.y + 0.5,
+    ));
+    // The sandstone block the mummy climbs out of is destroyed for good.
+    maze.destroyWall(sarcophagus.x, sarcophagus.y);
+  }
+
+  void updateMummies(int now, double dt) {
+    if (round.mummies.isEmpty) return;
+    final survivors = <MummyState>[];
+    for (final mummy in round.mummies) {
+      _resolveMummyHits(mummy, now);
+      if (mummy.fleeing) {
+        _ensureMummyFleeTarget(mummy);
+        _moveMummyToTarget(
+            mummy,
+            GameConstants.baseSpeed *
+                GameConstants.mummyFleeSpeedMultiplier *
+                dt,
+            now);
+        if (_mummyReachedTarget(mummy)) {
+          final tx = mummy.targetX, ty = mummy.targetY;
+          // Dive into the sandstone block: it becomes a fresh sealed lair.
+          if (tx != null &&
+              ty != null &&
+              maze.isWall(tx, ty) &&
+              _sarcophagusAt(tx, ty) == null) {
+            round.sarcophagi.add(SarcophagusState(x: tx, y: ty));
+          }
+          continue;
+        }
+      } else {
+        final target = _nearestPlayer(mummy);
+        if (target != null) {
+          _moveMummyToward(
+              mummy,
+              Point(target.x, target.y),
+              GameConstants.baseSpeed *
+                  GameConstants.mummyChaseSpeedMultiplier *
+                  dt,
+              now);
+        }
+      }
+      survivors.add(mummy);
+    }
+    round.mummies = survivors;
+  }
+
+  void _resolveMummyHits(MummyState mummy, int now) {
+    for (final player
+        in clients.values.where((client) => client.slot != null)) {
+      final dx = player.x - mummy.x;
+      final dy = player.y - mummy.y;
+      if (dx * dx + dy * dy >
+          GameConstants.mummyHitRadius * GameConstants.mummyHitRadius) {
+        continue;
+      }
+      if ((mummy.hitCooldownUntil[player.id] ?? 0) > now) continue;
+      player
+        ..stunnedUntil =
+            max(player.stunnedUntil, now + GameConstants.mummyStunMs)
+        ..direction = null
+        ..nextDirection = null
+        ..stopRequested = false;
+      mummy.hitCooldownUntil[player.id] = now + GameConstants.mummyStunMs;
+      if (!mummy.fleeing) {
+        mummy.fleeing = true;
+        mummy.targetX = null;
+        mummy.targetY = null;
+      }
+    }
+  }
+
+  PlayerConnection? _nearestPlayer(MummyState mummy) {
+    PlayerConnection? best;
+    var bestD2 = double.infinity;
+    for (final player
+        in clients.values.where((client) => client.slot != null)) {
+      final dx = player.x - mummy.x;
+      final dy = player.y - mummy.y;
+      final d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = player;
+      }
+    }
+    return best;
+  }
+
+  void _ensureMummyFleeTarget(MummyState mummy) {
+    if (mummy.targetX != null && mummy.targetY != null) return;
+    // Avoid blocks another mummy is already heading for or sealed inside.
+    final reserved = <String>{
+      for (final s in round.sarcophagi) '${s.x},${s.y}',
+      for (final m in round.mummies)
+        if (m != mummy && m.targetX != null && m.targetY != null)
+          '${m.targetX},${m.targetY}',
+    };
+    final candidates = maze.sandstoneWalls().where((p) {
+      if (reserved.contains('${p.x},${p.y}')) return false;
+      final dx = mummy.x - (p.x + 0.5);
+      final dy = mummy.y - (p.y + 0.5);
+      return dx * dx + dy * dy > 1;
+    }).toList();
+    if (candidates.isNotEmpty) {
+      // Dive into a randomly chosen sandstone wall.
+      final target = candidates[_rng.nextInt(candidates.length)];
+      mummy
+        ..targetX = target.x
+        ..targetY = target.y;
+      return;
+    }
+    final tunnels = <Point<int>>[];
+    for (final y in GameConstants.tunnelRows) {
+      for (var x = 0; x < maze.cols; x++) {
+        if (!maze.isWall(x, y)) tunnels.add(Point(x, y));
+      }
+    }
+    for (final x in GameConstants.tunnelCols) {
+      for (var y = 0; y < maze.rows; y++) {
+        if (!maze.isWall(x, y)) tunnels.add(Point(x, y));
+      }
+    }
+    final target = tunnels.isEmpty
+        ? Point(mummy.x.floor(), mummy.y.floor())
+        : tunnels[_rng.nextInt(tunnels.length)];
+    mummy
+      ..targetX = target.x
+      ..targetY = target.y;
+  }
+
+  SarcophagusState? _sarcophagusAt(int? x, int? y) {
+    if (x == null || y == null) return null;
+    for (final sarcophagus in round.sarcophagi) {
+      if (sarcophagus.x == x && sarcophagus.y == y) return sarcophagus;
+    }
+    return null;
+  }
+
+  bool _mummyReachedTarget(MummyState mummy) {
+    final tx = mummy.targetX, ty = mummy.targetY;
+    if (tx == null || ty == null) return false;
+    // A wall lair can't be stood on, so reaching the floor cell orthogonally
+    // adjacent to the block counts as diving in.
+    if (maze.isWall(tx, ty)) {
+      final mcx = mummy.x.floor(), mcy = mummy.y.floor();
+      return (mcx - tx).abs() + (mcy - ty).abs() == 1;
+    }
+    final dx = mummy.x - (tx + 0.5);
+    final dy = mummy.y - (ty + 0.5);
+    return dx * dx + dy * dy <=
+        GameConstants.mummyHideRadius * GameConstants.mummyHideRadius;
+  }
+
+  void _moveMummyToTarget(MummyState mummy, double dist, int now) {
+    final tx = mummy.targetX, ty = mummy.targetY;
+    if (tx == null || ty == null) return;
+    _moveMummyToward(mummy, Point(tx + 0.5, ty + 0.5), dist, now);
+  }
+
+  void _moveMummyToward(
+      MummyState mummy, Point<double> target, double dist, int now) {
+    var dx = target.x - mummy.x;
+    var dy = target.y - mummy.y;
+    var len = sqrt(dx * dx + dy * dy);
+    if (len < 1e-5) return;
+    final start = Point(mummy.x.floor(), mummy.y.floor());
+    final goal = Point(target.x.floor(), target.y.floor());
+    // A wall lair can't be walked onto, so route to the floor cell beside it.
+    final goalIsWall = maze.isWall(goal.x, goal.y);
+    final step = _bfsFirstStep(
+        start,
+        goalIsWall
+            ? (x, y) => (x - goal.x).abs() + (y - goal.y).abs() == 1
+            : (x, y) => x == goal.x && y == goal.y);
+    if (step != null) {
+      final stepTarget = Point(
+        start.x + step.dx + 0.5,
+        start.y + step.dy + 0.5,
+      );
+      dx = stepTarget.x - mummy.x;
+      dy = stepTarget.y - mummy.y;
+      len = sqrt(dx * dx + dy * dy);
+      if (len < 1e-5) return;
+    }
+    _tryMoveMummy(mummy, dx / len * dist, dy / len * dist, now);
+    _wrapMummyTunnel(mummy);
+  }
+
+  bool _tryMoveMummy(MummyState mummy, double dx, double dy, int now) {
+    if (_mummyPositionOpen(mummy.x + dx, mummy.y + dy)) {
+      mummy
+        ..x += dx
+        ..y += dy;
+      return true;
+    }
+    if (_mummyPositionOpen(mummy.x + dx, mummy.y)) {
+      mummy.x += dx;
+      return true;
+    }
+    if (_mummyPositionOpen(mummy.x, mummy.y + dy)) {
+      mummy.y += dy;
+      return true;
+    }
+    return false;
+  }
+
+  bool _mummyPositionOpen(double x, double y) {
+    if (GameConstants.tunnelRows.contains(y.floor()) &&
+        (x < 0 || x >= maze.cols)) {
+      return true;
+    }
+    if (GameConstants.tunnelCols.contains(x.floor()) &&
+        (y < 0 || y >= maze.rows)) {
+      return true;
+    }
+    final r = GameConstants.collisionRadius;
+    final minCx = (x - r).floor();
+    final maxCx = (x + r).ceil();
+    final minCy = (y - r).floor();
+    final maxCy = (y + r).ceil();
+    for (var cy = minCy; cy <= maxCy; cy++) {
+      for (var cx = minCx; cx <= maxCx; cx++) {
+        if (!maze.isWall(cx, cy)) continue;
+        final closestX = x.clamp(cx.toDouble(), cx + 1.0);
+        final closestY = y.clamp(cy.toDouble(), cy + 1.0);
+        final ddx = x - closestX;
+        final ddy = y - closestY;
+        if (ddx * ddx + ddy * ddy < r * r) return false;
+      }
+    }
+    return true;
+  }
+
+  void _wrapMummyTunnel(MummyState mummy) {
+    if (GameConstants.tunnelRows.contains(mummy.y.floor())) {
+      if (mummy.x < -0.35) mummy.x = maze.cols + 0.35;
+      if (mummy.x > maze.cols + 0.35) mummy.x = -0.35;
+    }
+    if (GameConstants.tunnelCols.contains(mummy.x.floor())) {
+      if (mummy.y < -0.35) mummy.y = maze.rows + 0.35;
+      if (mummy.y > maze.rows + 0.35) mummy.y = -0.35;
+    }
+  }
+
   void resolveClutch(PlayerConnection? hunter, int now) {
     final clutch = round.clutch;
     if (clutch == null) return;
@@ -927,6 +1404,48 @@ class GameEngine {
       }).toList(),
       biome: maze.biome,
       stoneSeed: maze.stoneSeed,
+      crystals: maze.crystals.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
+      quicksand: maze.quicksand.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
+      amethystShards: round.shardsIntact.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
+      chimes: round.chimes
+          .map((c) => ChimeDto(
+                x: _round3(c.x),
+                y: _round3(c.y),
+                progress: _round3(
+                    ((now - c.firedAt) / GameConstants.chimeDurationMs)
+                        .clamp(0.0, 1.0)),
+              ))
+          .toList(),
+      mushrooms: round.mushrooms
+          .map((m) => MushroomDto(x: m.x, y: m.y, stage: m.stage))
+          .toList(),
+      spores: round.spores.map((s) => Vec2i(s.x, s.y)).toList(),
+      illusions: visibleIllusionsFor(viewer, now),
+      sarcophagi: round.sarcophagi
+          .map((s) => SarcophagusDto(
+                x: s.x,
+                y: s.y,
+                cracked: s.cracked,
+                hasMummy: s.hasMummy,
+              ))
+          .toList(),
+      mummies: round.mummies
+          .map((m) => MummyDto(
+                x: _round3(m.x),
+                y: _round3(m.y),
+                fleeing: m.fleeing,
+              ))
+          .toList(),
+      enabledBiomes: enabledBiomes.toList(),
       logos: visibleLogosFor(viewer).where((key) {
         if (!lehaBlinded) return true;
         final parts = key.split(',').map(int.parse).toList();
@@ -1132,7 +1651,15 @@ class GameEngine {
     if (player.slot == 1 && leha != null && now < leha.stunnedUntil) {
       base *= 1.1;
     }
-    if (player.slot == 1 && now < player.webSlowedUntil) return base * 0.5;
+    if (player.slot == 1 && now < player.webSlowedUntil) base *= 0.5;
+    // Quicksand bogs down anyone walking through it.
+    if (maze.isQuicksand(player.x.floor(), player.y.floor())) {
+      base *= GameConstants.quicksandSlowFactor;
+    }
+    // Amethyst spores slow anyone wading through the fog.
+    if (maze.isSpore(player.x.floor(), player.y.floor())) {
+      base *= GameConstants.mushroomSporeSlowFactor;
+    }
     return base;
   }
 
@@ -1508,12 +2035,14 @@ class GameEngine {
     final dto = ClutchDto(x: c.x, y: c.y, hatchMs: max(0, c.hatchAt - now));
     if (viewer.slot == 0 || viewer.slot == null) return dto;
     final vp = playerPos(viewer);
-    if (maze.isBush(c.x, c.y) &&
-        !maze.isBush(viewer.x.floor(), viewer.y.floor())) {
+    if (maze.conceals(c.x, c.y) &&
+        !maze.conceals(viewer.x.floor(), viewer.y.floor())) {
       return null;
     }
     final tp = Point(c.x + 0.5, c.y + 0.5);
-    if (maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp)) return dto;
+    if (maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp)) {
+      return dto;
+    }
     return null;
   }
 
@@ -1594,6 +2123,67 @@ class GameEngine {
           active: round.portals.length == 2,
         ),
     ];
+  }
+
+  /// Crystal mirror projections visible to [viewer]. Each crystal projects every
+  /// active player onto the line through the crystal that is perpendicular to
+  /// the player→crystal ray, at the crystal-to-player distance. A projection is
+  /// dropped if a wall sits between it and the crystal, and (like a real player)
+  /// only shows when the viewer has a clear line on it.
+  /// Opacity fades from full at [crystalIllusionFadeStart] to nothing at
+  /// [crystalIllusionMaxRange].
+  List<IllusionDto> visibleIllusionsFor(PlayerConnection viewer, int now) {
+    if (maze.crystals.isEmpty) return const [];
+    final vp = playerPos(viewer);
+    final viewerSees = viewer.slot != null;
+    final players =
+        clients.values.where((p) => p.slot != null).toList(growable: false);
+    final result = <IllusionDto>[];
+    for (final key in maze.crystals) {
+      final parts = key.split(',');
+      final cc = Point(int.parse(parts[0]) + 0.5, int.parse(parts[1]) + 0.5);
+      for (final p in players) {
+        final pp = playerPos(p);
+        final toCrystal = Point(cc.x - pp.x, cc.y - pp.y);
+        final d = sqrt(toCrystal.x * toCrystal.x + toCrystal.y * toCrystal.y);
+        if (d < 0.5 || d >= GameConstants.crystalIllusionCullRange) continue;
+        final perp = Point(-toCrystal.y / d, toCrystal.x / d);
+        final opacity = d <= GameConstants.crystalIllusionFadeStart
+            ? 1.0
+            : (1.0 -
+                    (d - GameConstants.crystalIllusionFadeStart) /
+                        (GameConstants.crystalIllusionMaxRange -
+                            GameConstants.crystalIllusionFadeStart))
+                .clamp(0.0, 1.0);
+        for (final side in const [-1.0, 1.0]) {
+          final ix = cc.x + perp.x * d * side;
+          final iy = cc.y + perp.y * d * side;
+          if (ix < 0 || ix >= maze.cols || iy < 0 || iy >= maze.rows) continue;
+          final tp = Point(ix, iy);
+          // A wall between the crystal and the projection hides it.
+          if (!maze.hasLineOfSight(cc, tp)) continue;
+          // Seen like any character: the viewer needs a clear line on it.
+          if (viewerSees &&
+              !(maze.hasLineOfSight(vp, tp) ||
+                  maze.hasXrayVisibility(vp, tp))) {
+            continue;
+          }
+          result.add(IllusionDto(
+            x: _round3(ix),
+            y: _round3(iy),
+            slot: p.slot,
+            opacity: _round3(opacity),
+            aspect: p.slot == 0 ? p.aspect : null,
+            hunterKind: p.slot == 1 ? p.hunterKind : null,
+            powered: p.slot == 0 && now < round.lehaPowerUntil,
+            femboy: p.slot == 1 &&
+                p.hunterKind == HunterKind.sima &&
+                now < p.simaFemboyUntil,
+          ));
+        }
+      }
+    }
+    return result;
   }
 
   bool abilityAvailableFor(PlayerConnection viewer, int now) {
@@ -1708,8 +2298,8 @@ class GameEngine {
     final tp = playerPos(target);
     // A target hiding in a bush can't be x-rayed; direct line of sight only
     // works when the viewer is in a bush too (otherwise the bush conceals).
-    if (maze.isBush(target.x.floor(), target.y.floor())) {
-      if (!maze.isBush(viewer.x.floor(), viewer.y.floor())) return false;
+    if (maze.conceals(target.x.floor(), target.y.floor())) {
+      if (!maze.conceals(viewer.x.floor(), viewer.y.floor())) return false;
       return maze.hasLineOfSight(vp, tp);
     }
     return maze.hasXrayVisibility(vp, tp) || maze.hasLineOfSight(vp, tp);

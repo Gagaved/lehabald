@@ -55,6 +55,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.removeBot;
       case r'restart':
         return ClientMessageType.restart;
+      case r'setBiomes':
+        return ClientMessageType.setBiomes;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -91,6 +93,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'removeBot';
       case ClientMessageType.restart:
         return r'restart';
+      case ClientMessageType.setBiomes:
+        return r'setBiomes';
     }
   }
 }
@@ -114,6 +118,7 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       PlayerRoleMapper.ensureInitialized();
       LehaAspectMapper.ensureInitialized();
       HunterKindMapper.ensureInitialized();
+      CaveBiomeMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -162,6 +167,12 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     _$ready,
     opt: true,
   );
+  static List<CaveBiome>? _$biomes(ClientMessage v) => v.biomes;
+  static const Field<ClientMessage, List<CaveBiome>> _f$biomes = Field(
+    'biomes',
+    _$biomes,
+    opt: true,
+  );
 
   @override
   final MappableFields<ClientMessage> fields = const {
@@ -172,6 +183,7 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     #hunter: _f$hunter,
     #name: _f$name,
     #ready: _f$ready,
+    #biomes: _f$biomes,
   };
 
   static ClientMessage _instantiate(DecodingData data) {
@@ -183,6 +195,7 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       hunter: data.dec(_f$hunter),
       name: data.dec(_f$name),
       ready: data.dec(_f$ready),
+      biomes: data.dec(_f$biomes),
     );
   }
 
@@ -248,6 +261,8 @@ extension ClientMessageValueCopy<$R, $Out>
 
 abstract class ClientMessageCopyWith<$R, $In extends ClientMessage, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<$R, CaveBiome, ObjectCopyWith<$R, CaveBiome, CaveBiome>>?
+  get biomes;
   $R call({
     ClientMessageType? type,
     MoveDirection? direction,
@@ -256,6 +271,7 @@ abstract class ClientMessageCopyWith<$R, $In extends ClientMessage, $Out>
     HunterKind? hunter,
     String? name,
     bool? ready,
+    List<CaveBiome>? biomes,
   });
   ClientMessageCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -269,6 +285,15 @@ class _ClientMessageCopyWithImpl<$R, $Out>
   late final ClassMapperBase<ClientMessage> $mapper =
       ClientMessageMapper.ensureInitialized();
   @override
+  ListCopyWith<$R, CaveBiome, ObjectCopyWith<$R, CaveBiome, CaveBiome>>?
+  get biomes => $value.biomes != null
+      ? ListCopyWith(
+          $value.biomes!,
+          (v, t) => ObjectCopyWith(v, $identity, t),
+          (v) => call(biomes: v),
+        )
+      : null;
+  @override
   $R call({
     ClientMessageType? type,
     Object? direction = $none,
@@ -277,6 +302,7 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     Object? hunter = $none,
     Object? name = $none,
     Object? ready = $none,
+    Object? biomes = $none,
   }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
@@ -286,6 +312,7 @@ class _ClientMessageCopyWithImpl<$R, $Out>
       if (hunter != $none) #hunter: hunter,
       if (name != $none) #name: name,
       if (ready != $none) #ready: ready,
+      if (biomes != $none) #biomes: biomes,
     }),
   );
   @override
@@ -297,6 +324,7 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     hunter: data.get(#hunter, or: $value.hunter),
     name: data.get(#name, or: $value.name),
     ready: data.get(#ready, or: $value.ready),
+    biomes: data.get(#biomes, or: $value.biomes),
   );
 
   @override

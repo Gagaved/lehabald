@@ -24,6 +24,8 @@ void ensureProtocolMappersInitialized() {
   WebDtoMapper.ensureInitialized();
   BarrelDtoMapper.ensureInitialized();
   PortalDtoMapper.ensureInitialized();
+  SarcophagusDtoMapper.ensureInitialized();
+  MummyDtoMapper.ensureInitialized();
   TrailPointDtoMapper.ensureInitialized();
   ScoreDtoMapper.ensureInitialized();
   RoleStateDtoMapper.ensureInitialized();

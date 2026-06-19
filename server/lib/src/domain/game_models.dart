@@ -139,6 +139,69 @@ class ClutchState {
   final int hatchAt;
 }
 
+class SarcophagusState {
+  SarcophagusState({
+    required this.x,
+    required this.y,
+    this.cracked = false,
+    this.hasMummy = true,
+  });
+
+  final int x;
+  final int y;
+  bool cracked;
+  bool hasMummy;
+  final Set<String> playersInRadius = {};
+}
+
+class MummyState {
+  MummyState({
+    required this.x,
+    required this.y,
+    this.fleeing = false,
+    this.targetX,
+    this.targetY,
+  });
+
+  double x;
+  double y;
+  bool fleeing;
+  int? targetX;
+  int? targetY;
+  final Map<String, int> hitCooldownUntil = {};
+}
+
+/// An amethyst shard's "chime": an expanding purple pulse fired when a player
+/// steps on a shard, revealing where they were.
+class ChimeState {
+  ChimeState({required this.x, required this.y, required this.firedAt});
+
+  final double x;
+  final double y;
+  final int firedAt;
+}
+
+/// A growing mushroom in the amethyst colony. Advances through [stage] until it
+/// reaches the max stage, then dies and releases spores.
+class MushroomState {
+  MushroomState({required this.x, required this.y, this.stage = 0, this.nextGrowAt = 0});
+
+  final int x;
+  final int y;
+  int stage;
+  int nextGrowAt;
+}
+
+/// A patch of purple spores: conceals like a bush and slows anyone passing
+/// through, until [expiresAt].
+class SporeState {
+  SporeState({required this.x, required this.y, required this.expiresAt});
+
+  final int x;
+  final int y;
+  int expiresAt;
+}
+
 class GameRound {
   GamePhase phase = GamePhase.waiting;
   int? startedAt;
@@ -154,6 +217,13 @@ class GameRound {
   List<int> pendingWebRechargeAt = [];
   // Spider "Raffaello" mode: collect Raffaellos to lay an egg clutch.
   ClutchState? clutch;
+  List<SarcophagusState> sarcophagi = [];
+  List<MummyState> mummies = [];
+  // Amethyst biome: shards still intact, active chimes, mushroom colony + spores.
+  Set<String> shardsIntact = {};
+  List<ChimeState> chimes = [];
+  List<MushroomState> mushrooms = [];
+  List<SporeState> spores = [];
   int rafaelkiEaten = 0;
   Map<int, List<TrailPoint>> trails = {0: [], 1: []};
 }

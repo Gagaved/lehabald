@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
@@ -159,6 +160,45 @@ class _Hud extends StatelessWidget {
           FilledButton(
             onPressed: network.restart,
             child: Text(role == PlayerRole.spectator ? 'В меню' : 'Рестарт'),
+          ),
+          OutlinedButton(
+            onPressed: () => _showDiagnostics(context, network),
+            child: const Text('Логи'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showDiagnostics(
+      BuildContext context, GameNetworkClient network) async {
+    final text = network.diagnosticsText;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Логи клиента'),
+        content: SizedBox(
+          width: min(MediaQuery.sizeOf(context).width * 0.9, 760),
+          height: min(MediaQuery.sizeOf(context).height * 0.65, 520),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              text,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(
+                  ClipboardData(text: network.diagnosticsText));
+              if (context.mounted) Navigator.of(context).pop();
+            },
+            child: const Text('Скопировать'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Закрыть'),
           ),
         ],
       ),
@@ -360,6 +400,43 @@ class _LobbyState extends State<_Lobby> {
     );
   }
 
+  static const _biomeLabels = {
+    CaveBiome.forest: '🌿 Лес',
+    CaveBiome.amethyst: '🍄 Аметист',
+    CaveBiome.ember: '🔥 Вулкан',
+    CaveBiome.frost: '❄️ Лёд',
+    CaveBiome.sandstone: '🏜 Песок',
+  };
+
+  /// Checkboxes choosing which biomes the next generated map may use. At least
+  /// one must stay enabled.
+  Widget _biomeToggles(GameSnapshotDto? snapshot) {
+    final enabled = (snapshot?.enabledBiomes.isNotEmpty == true)
+        ? snapshot!.enabledBiomes.toSet()
+        : CaveBiome.values.toSet();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final b in CaveBiome.values)
+          FilterChip(
+            label: Text(_biomeLabels[b] ?? b.name),
+            selected: enabled.contains(b),
+            onSelected: (sel) {
+              final next = enabled.toSet();
+              if (sel) {
+                next.add(b);
+              } else {
+                next.remove(b);
+              }
+              if (next.isEmpty) return; // keep at least one biome enabled
+              widget.network.setBiomes(next.toList());
+            },
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final snapshot = widget.snapshot;
@@ -502,6 +579,10 @@ class _LobbyState extends State<_Lobby> {
                         ],
                       ),
               ),
+              const SizedBox(height: 12),
+              const _SectionLabel('Биомы следующей карты'),
+              const SizedBox(height: 6),
+              _biomeToggles(snapshot),
               const SizedBox(height: 12),
               const _SectionLabel('Боты'),
               const SizedBox(height: 6),
