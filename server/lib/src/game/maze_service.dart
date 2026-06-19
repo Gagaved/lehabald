@@ -1,6 +1,8 @@
 import 'dart:collection';
 import 'dart:math';
 
+import 'package:leha_bald_shared/leha_bald_shared.dart';
+
 import '../domain/game_constants.dart';
 import 'maze_generator.dart';
 
@@ -10,14 +12,43 @@ class MazeService {
     blockedVoidSpaces = _computeBlockedVoidSpaces(maze);
     superLogoKeys = _pickSuperLogoKeys(maze, random);
     bushes = _computeBushes(random);
+    crackedWalls = _computeCrackedWalls(random);
+    biome = CaveBiome.values[random.nextInt(CaveBiome.values.length)];
+    stoneSeed = random.nextInt(1 << 31);
   }
+
+  /// Cosmetic theme + stone-colour seed for this map (sent to clients).
+  late final CaveBiome biome;
+  late final int stoneSeed;
 
   final List<String> maze;
   late final Set<String> blockedVoidSpaces;
   late final Set<String> superLogoKeys;
   late final Set<String> bushes;
+  /// Wall cells the Spider may web through — the only legal web locations.
+  late final Set<String> crackedWalls;
 
   bool isBush(int x, int y) => bushes.contains('$x,$y');
+
+  bool isCrackedWall(int x, int y) => crackedWalls.contains('$x,$y');
+
+  /// Picks a small set of single-thickness interior walls (open floor on two
+  /// opposite sides) as the Spider's web-able "cracked" walls.
+  Set<String> _computeCrackedWalls(Random rng) {
+    final candidates = <String>[];
+    for (var y = 1; y < rows - 1; y++) {
+      for (var x = 1; x < cols - 1; x++) {
+        if (!isWall(x, y)) continue;
+        if (GameConstants.tunnelRows.contains(y)) continue;
+        final horiz = !isWall(x - 1, y) && !isWall(x + 1, y);
+        final vert = !isWall(x, y - 1) && !isWall(x, y + 1);
+        // Exactly one axis open keeps it a clean shortcut through a thin wall.
+        if (horiz != vert) candidates.add('$x,$y');
+      }
+    }
+    candidates.shuffle(rng);
+    return candidates.take(GameConstants.crackedWallCount).toSet();
+  }
 
   int get rows => maze.length;
   int get cols => maze.first.length;
@@ -30,15 +61,20 @@ class MazeService {
   }
 
   bool isWall(int x, int y) {
-    if (GameConstants.tunnelRows.contains(y) && (x < 0 || x >= cols)) {
-      return false;
-    }
-    final wrappedX = GameConstants.tunnelRows.contains(y) ? (x + cols) % cols : x;
+    final inRow = GameConstants.tunnelRows.contains(y);
+    final inCol = GameConstants.tunnelCols.contains(x);
+    // Stepping out of a tunnel's far edge is open ground (the player wraps).
+    if (inRow && (x < 0 || x >= cols)) return false;
+    if (inCol && (y < 0 || y >= rows)) return false;
+    final wrappedX = inRow ? (x + cols) % cols : x;
+    final wrappedY = inCol ? (y + rows) % rows : y;
     if (wrappedX < 0 || wrappedX >= cols) return true;
-    if (y < 0 || y >= rows) return true;
-    final cell = maze[y][wrappedX];
+    if (wrappedY < 0 || wrappedY >= rows) return true;
+    final cell = maze[wrappedY][wrappedX];
     if (cell == '#') return true;
-    if (cell == ' ' && blockedVoidSpaces.contains('$wrappedX,$y')) return true;
+    if (cell == ' ' && blockedVoidSpaces.contains('$wrappedX,$wrappedY')) {
+      return true;
+    }
     return false;
   }
 
@@ -151,7 +187,9 @@ class MazeService {
   Set<String> _computeBushes(Random rng) {
     final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
     bool open(int x, int y) =>
-        !GameConstants.tunnelRows.contains(y) && x >= 0 && x < cols && y >= 0 && y < rows && !isWall(x, y);
+        !GameConstants.tunnelRows.contains(y) &&
+        !GameConstants.tunnelCols.contains(x) &&
+        x >= 0 && x < cols && y >= 0 && y < rows && !isWall(x, y);
     bool allowed(int x, int y) {
       final k = '$x,$y';
       return open(x, y) && !starts.contains(k) && !superLogoKeys.contains(k);
@@ -204,7 +242,12 @@ class MazeService {
     void enqueue(int x, int y) {
       if (y < 0 || y >= h || x < 0 || x >= w) return;
       final key = '$x,$y';
-      if (blocked.contains(key) || GameConstants.tunnelRows.contains(y) || mazeData[y][x] != ' ') return;
+      if (blocked.contains(key) ||
+          GameConstants.tunnelRows.contains(y) ||
+          GameConstants.tunnelCols.contains(x) ||
+          mazeData[y][x] != ' ') {
+        return;
+      }
       blocked.add(key);
       queue.add(Point(x, y));
     }

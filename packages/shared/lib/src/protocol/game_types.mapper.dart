@@ -208,6 +208,64 @@ extension GamePhaseMapperExtension on GamePhase {
   }
 }
 
+class CaveBiomeMapper extends EnumMapper<CaveBiome> {
+  CaveBiomeMapper._();
+
+  static CaveBiomeMapper? _instance;
+  static CaveBiomeMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = CaveBiomeMapper._());
+    }
+    return _instance!;
+  }
+
+  static CaveBiome fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  CaveBiome decode(dynamic value) {
+    switch (value) {
+      case r'forest':
+        return CaveBiome.forest;
+      case r'amethyst':
+        return CaveBiome.amethyst;
+      case r'ember':
+        return CaveBiome.ember;
+      case r'frost':
+        return CaveBiome.frost;
+      case r'sandstone':
+        return CaveBiome.sandstone;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(CaveBiome self) {
+    switch (self) {
+      case CaveBiome.forest:
+        return r'forest';
+      case CaveBiome.amethyst:
+        return r'amethyst';
+      case CaveBiome.ember:
+        return r'ember';
+      case CaveBiome.frost:
+        return r'frost';
+      case CaveBiome.sandstone:
+        return r'sandstone';
+    }
+  }
+}
+
+extension CaveBiomeMapperExtension on CaveBiome {
+  String toValue() {
+    CaveBiomeMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<CaveBiome>(this) as String;
+  }
+}
+
 class Vec2iMapper extends ClassMapperBase<Vec2i> {
   Vec2iMapper._();
 

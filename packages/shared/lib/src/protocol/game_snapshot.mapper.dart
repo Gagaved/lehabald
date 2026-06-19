@@ -2310,6 +2310,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       MapperContainer.globals.use(_instance = GameSnapshotDtoMapper._());
       YouDtoMapper.ensureInitialized();
       Vec2iMapper.ensureInitialized();
+      CaveBiomeMapper.ensureInitialized();
       LogoDtoMapper.ensureInitialized();
       TrapDtoMapper.ensureInitialized();
       WebDtoMapper.ensureInitialized();
@@ -2348,6 +2349,27 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     _$bushes,
     opt: true,
     def: const [],
+  );
+  static List<Vec2i> _$crackedWalls(GameSnapshotDto v) => v.crackedWalls;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$crackedWalls = Field(
+    'crackedWalls',
+    _$crackedWalls,
+    opt: true,
+    def: const [],
+  );
+  static CaveBiome _$biome(GameSnapshotDto v) => v.biome;
+  static const Field<GameSnapshotDto, CaveBiome> _f$biome = Field(
+    'biome',
+    _$biome,
+    opt: true,
+    def: CaveBiome.forest,
+  );
+  static int _$stoneSeed(GameSnapshotDto v) => v.stoneSeed;
+  static const Field<GameSnapshotDto, int> _f$stoneSeed = Field(
+    'stoneSeed',
+    _$stoneSeed,
+    opt: true,
+    def: 0,
   );
   static List<LogoDto> _$logos(GameSnapshotDto v) => v.logos;
   static const Field<GameSnapshotDto, List<LogoDto>> _f$logos = Field(
@@ -2433,6 +2455,9 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #cols: _f$cols,
     #maze: _f$maze,
     #bushes: _f$bushes,
+    #crackedWalls: _f$crackedWalls,
+    #biome: _f$biome,
+    #stoneSeed: _f$stoneSeed,
     #logos: _f$logos,
     #traps: _f$traps,
     #webs: _f$webs,
@@ -2458,6 +2483,9 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       cols: data.dec(_f$cols),
       maze: data.dec(_f$maze),
       bushes: data.dec(_f$bushes),
+      crackedWalls: data.dec(_f$crackedWalls),
+      biome: data.dec(_f$biome),
+      stoneSeed: data.dec(_f$stoneSeed),
       logos: data.dec(_f$logos),
       traps: data.dec(_f$traps),
       webs: data.dec(_f$webs),
@@ -2541,6 +2569,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   YouDtoCopyWith<$R, YouDto, YouDto> get you;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get maze;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get bushes;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crackedWalls;
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos;
   ListCopyWith<$R, TrapDto, TrapDtoCopyWith<$R, TrapDto, TrapDto>> get traps;
   ListCopyWith<$R, WebDto, WebDtoCopyWith<$R, WebDto, WebDto>> get webs;
@@ -2575,6 +2604,9 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     int? cols,
     List<String>? maze,
     List<Vec2i>? bushes,
+    List<Vec2i>? crackedWalls,
+    CaveBiome? biome,
+    int? stoneSeed,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
@@ -2620,6 +2652,13 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         $value.bushes,
         (v, t) => v.copyWith.$chain(t),
         (v) => call(bushes: v),
+      );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crackedWalls =>
+      ListCopyWith(
+        $value.crackedWalls,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(crackedWalls: v),
       );
   @override
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos =>
@@ -2712,6 +2751,9 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     int? cols,
     List<String>? maze,
     List<Vec2i>? bushes,
+    List<Vec2i>? crackedWalls,
+    CaveBiome? biome,
+    int? stoneSeed,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
@@ -2735,6 +2777,9 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (cols != null) #cols: cols,
       if (maze != null) #maze: maze,
       if (bushes != null) #bushes: bushes,
+      if (crackedWalls != null) #crackedWalls: crackedWalls,
+      if (biome != null) #biome: biome,
+      if (stoneSeed != null) #stoneSeed: stoneSeed,
       if (logos != null) #logos: logos,
       if (traps != null) #traps: traps,
       if (webs != null) #webs: webs,
@@ -2760,6 +2805,9 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     cols: data.get(#cols, or: $value.cols),
     maze: data.get(#maze, or: $value.maze),
     bushes: data.get(#bushes, or: $value.bushes),
+    crackedWalls: data.get(#crackedWalls, or: $value.crackedWalls),
+    biome: data.get(#biome, or: $value.biome),
+    stoneSeed: data.get(#stoneSeed, or: $value.stoneSeed),
     logos: data.get(#logos, or: $value.logos),
     traps: data.get(#traps, or: $value.traps),
     webs: data.get(#webs, or: $value.webs),

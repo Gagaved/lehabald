@@ -285,25 +285,41 @@ class GameEngine {
     ensureRoundState();
   }
 
+  /// Bakhirkin's trap button: places a trap, or — if he's standing on one of
+  /// his own un-sprung traps — picks it back up (refunding the charge). There's
+  /// no cooldown; he just can't have more than [maxTrapCharges] traps out.
   void placeTrap(PlayerConnection client) {
     final now = nowMs();
     if (round.phase != GamePhase.playing ||
         client.slot != 1 ||
-        client.trapCharges <= 0 ||
-        now < client.stunnedUntil ||
-        now < client.trapCooldownUntil) {
+        client.hunterKind != HunterKind.bakhirkin ||
+        now < client.stunnedUntil) {
       return;
     }
     final cell = centerCell(client);
+    // Same button collects an un-sprung trap underfoot.
+    final existing = round.traps.indexWhere((trap) =>
+        trap.triggeredAt == null && trap.x == cell.x && trap.y == cell.y);
+    if (existing != -1) {
+      round.traps.removeAt(existing);
+      client.trapCharges =
+          min(GameConstants.maxTrapCharges, client.trapCharges + 1);
+      return;
+    }
+    if (client.trapCharges <= 0) return;
     if (maze.isWall(cell.x, cell.y) || maze.isBush(cell.x, cell.y)) return;
     client.trapCharges -= 1;
     round.traps.add(TrapState(
       x: cell.x,
       y: cell.y,
       placedAt: now,
-      expiresAt: now + GameConstants.trapDurationMs,
+      // Placed traps don't expire on a timer; only a sprung trap counts down
+      // (its brief "caught!" display). Sentinel keeps it active until triggered.
+      expiresAt: _trapNeverExpires,
     ));
   }
+
+  static const _trapNeverExpires = 1 << 62;
 
   void useAbility(PlayerConnection client) {
     if (round.phase != GamePhase.playing) return;
@@ -335,6 +351,10 @@ class GameEngine {
     if (now < client.barrelCooldownUntil || now < client.stunnedUntil) return;
     final dir = client.lastDirection;
     client.barrelCooldownUntil = now + GameConstants.barrelCooldownMs;
+    // Lock on if Leha is in a clear line of sight at the moment of the throw.
+    final leha = findPlayer(0);
+    final homing = leha != null &&
+        maze.hasLineOfSight(playerPos(client), playerPos(leha));
     round.barrels.add(BarrelState(
       x: client.x,
       y: client.y,
@@ -342,6 +362,7 @@ class GameEngine {
       dirY: dir.dy,
       spawnedAt: now,
       ownerId: client.id,
+      homing: homing,
     ));
   }
 
@@ -357,7 +378,8 @@ class GameEngine {
     final bx = (cell.x + dir.dx).round();
     final by = (cell.y + dir.dy).round();
     if (bx < 0 || bx >= maze.cols || by < 0 || by >= maze.rows) return;
-    if (maze.isBush(bx, by)) return;
+    // Webs may only go on the map's scarce cracked walls.
+    if (!maze.isCrackedWall(bx, by)) return;
     if (round.webs.any((web) => web.x == bx && web.y == by)) return;
     client.webCharges -= 1;
     round.webs.add(WebState(x: bx, y: by, createdAt: now));
@@ -366,8 +388,10 @@ class GameEngine {
 
   void placePortal(PlayerConnection client) {
     final now = nowMs();
-    // Placing portals is free (no cooldown); the only cooldown is the 12s after
-    // someone teleports through a pair.
+    // The cooldown is on *laying a pair* of portals, not on teleporting. It
+    // starts only once the second portal lands, and blocks laying any new
+    // portal until it elapses.
+    if (now < client.portalCooldownUntil) return;
     final current = centerCell(client);
     final direction = client.lastDirection;
     final cell = Point(
@@ -383,6 +407,10 @@ class GameEngine {
     if (round.portals.length > 2) {
       round.portals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       round.portals.removeAt(0);
+    }
+    // Second portal of the pair just landed — start the 10s placement cooldown.
+    if (round.portals.length == 2) {
+      client.portalCooldownUntil = now + GameConstants.portalCooldownMs;
     }
   }
 
@@ -455,8 +483,7 @@ class GameEngine {
     // Drop a trap when close, then keep chasing.
     if (bot.hunterKind == HunterKind.bakhirkin &&
         _cellDist(cell, lc) <= 4 &&
-        bot.trapCharges > 0 &&
-        now >= bot.trapCooldownUntil) {
+        bot.trapCharges > 0) {
       placeTrap(bot);
     }
     bot.nextDirection = _bfsFirstStep(cell, (x, y) => x == lc.x && y == lc.y) ??
@@ -466,10 +493,14 @@ class GameEngine {
   /// One open cell step from (x,y) along [step], honoring tunnel wrap; null if blocked.
   Point<int>? _stepCell(int x, int y, (MoveDirection, int, int) step) {
     var nx = x + step.$2;
-    final ny = y + step.$3;
+    var ny = y + step.$3;
     if (GameConstants.tunnelRows.contains(ny)) {
       if (nx < 0) nx = maze.cols - 1;
       if (nx >= maze.cols) nx = 0;
+    }
+    if (GameConstants.tunnelCols.contains(nx)) {
+      if (ny < 0) ny = maze.rows - 1;
+      if (ny >= maze.rows) ny = 0;
     }
     if (ny < 0 || ny >= maze.rows || nx < 0 || nx >= maze.cols) return null;
     if (maze.isWall(nx, ny)) return null;
@@ -479,7 +510,11 @@ class GameEngine {
   /// BFS over maze cells; returns the first move toward the nearest cell
   /// satisfying [isGoal], or null if none reachable.
   MoveDirection? _bfsFirstStep(
-      Point<int> start, bool Function(int, int) isGoal) {
+      Point<int> rawStart, bool Function(int, int) isGoal) {
+    // A player mid-tunnel-wrap sits just outside the grid (e.g. x=-0.35 → cell
+    // -1, or rows+0.35 → cell `rows`). Normalize back into bounds so the visited
+    // array isn't indexed out of range.
+    final start = _wrapCell(rawStart);
     if (isGoal(start.x, start.y)) return null;
     final cols = maze.cols;
     final visited = List<bool>.filled(maze.rows * cols, false);
@@ -505,8 +540,15 @@ class GameEngine {
     return null;
   }
 
+  /// Wraps an out-of-bounds cell (a player caught mid-tunnel-wrap) back into the
+  /// grid so it can be used as a grid index.
+  Point<int> _wrapCell(Point<int> c) =>
+      Point((c.x % maze.cols + maze.cols) % maze.cols,
+          (c.y % maze.rows + maze.rows) % maze.rows);
+
   /// Open neighbor that maximizes distance from [threat].
-  MoveDirection? _fleeStep(Point<int> from, Point<int> threat) {
+  MoveDirection? _fleeStep(Point<int> rawFrom, Point<int> threat) {
+    final from = _wrapCell(rawFrom);
     MoveDirection? best;
     var bestDist = -1;
     for (final step in _steps) {
@@ -538,6 +580,7 @@ class GameEngine {
           .any((w) => w.x == barrel.x.floor() && w.y == barrel.y.floor());
       if (onWeb) barrel.slowUntil = now + GameConstants.barrelWebSlowMs;
       final slowed = now < barrel.slowUntil;
+      if (barrel.homing && leha != null) _steerBarrelToward(barrel, leha);
       _advanceBarrel(barrel,
           slowed ? baseDist * GameConstants.barrelWebSlowFactor : baseDist);
       // Ricochets off walls indefinitely — only lifetime or a hit destroys it.
@@ -555,6 +598,26 @@ class GameEngine {
       survivors.add(barrel);
     }
     round.barrels = survivors;
+  }
+
+  /// Bends a homing barrel's heading toward [leha] by a capped amount per tick.
+  void _steerBarrelToward(BarrelState barrel, PlayerConnection leha) {
+    final desired = atan2(leha.y - barrel.y, leha.x - barrel.x);
+    final current = atan2(barrel.dirY, barrel.dirX);
+    var delta = desired - current;
+    // Normalize to (-pi, pi] so we always turn the short way around.
+    while (delta > pi) {
+      delta -= 2 * pi;
+    }
+    while (delta < -pi) {
+      delta += 2 * pi;
+    }
+    final maxTurn = GameConstants.barrelHomingTurnPerTick;
+    final turn = delta.clamp(-maxTurn, maxTurn);
+    final angle = current + turn;
+    barrel
+      ..dirX = cos(angle)
+      ..dirY = sin(angle);
   }
 
   void _advanceBarrel(BarrelState barrel, double dist) {
@@ -599,6 +662,10 @@ class GameEngine {
         (x < 0 || x >= maze.cols)) {
       return false;
     }
+    if (GameConstants.tunnelCols.contains(x.floor()) &&
+        (y < 0 || y >= maze.rows)) {
+      return false;
+    }
     final r = GameConstants.barrelRadius;
     final minCx = (x - r).floor();
     final maxCx = (x + r).ceil();
@@ -618,9 +685,14 @@ class GameEngine {
   }
 
   void _wrapBarrelTunnel(BarrelState barrel) {
-    if (!GameConstants.tunnelRows.contains(barrel.y.floor())) return;
-    if (barrel.x < -0.35) barrel.x = maze.cols + 0.35;
-    if (barrel.x > maze.cols + 0.35) barrel.x = -0.35;
+    if (GameConstants.tunnelRows.contains(barrel.y.floor())) {
+      if (barrel.x < -0.35) barrel.x = maze.cols + 0.35;
+      if (barrel.x > maze.cols + 0.35) barrel.x = -0.35;
+    }
+    if (GameConstants.tunnelCols.contains(barrel.x.floor())) {
+      if (barrel.y < -0.35) barrel.y = maze.rows + 0.35;
+      if (barrel.y > maze.rows + 0.35) barrel.y = -0.35;
+    }
   }
 
   void hitLehaWithBarrel(PlayerConnection leha, int now) {
@@ -766,7 +838,6 @@ class GameEngine {
 
     expireTraps(now);
     expireWebs(now);
-    rechargeTraps(now);
     rechargeWebs(now);
     updateBots(now);
     for (final client in clients.values) {
@@ -850,6 +921,12 @@ class GameEngine {
         final parts = key.split(',').map(int.parse).toList();
         return Vec2i(parts[0], parts[1]);
       }).toList(),
+      crackedWalls: maze.crackedWalls.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
+      biome: maze.biome,
+      stoneSeed: maze.stoneSeed,
       logos: visibleLogosFor(viewer).where((key) {
         if (!lehaBlinded) return true;
         final parts = key.split(',').map(int.parse).toList();
@@ -890,10 +967,8 @@ class GameEngine {
         trapAvailable: viewer.slot == 1 &&
             round.phase == GamePhase.playing &&
             viewer.trapCharges > 0 &&
-            now >= viewer.stunnedUntil &&
-            now >= viewer.trapCooldownUntil,
-        trapCooldownMs:
-            viewer.slot == 1 ? max(0, viewer.trapCooldownUntil - now) : 0,
+            now >= viewer.stunnedUntil,
+        trapCooldownMs: 0,
         trapActive: round.traps.isNotEmpty,
         trapCharges: viewer.slot == 1 ? viewer.trapCharges : 0,
         abilityAvailable: abilityAvailableFor(viewer, now),
@@ -1194,12 +1269,9 @@ class GameEngine {
   }
 
   void expireTraps(int now) {
-    final expired = round.traps.where((trap) => now >= trap.expiresAt).length;
-    if (expired == 0) return;
+    // Only sprung traps clear (after their brief "caught!" display); un-sprung
+    // traps persist until Leha triggers them or Bakhirkin collects them.
     round.traps.removeWhere((trap) => now >= trap.expiresAt);
-    for (var i = 0; i < expired; i += 1) {
-      scheduleTrapRecharge(now);
-    }
   }
 
   void resolveTrap(PlayerConnection? leha, int now) {
@@ -1220,33 +1292,10 @@ class GameEngine {
         ..nextDirection = null
         ..stopRequested = false;
       // Mark as triggered and keep briefly so Hunter sees the notification.
+      // A sprung trap is spent — its charge is not refunded.
       round.traps[trapIndex]
         ..triggeredAt = now
         ..expiresAt = now + GameConstants.trapTriggeredDisplayMs;
-      scheduleTrapRecharge(now);
-    }
-  }
-
-  void scheduleTrapRecharge(int now) {
-    round.pendingTrapRechargeAt.add(now + GameConstants.trapCooldownMs);
-    final hunter = findPlayer(1);
-    if (hunter != null) {
-      hunter.trapCooldownUntil = round.pendingTrapRechargeAt.reduce(min);
-    }
-  }
-
-  void rechargeTraps(int now) {
-    final ready =
-        round.pendingTrapRechargeAt.where((time) => now >= time).length;
-    if (ready == 0) return;
-    round.pendingTrapRechargeAt.removeWhere((time) => now >= time);
-    final hunter = findPlayer(1);
-    if (hunter != null) {
-      hunter.trapCharges =
-          min(GameConstants.maxTrapCharges, hunter.trapCharges + ready);
-      hunter.trapCooldownUntil = round.pendingTrapRechargeAt.isEmpty
-          ? 0
-          : round.pendingTrapRechargeAt.reduce(min);
     }
   }
 
@@ -1363,6 +1412,10 @@ class GameEngine {
   bool isPositionOpen(PlayerConnection player, double x, double y, int now) {
     if (GameConstants.tunnelRows.contains(y.floor()) &&
         (x < 0 || x >= maze.cols)) {
+      return true;
+    }
+    if (GameConstants.tunnelCols.contains(x.floor()) &&
+        (y < 0 || y >= maze.rows)) {
       return true;
     }
 
@@ -1548,8 +1601,8 @@ class GameEngine {
     return switch (viewer.aspect) {
       LehaAspect.superLeha => false,
       LehaAspect.spider => viewer.webCharges > 0,
-      // Placing portals is always free; the cooldown is on teleporting, not placing.
-      LehaAspect.wizard => true,
+      // Laying a portal is blocked during the post-pair placement cooldown.
+      LehaAspect.wizard => now >= viewer.portalCooldownUntil,
     };
   }
 
@@ -1560,7 +1613,7 @@ class GameEngine {
       LehaAspect.spider => viewer.webCharges >= GameConstants.maxWebCharges
           ? 0
           : max(0, viewer.webCooldownUntil - now),
-      LehaAspect.wizard => 0,
+      LehaAspect.wizard => max(0, viewer.portalCooldownUntil - now),
     };
   }
 
@@ -1670,10 +1723,9 @@ class GameEngine {
     final freshlyEntered = cellKey != player.lastCellKey;
     player.lastCellKey = cellKey;
 
-    // Teleport only with both portals open, on a fresh step onto a portal, and
-    // when this player isn't on their post-teleport cooldown.
+    // Teleport whenever both portals are open and the player freshly steps onto
+    // one — passing through is free; the cooldown is on laying portals instead.
     if (round.portals.length != 2 || !freshlyEntered) return;
-    if (now < player.portalTeleportUntil) return;
     final portalIndex = round.portals
         .indexWhere((portal) => portal.x == cell.x && portal.y == cell.y);
     if (portalIndex == -1) return;
@@ -1683,8 +1735,7 @@ class GameEngine {
       ..y = target.y + 0.5
       ..direction = null
       ..nextDirection = null
-      ..lastCellKey = '${target.x},${target.y}'
-      ..portalTeleportUntil = now + GameConstants.portalTeleportCooldownMs;
+      ..lastCellKey = '${target.x},${target.y}';
     // Portals are consumed on use.
     round.portals = [];
   }
@@ -1794,9 +1845,14 @@ class GameEngine {
   }
 
   void _wrapTunnel(PlayerConnection player) {
-    if (!GameConstants.tunnelRows.contains(player.y.floor())) return;
-    if (player.x < -0.35) player.x = maze.cols + 0.35;
-    if (player.x > maze.cols + 0.35) player.x = -0.35;
+    if (GameConstants.tunnelRows.contains(player.y.floor())) {
+      if (player.x < -0.35) player.x = maze.cols + 0.35;
+      if (player.x > maze.cols + 0.35) player.x = -0.35;
+    }
+    if (GameConstants.tunnelCols.contains(player.x.floor())) {
+      if (player.y < -0.35) player.y = maze.rows + 0.35;
+      if (player.y > maze.rows + 0.35) player.y = -0.35;
+    }
   }
 
   TrapDto _trapDto(TrapState trap) => TrapDto(

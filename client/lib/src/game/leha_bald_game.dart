@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flame/game.dart';
+import 'package:flutter/painting.dart' show HSVColor;
 import 'package:flutter/services.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
@@ -13,6 +14,11 @@ class LehaBaldGame extends FlameGame {
   static const tile = 32.0;
   final GameNetworkClient network;
   final _heldKeys = <LogicalKeyboardKey, MoveDirection>{};
+
+  /// The active cave palette, rebuilt only when the biome or stone seed changes.
+  _BiomePalette _palette = _BiomePalette.build(CaveBiome.forest, 0);
+  CaveBiome? _paletteBiome;
+  int? _paletteSeed;
 
   late Image playerHead;
   late Image chaserHead;
@@ -97,11 +103,19 @@ class LehaBaldGame extends FlameGame {
     final dx = (size.x - boardW) / 2;
     final dy = topInset + (availH - boardH) / 2;
 
+    // Rebuild the palette only when the map's theme actually changes.
+    if (snapshot.biome != _paletteBiome || snapshot.stoneSeed != _paletteSeed) {
+      _palette = _BiomePalette.build(snapshot.biome, snapshot.stoneSeed);
+      _paletteBiome = snapshot.biome;
+      _paletteSeed = snapshot.stoneSeed;
+    }
+
     canvas.save();
     canvas.translate(dx, dy);
     canvas.scale(scale);
 
     _drawBoard(canvas, snapshot);
+    _drawCrackedWalls(canvas, snapshot.crackedWalls);
     _drawBushes(canvas, snapshot.bushes);
     _drawTrail(canvas, snapshot.trail);
     _drawWebs(canvas, snapshot.webs);
@@ -228,11 +242,11 @@ class LehaBaldGame extends FlameGame {
   }
 
   void _drawBoard(Canvas canvas, GameSnapshotDto snapshot) {
-    final bg = Paint()..color = const Color(0xff090d17);
+    final bg = Paint()..color = _palette.background;
     canvas.drawRect(Rect.fromLTWH(0, 0, snapshot.cols * tile, snapshot.rows * tile), bg);
-    final wallPaint = Paint()..color = const Color(0xff123869);
+    final wallPaint = Paint()..color = _palette.wall;
     final stroke = Paint()
-      ..color = const Color(0x5500f2ea)
+      ..color = _palette.wallEdge
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -249,29 +263,203 @@ class LehaBaldGame extends FlameGame {
     }
   }
 
+  /// Cracked walls keep the normal wall look from [_drawBoard]; we just etch a
+  /// jagged fracture (with a few branches) onto them so the Spider can tell
+  /// where she may web, without making them garishly stand out.
+  void _drawCrackedWalls(Canvas canvas, List<Vec2i> crackedWalls) {
+    for (final w in crackedWalls) {
+      final left = w.x * tile, top = w.y * tile;
+
+      final cx = left + tile / 2;
+      final rnd = Random(w.x * 2654435761 ^ w.y * 40503);
+      // Main jagged fracture down the middle, with a couple of branches.
+      final crack = Path()..moveTo(cx, top + 3);
+      final joints = <Offset>[Offset(cx, top + 3)];
+      var py = top + 3.0;
+      while (py < top + tile - 3) {
+        py += tile * (0.18 + rnd.nextDouble() * 0.12);
+        final jx = cx + tile * (rnd.nextDouble() - 0.5) * 0.6;
+        final p = Offset(jx, py.clamp(top + 3, top + tile - 3));
+        crack.lineTo(p.dx, p.dy);
+        joints.add(p);
+      }
+      // Branch fractures off random joints.
+      for (final j in joints.skip(1)) {
+        if (rnd.nextBool()) continue;
+        final dir = rnd.nextBool() ? 1 : -1;
+        crack.moveTo(j.dx, j.dy);
+        crack.lineTo(
+          (j.dx + dir * tile * (0.2 + rnd.nextDouble() * 0.25))
+              .clamp(left + 3, left + tile - 3),
+          (j.dy + tile * (rnd.nextDouble() - 0.5) * 0.3)
+              .clamp(top + 3, top + tile - 3),
+        );
+      }
+      // Dark fissure with a biome-accent highlight so it reads as a crack in
+      // the cave stone.
+      canvas.drawPath(
+        crack,
+        Paint()
+          ..color = _palette.crackDark
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3.2
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round,
+      );
+      canvas.drawPath(
+        crack,
+        Paint()
+          ..color = _palette.accent.withValues(alpha:0.8)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.4
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  /// Concealment cover. The motif is themed per biome (leafy bushes, glowing
+  /// mushrooms, ice crystals, ember fungus, cacti) but all share the same
+  /// footprint and a tinted base so a patch still reads as one shape.
   void _drawBushes(Canvas canvas, List<Vec2i> bushes) {
+    final p = _palette;
     for (final b in bushes) {
       final cx = b.x * tile, cy = b.y * tile;
-      // Dark green base fills the cell so adjacent bush tiles read as one patch.
+      // Tinted base fills the cell so adjacent cover tiles merge into one patch.
       canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(cx, cy, tile, tile), const Radius.circular(7)),
-        Paint()..color = const Color(0xff184d2b),
+        Paint()..color = p.bushBase,
       );
-      // Deterministic clustered foliage blobs (stable per cell).
       final rnd = Random(b.x * 73856093 ^ b.y * 19349663);
-      for (var i = 0; i < 5; i++) {
-        final ox = cx + tile * (0.22 + rnd.nextDouble() * 0.56);
-        final oy = cy + tile * (0.22 + rnd.nextDouble() * 0.56);
-        final r = tile * (0.16 + rnd.nextDouble() * 0.15);
-        final shade = const [Color(0xff2f8a4a), Color(0xff37a155), Color(0xff268040)][i % 3];
-        canvas.drawCircle(Offset(ox, oy), r, Paint()..color = shade);
+      switch (p.bushKind) {
+        case _BushKind.leaves:
+          _drawLeafyBush(canvas, cx, cy, rnd, p);
+        case _BushKind.mushrooms:
+          _drawMushrooms(canvas, cx, cy, rnd, p);
+        case _BushKind.crystals:
+          _drawCrystals(canvas, cx, cy, rnd, p);
+        case _BushKind.embers:
+          _drawEmberFungus(canvas, cx, cy, rnd, p);
+        case _BushKind.cactus:
+          _drawCactus(canvas, cx, cy, rnd, p);
       }
-      // A couple of bright highlights for depth.
-      for (var i = 0; i < 2; i++) {
-        final ox = cx + tile * (0.3 + rnd.nextDouble() * 0.4);
-        final oy = cy + tile * (0.3 + rnd.nextDouble() * 0.4);
-        canvas.drawCircle(Offset(ox, oy), tile * 0.06, Paint()..color = const Color(0x886fe39a));
+    }
+  }
+
+  void _drawLeafyBush(
+      Canvas canvas, double cx, double cy, Random rnd, _BiomePalette p) {
+    for (var i = 0; i < 7; i++) {
+      final ox = cx + tile * (0.16 + rnd.nextDouble() * 0.68);
+      final oy = cy + tile * (0.16 + rnd.nextDouble() * 0.68);
+      final r = tile * (0.20 + rnd.nextDouble() * 0.16);
+      final shade = [p.bushMid, p.bushLite, p.bushDark][i % 3];
+      canvas.drawCircle(Offset(ox, oy), r, Paint()..color = shade);
+    }
+    for (var i = 0; i < 3; i++) {
+      final ox = cx + tile * (0.3 + rnd.nextDouble() * 0.4);
+      final oy = cy + tile * (0.3 + rnd.nextDouble() * 0.4);
+      canvas.drawCircle(
+          Offset(ox, oy), tile * 0.06, Paint()..color = p.bushLite.withValues(alpha:0.6));
+    }
+  }
+
+  void _drawMushrooms(
+      Canvas canvas, double cx, double cy, Random rnd, _BiomePalette p) {
+    for (var i = 0; i < 5; i++) {
+      final mx = cx + tile * (0.16 + rnd.nextDouble() * 0.68);
+      final my = cy + tile * (0.30 + rnd.nextDouble() * 0.50);
+      final capR = tile * (0.20 + rnd.nextDouble() * 0.12);
+      // Stem.
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(mx - capR * 0.28, my, capR * 0.56, capR * 1.1),
+          Radius.circular(capR * 0.3),
+        ),
+        Paint()..color = p.bushLite.withValues(alpha:0.85),
+      );
+      // Cap (half-dome) with a glow and pale spots.
+      canvas.drawCircle(Offset(mx, my), capR * 1.5,
+          Paint()..color = p.accent.withValues(alpha:0.10));
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(mx, my), radius: capR),
+        pi, pi, true, Paint()..color = p.bushMid,
+      );
+      canvas.drawCircle(
+          Offset(mx - capR * 0.3, my - capR * 0.25), capR * 0.16, Paint()..color = p.bushLite);
+      canvas.drawCircle(
+          Offset(mx + capR * 0.35, my - capR * 0.1), capR * 0.12, Paint()..color = p.bushLite);
+    }
+  }
+
+  void _drawCrystals(
+      Canvas canvas, double cx, double cy, Random rnd, _BiomePalette p) {
+    for (var i = 0; i < 6; i++) {
+      final bx = cx + tile * (0.16 + rnd.nextDouble() * 0.68);
+      final by = cy + tile * (0.5 + rnd.nextDouble() * 0.4);
+      final h = tile * (0.38 + rnd.nextDouble() * 0.32);
+      final w = h * (0.34 + rnd.nextDouble() * 0.16);
+      final shard = Path()
+        ..moveTo(bx, by - h)
+        ..lineTo(bx + w, by - h * 0.45)
+        ..lineTo(bx + w * 0.5, by)
+        ..lineTo(bx - w * 0.5, by)
+        ..lineTo(bx - w, by - h * 0.45)
+        ..close();
+      canvas.drawPath(shard, Paint()..color = (i.isEven ? p.bushMid : p.bushLite));
+      canvas.drawPath(
+        shard,
+        Paint()
+          ..color = p.accent.withValues(alpha:0.5)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+  }
+
+  void _drawEmberFungus(
+      Canvas canvas, double cx, double cy, Random rnd, _BiomePalette p) {
+    // Dark clustered fungus dotted with glowing embers.
+    for (var i = 0; i < 6; i++) {
+      final ox = cx + tile * (0.16 + rnd.nextDouble() * 0.68);
+      final oy = cy + tile * (0.18 + rnd.nextDouble() * 0.64);
+      canvas.drawCircle(
+          Offset(ox, oy), tile * (0.16 + rnd.nextDouble() * 0.10), Paint()..color = p.bushDark);
+    }
+    for (var i = 0; i < 6; i++) {
+      final ox = cx + tile * (0.18 + rnd.nextDouble() * 0.64);
+      final oy = cy + tile * (0.18 + rnd.nextDouble() * 0.64);
+      canvas.drawCircle(
+          Offset(ox, oy), tile * 0.18, Paint()..color = p.accent.withValues(alpha: 0.18));
+      canvas.drawCircle(Offset(ox, oy), tile * 0.07, Paint()..color = p.accent);
+    }
+  }
+
+  void _drawCactus(
+      Canvas canvas, double cx, double cy, Random rnd, _BiomePalette p) {
+    final body = Paint()..color = p.bushMid;
+    RRect stem(double x, double y, double w, double h) =>
+        RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), Radius.circular(w / 2));
+    // Two or three cacti of varying height filling the cell.
+    final count = 2 + rnd.nextInt(2);
+    for (var i = 0; i < count; i++) {
+      final mx = cx + tile * (0.22 + rnd.nextDouble() * 0.56);
+      final baseY = cy + tile * (0.82 + rnd.nextDouble() * 0.12);
+      final bodyH = tile * (0.52 + rnd.nextDouble() * 0.26);
+      final bodyW = tile * (0.22 + rnd.nextDouble() * 0.08);
+      canvas.drawRRect(stem(mx - bodyW / 2, baseY - bodyH, bodyW, bodyH), body);
+      // One or two arms.
+      if (rnd.nextBool()) {
+        canvas.drawRRect(
+            stem(mx - bodyW * 1.1, baseY - bodyH * 0.7, bodyW * 0.7, bodyH * 0.5), body);
       }
+      if (rnd.nextBool()) {
+        canvas.drawRRect(
+            stem(mx + bodyW * 0.4, baseY - bodyH * 0.85, bodyW * 0.7, bodyH * 0.55), body);
+      }
+      // Subtle highlight ridge.
+      canvas.drawRRect(
+        stem(mx - bodyW * 0.18, baseY - bodyH * 0.95, bodyW * 0.16, bodyH * 0.8),
+        Paint()..color = p.bushLite.withValues(alpha: 0.5),
+      );
     }
   }
 
@@ -329,8 +517,8 @@ class LehaBaldGame extends FlameGame {
   void _drawClutch(Canvas canvas, ClutchDto? clutch) {
     if (clutch == null) return;
     final center = Offset(clutch.x * tile + tile / 2, clutch.y * tile + tile / 2);
-    // hatchMs counts down from 10000 → 0; grow from 55% to full as it ripens.
-    final ripeness = (1.0 - (clutch.hatchMs / 10000)).clamp(0.0, 1.0);
+    // hatchMs counts down from 20000 → 0; grow from 55% to full as it ripens.
+    final ripeness = (1.0 - (clutch.hatchMs / 20000)).clamp(0.0, 1.0);
     final scale = 0.55 + 0.45 * ripeness;
     // Pulsing aura so it's noticeable.
     canvas.drawCircle(center, tile * (0.55 + 0.1 * ripeness),
@@ -618,5 +806,101 @@ class LehaBaldGame extends FlameGame {
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) return MoveDirection.left;
     if (key == LogicalKeyboardKey.arrowRight || key == LogicalKeyboardKey.keyD) return MoveDirection.right;
     return null;
+  }
+}
+
+/// The cover motif drawn for a biome's bushes.
+enum _BushKind { leaves, mushrooms, crystals, embers, cactus }
+
+/// Resolved colours for a cave theme. Stone hue is jittered by a per-map seed so
+/// two caves of the same biome still look distinct, while staying within a
+/// tasteful, muted range.
+class _BiomePalette {
+  const _BiomePalette({
+    required this.background,
+    required this.wall,
+    required this.wallEdge,
+    required this.crackDark,
+    required this.accent,
+    required this.bushKind,
+    required this.bushBase,
+    required this.bushDark,
+    required this.bushMid,
+    required this.bushLite,
+  });
+
+  final Color background;
+  final Color wall;
+  final Color wallEdge;
+  final Color crackDark;
+  final Color accent;
+  final _BushKind bushKind;
+  final Color bushBase;
+  final Color bushDark;
+  final Color bushMid;
+  final Color bushLite;
+
+  static Color _hsv(double h, double s, double v) =>
+      HSVColor.fromAHSV(1, h % 360, s.clamp(0.0, 1.0), v.clamp(0.0, 1.0)).toColor();
+
+  factory _BiomePalette.build(CaveBiome biome, int seed) {
+    final rnd = Random(seed);
+    double jitter(double deg) => (rnd.nextDouble() * 2 - 1) * deg;
+
+    // Per-biome: stone hue + saturation/value, an accent colour, the bush motif
+    // and the bush's own hue/saturation.
+    late double stoneHue, stoneSat, stoneVal, bushHue, bushSat;
+    late Color accent;
+    late _BushKind kind;
+    switch (biome) {
+      case CaveBiome.forest:
+        stoneHue = 145; stoneSat = 0.26; stoneVal = 0.34;
+        accent = const Color(0xff6fe3a0);
+        kind = _BushKind.leaves; bushHue = 135; bushSat = 0.55;
+      case CaveBiome.amethyst:
+        stoneHue = 278; stoneSat = 0.34; stoneVal = 0.33;
+        accent = const Color(0xffc77dff);
+        kind = _BushKind.mushrooms; bushHue = 290; bushSat = 0.52;
+      case CaveBiome.ember:
+        stoneHue = 16; stoneSat = 0.34; stoneVal = 0.29;
+        accent = const Color(0xffff9d4d);
+        kind = _BushKind.embers; bushHue = 24; bushSat = 0.70;
+      case CaveBiome.frost:
+        stoneHue = 202; stoneSat = 0.26; stoneVal = 0.42;
+        accent = const Color(0xff8fe6ff);
+        kind = _BushKind.crystals; bushHue = 198; bushSat = 0.42;
+      case CaveBiome.sandstone:
+        stoneHue = 38; stoneSat = 0.34; stoneVal = 0.44;
+        accent = const Color(0xffe6c270);
+        kind = _BushKind.cactus; bushHue = 96; bushSat = 0.42;
+    }
+
+    final h = (stoneHue + jitter(14)) % 360;
+    final v = (stoneVal + jitter(0.04)).clamp(0.2, 0.6);
+    final wall = _hsv(h, stoneSat, v);
+    final background = _hsv(h, (stoneSat * 0.85).clamp(0.0, 1.0), 0.09);
+    final wallEdge = accent.withValues(alpha:0.30);
+    final crackDark = _hsv(h, (stoneSat + 0.1).clamp(0.0, 1.0), (v * 0.32).clamp(0.05, 0.2))
+        .withValues(alpha:0.87);
+
+    // Bush shades share the bush hue, jittered slightly so patches feel organic.
+    final bh = (bushHue + jitter(10)) % 360;
+    final bushBase = _hsv(bh, (bushSat * 0.9).clamp(0.0, 1.0), 0.22);
+    final bushDark = _hsv(bh, bushSat, 0.32);
+    final bushMid = _hsv(bh, bushSat, 0.50);
+    final bushLite = _hsv(bh, (bushSat * 0.85).clamp(0.0, 1.0), 0.68);
+
+    return _BiomePalette(
+      background: background,
+      wall: wall,
+      wallEdge: wallEdge,
+      crackDark: crackDark,
+      accent: accent,
+      bushKind: kind,
+      bushBase: bushBase,
+      bushDark: bushDark,
+      bushMid: bushMid,
+      bushLite: bushLite,
+    );
   }
 }

@@ -76,13 +76,9 @@ class _Hud extends StatelessWidget {
     final power = s?.game.lehaPowered == true
         ? ' BIG ${(s!.game.powerLeftMs / 1000).ceil()}с'
         : '';
-    final trapLabel = s == null
-        ? 'Капкан'
-        : s.game.trapActive
-            ? 'Капкан стоит'
-            : s.game.trapCooldownMs > 0
-                ? 'Капкан ${(s.game.trapCooldownMs / 1000).ceil()}с'
-                : 'Капкан ${s.game.trapCharges}';
+    // No cooldown now — just show how many traps Bakhirkin has in hand (max 5).
+    // The same button picks an un-sprung trap back up.
+    final trapLabel = s == null ? 'Капкан' : 'Капкан ${s.game.trapCharges}';
     final abilityLabel = _abilityLabel(s);
     final hunter = s?.players.where((player) => player.slot == 1).firstOrNull;
     final hunterName = switch (hunterKind) {
@@ -233,7 +229,8 @@ const _lehaChars = [
       'assets/images/leha-spider.png',
       'Не ест тиктоки — собирает рафаэлки (нужно 4 из 5, видит только обычным зрением). '
           'На F кладёт кладку (можно в кусты, не на стены/паутину); зреет 10с — '
-          'не найдёт Охотник = победа. Паутина: проход сквозь стены, Охотника замедляет. '
+          'не найдёт Охотник = победа. Паутина: только на потрескавшихся стенах '
+          '(их немного на карте) — проход сквозь них. '
           'Победы по таймеру нет. Поражение: попасться.',
       PlayerRole.leha,
       aspect: LehaAspect.spider),
@@ -241,7 +238,8 @@ const _lehaChars = [
       'Леха-Маг',
       'assets/images/leha-wizard.png',
       'Ставит пару порталов для телепорта. Через них проходят и Леха, и Охотник; '
-          'после прыжка кд 12с, порталы исчезают. Победа: продержаться 3 минуты. '
+          'проход бесплатный, порталы исчезают. КД 10с на постановку новой пары '
+          '(после второго портала). Победа: продержаться 3 минуты. '
           'Поражение: попасться.',
       PlayerRole.leha,
       aspect: LehaAspect.wizard),
@@ -251,14 +249,16 @@ const _hunterChars = [
   _CharOption(
       'Бахиркин',
       'assets/images/chaser-head.png',
-      'Ставит 2 капкана — оглушают Леху на месте. Чует свежий след Лехи рядом. '
+      'Ставит до 5 капканов — оглушают Леху на месте, без КД. Той же кнопкой '
+          'собирает свой капкан обратно. Чует свежий след Лехи рядом. '
           'Цель: поймать Леху (а Паука — не дать высидеть кладку).',
       PlayerRole.hunter,
       hunter: HunterKind.bakhirkin),
   _CharOption(
       'Саша-якудза',
       'assets/images/sasha-head.png',
-      'Кидает бочку: рикошетит от стен, оглушает и ослепляет Леху. КД 10с. '
+      'Кидает бочку: рикошетит от стен, оглушает и ослепляет Леху. Если Леха был '
+          'в прямой видимости при броске — бочка доворачивает в его сторону. КД 10с. '
           'Цель: поймать Леху.',
       PlayerRole.hunter,
       hunter: HunterKind.sashaYakuza),

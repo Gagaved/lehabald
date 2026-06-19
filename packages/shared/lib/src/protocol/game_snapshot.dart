@@ -295,6 +295,9 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     required this.cols,
     required this.maze,
     this.bushes = const [],
+    this.crackedWalls = const [],
+    this.biome = CaveBiome.forest,
+    this.stoneSeed = 0,
     required this.logos,
     required this.traps,
     required this.webs,
@@ -319,6 +322,12 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   final List<String> maze;
   /// Static bush cells (cover): hide players from scent/xray.
   final List<Vec2i> bushes;
+  /// Cracked wall cells — the only places Spider-Leha may spin a web.
+  final List<Vec2i> crackedWalls;
+  /// The cave's visual theme (drives wall/bush palette on the client).
+  final CaveBiome biome;
+  /// Per-map seed so the stone colour varies between maps of the same biome.
+  final int stoneSeed;
   final List<LogoDto> logos;
   final List<TrapDto> traps;
   final List<WebDto> webs;

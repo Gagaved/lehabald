@@ -14,6 +14,11 @@ enum HunterKind { bakhirkin, sashaYakuza, sima }
 @MappableEnum()
 enum GamePhase { waiting, playing, ended }
 
+/// Visual theme of a generated cave. The server picks one per map; the client
+/// owns the actual palette (tinted further by a per-map stone-colour seed).
+@MappableEnum()
+enum CaveBiome { forest, amethyst, ember, frost, sandstone }
+
 @MappableClass()
 class Vec2i with Vec2iMappable {
   const Vec2i(this.x, this.y);

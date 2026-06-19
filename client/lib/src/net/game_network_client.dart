@@ -2,15 +2,30 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:dart_mappable/dart_mappable.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-class GameNetworkClient extends ChangeNotifier {
+class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   GameNetworkClient({required String initialUrl}) : serverUrl = initialUrl {
+    WidgetsBinding.instance.addObserver(this);
     _loadNickname();
     connect();
+  }
+
+  // True only while the tab/app is in the foreground. A backgrounded browser
+  // tab gets its timers and message delivery throttled, which would otherwise
+  // make the watchdog wrongly think the socket died and reconnect — dropping
+  // the player's slot and bouncing everyone back to the lobby.
+  bool _appActive = true;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    // On return to the foreground, give the connection a fresh grace window so
+    // the watchdog doesn't fire on stale timestamps from while we were hidden.
+    if (_appActive) _lastMessageAt = DateTime.now();
   }
 
   static const _nicknameKey = 'leha_nickname';
@@ -94,6 +109,8 @@ class GameNetworkClient extends ChangeNotifier {
     _watchdogTimer?.cancel();
     _watchdogTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_channel == null) return;
+      // Don't treat a throttled background tab as a dead connection.
+      if (!_appActive) return;
       if (DateTime.now().difference(_lastMessageAt) > _watchdogTimeout) {
         // Socket looks alive but the server went silent — tear it down and
         // reconnect rather than keep firing input into a dead pipe.
@@ -105,6 +122,7 @@ class GameNetworkClient extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _reconnectTimer?.cancel();
     _watchdogTimer?.cancel();
     _subscription?.cancel();

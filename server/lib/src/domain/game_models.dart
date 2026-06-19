@@ -42,8 +42,6 @@ class PlayerConnection {
   int invulnerableUntil = 0;
   int webSlowedUntil = 0;
   int webPhaseUntil = 0;
-  /// Cooldown after teleporting through a portal (12s); blocks further teleports.
-  int portalTeleportUntil = 0;
   double speed = 0;
 
   /// Cell key ('x,y') the player occupied last tick — used so a portal only
@@ -89,6 +87,7 @@ class BarrelState {
     required this.dirY,
     required this.spawnedAt,
     required this.ownerId,
+    this.homing = false,
   });
 
   double x;
@@ -97,6 +96,10 @@ class BarrelState {
   double dirY;
   final int spawnedAt;
   final String ownerId;
+
+  /// If Leha was in direct line of sight when this barrel was thrown, it gently
+  /// corrects course toward him (not a guided missile, just a nudge per tick).
+  final bool homing;
 
   /// While now < slowUntil the barrel crawls (set when it touches Spider's web).
   int slowUntil = 0;
