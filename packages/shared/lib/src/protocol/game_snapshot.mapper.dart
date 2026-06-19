@@ -911,6 +911,294 @@ class _PortalDtoCopyWithImpl<$R, $Out>
   ) => _PortalDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class MagicCrystalDtoMapper extends ClassMapperBase<MagicCrystalDto> {
+  MagicCrystalDtoMapper._();
+
+  static MagicCrystalDtoMapper? _instance;
+  static MagicCrystalDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = MagicCrystalDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'MagicCrystalDto';
+
+  static int _$id(MagicCrystalDto v) => v.id;
+  static const Field<MagicCrystalDto, int> _f$id = Field('id', _$id);
+  static int _$x(MagicCrystalDto v) => v.x;
+  static const Field<MagicCrystalDto, int> _f$x = Field('x', _$x);
+  static int _$y(MagicCrystalDto v) => v.y;
+  static const Field<MagicCrystalDto, int> _f$y = Field('y', _$y);
+  static bool _$fallen(MagicCrystalDto v) => v.fallen;
+  static const Field<MagicCrystalDto, bool> _f$fallen = Field(
+    'fallen',
+    _$fallen,
+  );
+  static double _$burstProgress(MagicCrystalDto v) => v.burstProgress;
+  static const Field<MagicCrystalDto, double> _f$burstProgress = Field(
+    'burstProgress',
+    _$burstProgress,
+    opt: true,
+    def: 1,
+  );
+
+  @override
+  final MappableFields<MagicCrystalDto> fields = const {
+    #id: _f$id,
+    #x: _f$x,
+    #y: _f$y,
+    #fallen: _f$fallen,
+    #burstProgress: _f$burstProgress,
+  };
+
+  static MagicCrystalDto _instantiate(DecodingData data) {
+    return MagicCrystalDto(
+      id: data.dec(_f$id),
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      fallen: data.dec(_f$fallen),
+      burstProgress: data.dec(_f$burstProgress),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static MagicCrystalDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<MagicCrystalDto>(map);
+  }
+
+  static MagicCrystalDto fromJson(String json) {
+    return ensureInitialized().decodeJson<MagicCrystalDto>(json);
+  }
+}
+
+mixin MagicCrystalDtoMappable {
+  String toJson() {
+    return MagicCrystalDtoMapper.ensureInitialized()
+        .encodeJson<MagicCrystalDto>(this as MagicCrystalDto);
+  }
+
+  Map<String, dynamic> toMap() {
+    return MagicCrystalDtoMapper.ensureInitialized().encodeMap<MagicCrystalDto>(
+      this as MagicCrystalDto,
+    );
+  }
+
+  MagicCrystalDtoCopyWith<MagicCrystalDto, MagicCrystalDto, MagicCrystalDto>
+  get copyWith =>
+      _MagicCrystalDtoCopyWithImpl<MagicCrystalDto, MagicCrystalDto>(
+        this as MagicCrystalDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return MagicCrystalDtoMapper.ensureInitialized().stringifyValue(
+      this as MagicCrystalDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return MagicCrystalDtoMapper.ensureInitialized().equalsValue(
+      this as MagicCrystalDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return MagicCrystalDtoMapper.ensureInitialized().hashValue(
+      this as MagicCrystalDto,
+    );
+  }
+}
+
+extension MagicCrystalDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, MagicCrystalDto, $Out> {
+  MagicCrystalDtoCopyWith<$R, MagicCrystalDto, $Out> get $asMagicCrystalDto =>
+      $base.as((v, t, t2) => _MagicCrystalDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class MagicCrystalDtoCopyWith<$R, $In extends MagicCrystalDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? id, int? x, int? y, bool? fallen, double? burstProgress});
+  MagicCrystalDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _MagicCrystalDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, MagicCrystalDto, $Out>
+    implements MagicCrystalDtoCopyWith<$R, MagicCrystalDto, $Out> {
+  _MagicCrystalDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<MagicCrystalDto> $mapper =
+      MagicCrystalDtoMapper.ensureInitialized();
+  @override
+  $R call({int? id, int? x, int? y, bool? fallen, double? burstProgress}) =>
+      $apply(
+        FieldCopyWithData({
+          if (id != null) #id: id,
+          if (x != null) #x: x,
+          if (y != null) #y: y,
+          if (fallen != null) #fallen: fallen,
+          if (burstProgress != null) #burstProgress: burstProgress,
+        }),
+      );
+  @override
+  MagicCrystalDto $make(CopyWithData data) => MagicCrystalDto(
+    id: data.get(#id, or: $value.id),
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    fallen: data.get(#fallen, or: $value.fallen),
+    burstProgress: data.get(#burstProgress, or: $value.burstProgress),
+  );
+
+  @override
+  MagicCrystalDtoCopyWith<$R2, MagicCrystalDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _MagicCrystalDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class MagicChainDtoMapper extends ClassMapperBase<MagicChainDto> {
+  MagicChainDtoMapper._();
+
+  static MagicChainDtoMapper? _instance;
+  static MagicChainDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = MagicChainDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'MagicChainDto';
+
+  static int _$id(MagicChainDto v) => v.id;
+  static const Field<MagicChainDto, int> _f$id = Field('id', _$id);
+  static List<List<int>> _$contours(MagicChainDto v) => v.contours;
+  static const Field<MagicChainDto, List<List<int>>> _f$contours = Field(
+    'contours',
+    _$contours,
+  );
+
+  @override
+  final MappableFields<MagicChainDto> fields = const {
+    #id: _f$id,
+    #contours: _f$contours,
+  };
+
+  static MagicChainDto _instantiate(DecodingData data) {
+    return MagicChainDto(id: data.dec(_f$id), contours: data.dec(_f$contours));
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static MagicChainDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<MagicChainDto>(map);
+  }
+
+  static MagicChainDto fromJson(String json) {
+    return ensureInitialized().decodeJson<MagicChainDto>(json);
+  }
+}
+
+mixin MagicChainDtoMappable {
+  String toJson() {
+    return MagicChainDtoMapper.ensureInitialized().encodeJson<MagicChainDto>(
+      this as MagicChainDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return MagicChainDtoMapper.ensureInitialized().encodeMap<MagicChainDto>(
+      this as MagicChainDto,
+    );
+  }
+
+  MagicChainDtoCopyWith<MagicChainDto, MagicChainDto, MagicChainDto>
+  get copyWith => _MagicChainDtoCopyWithImpl<MagicChainDto, MagicChainDto>(
+    this as MagicChainDto,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return MagicChainDtoMapper.ensureInitialized().stringifyValue(
+      this as MagicChainDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return MagicChainDtoMapper.ensureInitialized().equalsValue(
+      this as MagicChainDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return MagicChainDtoMapper.ensureInitialized().hashValue(
+      this as MagicChainDto,
+    );
+  }
+}
+
+extension MagicChainDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, MagicChainDto, $Out> {
+  MagicChainDtoCopyWith<$R, MagicChainDto, $Out> get $asMagicChainDto =>
+      $base.as((v, t, t2) => _MagicChainDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class MagicChainDtoCopyWith<$R, $In extends MagicChainDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<$R, List<int>, ObjectCopyWith<$R, List<int>, List<int>>>
+  get contours;
+  $R call({int? id, List<List<int>>? contours});
+  MagicChainDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _MagicChainDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, MagicChainDto, $Out>
+    implements MagicChainDtoCopyWith<$R, MagicChainDto, $Out> {
+  _MagicChainDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<MagicChainDto> $mapper =
+      MagicChainDtoMapper.ensureInitialized();
+  @override
+  ListCopyWith<$R, List<int>, ObjectCopyWith<$R, List<int>, List<int>>>
+  get contours => ListCopyWith(
+    $value.contours,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(contours: v),
+  );
+  @override
+  $R call({int? id, List<List<int>>? contours}) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (contours != null) #contours: contours,
+    }),
+  );
+  @override
+  MagicChainDto $make(CopyWithData data) => MagicChainDto(
+    id: data.get(#id, or: $value.id),
+    contours: data.get(#contours, or: $value.contours),
+  );
+
+  @override
+  MagicChainDtoCopyWith<$R2, MagicChainDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _MagicChainDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
 class IllusionDtoMapper extends ClassMapperBase<IllusionDto> {
   IllusionDtoMapper._();
 
@@ -2534,6 +2822,34 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     opt: true,
     def: 0,
   );
+  static double _$wizardSaturation(GameInfoDto v) => v.wizardSaturation;
+  static const Field<GameInfoDto, double> _f$wizardSaturation = Field(
+    'wizardSaturation',
+    _$wizardSaturation,
+    opt: true,
+    def: 0,
+  );
+  static int _$magicChainCooldownMs(GameInfoDto v) => v.magicChainCooldownMs;
+  static const Field<GameInfoDto, int> _f$magicChainCooldownMs = Field(
+    'magicChainCooldownMs',
+    _$magicChainCooldownMs,
+    opt: true,
+    def: 0,
+  );
+  static int _$magicCrystalCharges(GameInfoDto v) => v.magicCrystalCharges;
+  static const Field<GameInfoDto, int> _f$magicCrystalCharges = Field(
+    'magicCrystalCharges',
+    _$magicCrystalCharges,
+    opt: true,
+    def: 0,
+  );
+  static bool _$magicCrystalAvailable(GameInfoDto v) => v.magicCrystalAvailable;
+  static const Field<GameInfoDto, bool> _f$magicCrystalAvailable = Field(
+    'magicCrystalAvailable',
+    _$magicCrystalAvailable,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<GameInfoDto> fields = const {
@@ -2560,6 +2876,10 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     #clutchAvailable: _f$clutchAvailable,
     #clutchActive: _f$clutchActive,
     #clutchHatchMs: _f$clutchHatchMs,
+    #wizardSaturation: _f$wizardSaturation,
+    #magicChainCooldownMs: _f$magicChainCooldownMs,
+    #magicCrystalCharges: _f$magicCrystalCharges,
+    #magicCrystalAvailable: _f$magicCrystalAvailable,
   };
 
   static GameInfoDto _instantiate(DecodingData data) {
@@ -2587,6 +2907,10 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
       clutchAvailable: data.dec(_f$clutchAvailable),
       clutchActive: data.dec(_f$clutchActive),
       clutchHatchMs: data.dec(_f$clutchHatchMs),
+      wizardSaturation: data.dec(_f$wizardSaturation),
+      magicChainCooldownMs: data.dec(_f$magicChainCooldownMs),
+      magicCrystalCharges: data.dec(_f$magicCrystalCharges),
+      magicCrystalAvailable: data.dec(_f$magicCrystalAvailable),
     );
   }
 
@@ -2674,6 +2998,10 @@ abstract class GameInfoDtoCopyWith<$R, $In extends GameInfoDto, $Out>
     bool? clutchAvailable,
     bool? clutchActive,
     int? clutchHatchMs,
+    double? wizardSaturation,
+    int? magicChainCooldownMs,
+    int? magicCrystalCharges,
+    bool? magicCrystalAvailable,
   });
   GameInfoDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -2711,6 +3039,10 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     bool? clutchAvailable,
     bool? clutchActive,
     int? clutchHatchMs,
+    double? wizardSaturation,
+    int? magicChainCooldownMs,
+    int? magicCrystalCharges,
+    bool? magicCrystalAvailable,
   }) => $apply(
     FieldCopyWithData({
       if (phase != null) #phase: phase,
@@ -2736,6 +3068,13 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
       if (clutchAvailable != null) #clutchAvailable: clutchAvailable,
       if (clutchActive != null) #clutchActive: clutchActive,
       if (clutchHatchMs != null) #clutchHatchMs: clutchHatchMs,
+      if (wizardSaturation != null) #wizardSaturation: wizardSaturation,
+      if (magicChainCooldownMs != null)
+        #magicChainCooldownMs: magicChainCooldownMs,
+      if (magicCrystalCharges != null)
+        #magicCrystalCharges: magicCrystalCharges,
+      if (magicCrystalAvailable != null)
+        #magicCrystalAvailable: magicCrystalAvailable,
     }),
   );
   @override
@@ -2766,6 +3105,19 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     clutchAvailable: data.get(#clutchAvailable, or: $value.clutchAvailable),
     clutchActive: data.get(#clutchActive, or: $value.clutchActive),
     clutchHatchMs: data.get(#clutchHatchMs, or: $value.clutchHatchMs),
+    wizardSaturation: data.get(#wizardSaturation, or: $value.wizardSaturation),
+    magicChainCooldownMs: data.get(
+      #magicChainCooldownMs,
+      or: $value.magicChainCooldownMs,
+    ),
+    magicCrystalCharges: data.get(
+      #magicCrystalCharges,
+      or: $value.magicCrystalCharges,
+    ),
+    magicCrystalAvailable: data.get(
+      #magicCrystalAvailable,
+      or: $value.magicCrystalAvailable,
+    ),
   );
 
   @override
@@ -3050,6 +3402,8 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       WebDtoMapper.ensureInitialized();
       BarrelDtoMapper.ensureInitialized();
       PortalDtoMapper.ensureInitialized();
+      MagicCrystalDtoMapper.ensureInitialized();
+      MagicChainDtoMapper.ensureInitialized();
       ClutchDtoMapper.ensureInitialized();
       TrailPointDtoMapper.ensureInitialized();
       PlayerDtoMapper.ensureInitialized();
@@ -3119,6 +3473,13 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     opt: true,
     def: const [],
   );
+  static List<Vec2i> _$amethystWalls(GameSnapshotDto v) => v.amethystWalls;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$amethystWalls = Field(
+    'amethystWalls',
+    _$amethystWalls,
+    opt: true,
+    def: const [],
+  );
   static List<Vec2i> _$amethystShards(GameSnapshotDto v) => v.amethystShards;
   static const Field<GameSnapshotDto, List<Vec2i>> _f$amethystShards = Field(
     'amethystShards',
@@ -3171,6 +3532,13 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     opt: true,
     def: const [],
   );
+  static bool _$sandboxMode(GameSnapshotDto v) => v.sandboxMode;
+  static const Field<GameSnapshotDto, bool> _f$sandboxMode = Field(
+    'sandboxMode',
+    _$sandboxMode,
+    opt: true,
+    def: false,
+  );
   static List<LogoDto> _$logos(GameSnapshotDto v) => v.logos;
   static const Field<GameSnapshotDto, List<LogoDto>> _f$logos = Field(
     'logos',
@@ -3196,6 +3564,13 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     'portals',
     _$portals,
   );
+  static List<MagicCrystalDto> _$magicCrystals(GameSnapshotDto v) =>
+      v.magicCrystals;
+  static const Field<GameSnapshotDto, List<MagicCrystalDto>> _f$magicCrystals =
+      Field('magicCrystals', _$magicCrystals, opt: true, def: const []);
+  static List<MagicChainDto> _$magicChains(GameSnapshotDto v) => v.magicChains;
+  static const Field<GameSnapshotDto, List<MagicChainDto>> _f$magicChains =
+      Field('magicChains', _$magicChains, opt: true, def: const []);
   static ClutchDto? _$clutch(GameSnapshotDto v) => v.clutch;
   static const Field<GameSnapshotDto, ClutchDto> _f$clutch = Field(
     'clutch',
@@ -3260,6 +3635,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #stoneSeed: _f$stoneSeed,
     #crystals: _f$crystals,
     #quicksand: _f$quicksand,
+    #amethystWalls: _f$amethystWalls,
     #amethystShards: _f$amethystShards,
     #chimes: _f$chimes,
     #mushrooms: _f$mushrooms,
@@ -3268,11 +3644,14 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #sarcophagi: _f$sarcophagi,
     #mummies: _f$mummies,
     #enabledBiomes: _f$enabledBiomes,
+    #sandboxMode: _f$sandboxMode,
     #logos: _f$logos,
     #traps: _f$traps,
     #webs: _f$webs,
     #barrels: _f$barrels,
     #portals: _f$portals,
+    #magicCrystals: _f$magicCrystals,
+    #magicChains: _f$magicChains,
     #clutch: _f$clutch,
     #trail: _f$trail,
     #players: _f$players,
@@ -3298,6 +3677,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       stoneSeed: data.dec(_f$stoneSeed),
       crystals: data.dec(_f$crystals),
       quicksand: data.dec(_f$quicksand),
+      amethystWalls: data.dec(_f$amethystWalls),
       amethystShards: data.dec(_f$amethystShards),
       chimes: data.dec(_f$chimes),
       mushrooms: data.dec(_f$mushrooms),
@@ -3306,11 +3686,14 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       sarcophagi: data.dec(_f$sarcophagi),
       mummies: data.dec(_f$mummies),
       enabledBiomes: data.dec(_f$enabledBiomes),
+      sandboxMode: data.dec(_f$sandboxMode),
       logos: data.dec(_f$logos),
       traps: data.dec(_f$traps),
       webs: data.dec(_f$webs),
       barrels: data.dec(_f$barrels),
       portals: data.dec(_f$portals),
+      magicCrystals: data.dec(_f$magicCrystals),
+      magicChains: data.dec(_f$magicChains),
       clutch: data.dec(_f$clutch),
       trail: data.dec(_f$trail),
       players: data.dec(_f$players),
@@ -3392,6 +3775,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crackedWalls;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crystals;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get quicksand;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get amethystWalls;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get amethystShards;
   ListCopyWith<$R, ChimeDto, ChimeDtoCopyWith<$R, ChimeDto, ChimeDto>>
   get chimes;
@@ -3425,6 +3809,18 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   get barrels;
   ListCopyWith<$R, PortalDto, PortalDtoCopyWith<$R, PortalDto, PortalDto>>
   get portals;
+  ListCopyWith<
+    $R,
+    MagicCrystalDto,
+    MagicCrystalDtoCopyWith<$R, MagicCrystalDto, MagicCrystalDto>
+  >
+  get magicCrystals;
+  ListCopyWith<
+    $R,
+    MagicChainDto,
+    MagicChainDtoCopyWith<$R, MagicChainDto, MagicChainDto>
+  >
+  get magicChains;
   ClutchDtoCopyWith<$R, ClutchDto, ClutchDto>? get clutch;
   ListCopyWith<
     $R,
@@ -3457,6 +3853,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     int? stoneSeed,
     List<Vec2i>? crystals,
     List<Vec2i>? quicksand,
+    List<Vec2i>? amethystWalls,
     List<Vec2i>? amethystShards,
     List<ChimeDto>? chimes,
     List<MushroomDto>? mushrooms,
@@ -3465,11 +3862,14 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     List<SarcophagusDto>? sarcophagi,
     List<MummyDto>? mummies,
     List<CaveBiome>? enabledBiomes,
+    bool? sandboxMode,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
     List<BarrelDto>? barrels,
     List<PortalDto>? portals,
+    List<MagicCrystalDto>? magicCrystals,
+    List<MagicChainDto>? magicChains,
     ClutchDto? clutch,
     List<TrailPointDto>? trail,
     List<PlayerDto>? players,
@@ -3531,6 +3931,13 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         $value.quicksand,
         (v, t) => v.copyWith.$chain(t),
         (v) => call(quicksand: v),
+      );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get amethystWalls =>
+      ListCopyWith(
+        $value.amethystWalls,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(amethystWalls: v),
       );
   @override
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get amethystShards =>
@@ -3636,6 +4043,28 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     (v) => call(portals: v),
   );
   @override
+  ListCopyWith<
+    $R,
+    MagicCrystalDto,
+    MagicCrystalDtoCopyWith<$R, MagicCrystalDto, MagicCrystalDto>
+  >
+  get magicCrystals => ListCopyWith(
+    $value.magicCrystals,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(magicCrystals: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    MagicChainDto,
+    MagicChainDtoCopyWith<$R, MagicChainDto, MagicChainDto>
+  >
+  get magicChains => ListCopyWith(
+    $value.magicChains,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(magicChains: v),
+  );
+  @override
   ClutchDtoCopyWith<$R, ClutchDto, ClutchDto>? get clutch =>
       $value.clutch?.copyWith.$chain((v) => call(clutch: v));
   @override
@@ -3696,6 +4125,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     int? stoneSeed,
     List<Vec2i>? crystals,
     List<Vec2i>? quicksand,
+    List<Vec2i>? amethystWalls,
     List<Vec2i>? amethystShards,
     List<ChimeDto>? chimes,
     List<MushroomDto>? mushrooms,
@@ -3704,11 +4134,14 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     List<SarcophagusDto>? sarcophagi,
     List<MummyDto>? mummies,
     List<CaveBiome>? enabledBiomes,
+    bool? sandboxMode,
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
     List<BarrelDto>? barrels,
     List<PortalDto>? portals,
+    List<MagicCrystalDto>? magicCrystals,
+    List<MagicChainDto>? magicChains,
     Object? clutch = $none,
     List<TrailPointDto>? trail,
     List<PlayerDto>? players,
@@ -3732,6 +4165,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (stoneSeed != null) #stoneSeed: stoneSeed,
       if (crystals != null) #crystals: crystals,
       if (quicksand != null) #quicksand: quicksand,
+      if (amethystWalls != null) #amethystWalls: amethystWalls,
       if (amethystShards != null) #amethystShards: amethystShards,
       if (chimes != null) #chimes: chimes,
       if (mushrooms != null) #mushrooms: mushrooms,
@@ -3740,11 +4174,14 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (sarcophagi != null) #sarcophagi: sarcophagi,
       if (mummies != null) #mummies: mummies,
       if (enabledBiomes != null) #enabledBiomes: enabledBiomes,
+      if (sandboxMode != null) #sandboxMode: sandboxMode,
       if (logos != null) #logos: logos,
       if (traps != null) #traps: traps,
       if (webs != null) #webs: webs,
       if (barrels != null) #barrels: barrels,
       if (portals != null) #portals: portals,
+      if (magicCrystals != null) #magicCrystals: magicCrystals,
+      if (magicChains != null) #magicChains: magicChains,
       if (clutch != $none) #clutch: clutch,
       if (trail != null) #trail: trail,
       if (players != null) #players: players,
@@ -3770,6 +4207,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     stoneSeed: data.get(#stoneSeed, or: $value.stoneSeed),
     crystals: data.get(#crystals, or: $value.crystals),
     quicksand: data.get(#quicksand, or: $value.quicksand),
+    amethystWalls: data.get(#amethystWalls, or: $value.amethystWalls),
     amethystShards: data.get(#amethystShards, or: $value.amethystShards),
     chimes: data.get(#chimes, or: $value.chimes),
     mushrooms: data.get(#mushrooms, or: $value.mushrooms),
@@ -3778,11 +4216,14 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     sarcophagi: data.get(#sarcophagi, or: $value.sarcophagi),
     mummies: data.get(#mummies, or: $value.mummies),
     enabledBiomes: data.get(#enabledBiomes, or: $value.enabledBiomes),
+    sandboxMode: data.get(#sandboxMode, or: $value.sandboxMode),
     logos: data.get(#logos, or: $value.logos),
     traps: data.get(#traps, or: $value.traps),
     webs: data.get(#webs, or: $value.webs),
     barrels: data.get(#barrels, or: $value.barrels),
     portals: data.get(#portals, or: $value.portals),
+    magicCrystals: data.get(#magicCrystals, or: $value.magicCrystals),
+    magicChains: data.get(#magicChains, or: $value.magicChains),
     clutch: data.get(#clutch, or: $value.clutch),
     trail: data.get(#trail, or: $value.trail),
     players: data.get(#players, or: $value.players),

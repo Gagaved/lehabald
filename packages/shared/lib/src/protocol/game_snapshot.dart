@@ -123,6 +123,33 @@ class PortalDto with PortalDtoMappable {
   final bool active;
 }
 
+@MappableClass()
+class MagicCrystalDto with MagicCrystalDtoMappable {
+  const MagicCrystalDto({
+    required this.id,
+    required this.x,
+    required this.y,
+    required this.fallen,
+    this.burstProgress = 1,
+  });
+
+  final int id;
+  final int x;
+  final int y;
+  final bool fallen;
+
+  /// 0..1 for the brief failed-activation explosion; 1 when inactive.
+  final double burstProgress;
+}
+
+@MappableClass()
+class MagicChainDto with MagicChainDtoMappable {
+  const MagicChainDto({required this.id, required this.contours});
+
+  final int id;
+  final List<List<int>> contours;
+}
+
 /// A crystal's mirror projection of a player. Drawn like the mimicked player
 /// but with [opacity] (fades with the crystal-to-player distance).
 @MappableClass()
@@ -315,6 +342,10 @@ class GameInfoDto with GameInfoDtoMappable {
     this.clutchAvailable = false,
     this.clutchActive = false,
     this.clutchHatchMs = 0,
+    this.wizardSaturation = 0,
+    this.magicChainCooldownMs = 0,
+    this.magicCrystalCharges = 0,
+    this.magicCrystalAvailable = false,
   });
 
   final GamePhase phase;
@@ -352,6 +383,14 @@ class GameInfoDto with GameInfoDtoMappable {
 
   /// Milliseconds left until the clutch hatches (Spider wins).
   final int clutchHatchMs;
+
+  /// Wizard victory progress, from 0 to 1.
+  final double wizardSaturation;
+
+  /// Remaining delay before another chain activation attempt.
+  final int magicChainCooldownMs;
+  final int magicCrystalCharges;
+  final bool magicCrystalAvailable;
 }
 
 @MappableClass()
@@ -396,6 +435,7 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     this.stoneSeed = 0,
     this.crystals = const [],
     this.quicksand = const [],
+    this.amethystWalls = const [],
     this.amethystShards = const [],
     this.chimes = const [],
     this.mushrooms = const [],
@@ -404,11 +444,14 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     this.sarcophagi = const [],
     this.mummies = const [],
     this.enabledBiomes = const [],
+    this.sandboxMode = false,
     required this.logos,
     required this.traps,
     required this.webs,
     required this.barrels,
     required this.portals,
+    this.magicCrystals = const [],
+    this.magicChains = const [],
     this.clutch,
     required this.trail,
     required this.players,
@@ -445,6 +488,9 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   /// Sandstone-biome quicksand cells — anyone standing on them moves slower.
   final List<Vec2i> quicksand;
 
+  /// Permanent wall-nodes that seed destructible amethyst floor colonies.
+  final List<Vec2i> amethystWalls;
+
   /// Amethyst-biome intact shard cells (shatter & ring out when stepped on).
   final List<Vec2i> amethystShards;
 
@@ -466,13 +512,16 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   /// Active mummy-zombies released from sarcophagi.
   final List<MummyDto> mummies;
 
-  /// Which biomes are enabled for the next map (lobby checkboxes).
+  /// Which biomes are enabled for the lobby preview and next round.
   final List<CaveBiome> enabledBiomes;
+  final bool sandboxMode;
   final List<LogoDto> logos;
   final List<TrapDto> traps;
   final List<WebDto> webs;
   final List<BarrelDto> barrels;
   final List<PortalDto> portals;
+  final List<MagicCrystalDto> magicCrystals;
+  final List<MagicChainDto> magicChains;
 
   /// The Spider's egg clutch, when one is laid and visible to the viewer.
   final ClutchDto? clutch;

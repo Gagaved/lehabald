@@ -14,7 +14,9 @@ enum ClientMessageType {
   spectate,
   placeTrap,
   useAbility,
+  placeMagicCrystal,
   layClutch,
+  activateMagicChain,
   selectAspect,
   selectHunter,
   setName,
@@ -22,6 +24,7 @@ enum ClientMessageType {
   removeBot,
   restart,
   setBiomes,
+  setSandbox,
 }
 
 @MappableClass()
@@ -35,6 +38,7 @@ class ClientMessage with ClientMessageMappable {
     this.name,
     this.ready,
     this.biomes,
+    this.sandbox,
   });
 
   final ClientMessageType type;
@@ -44,6 +48,8 @@ class ClientMessage with ClientMessageMappable {
   final HunterKind? hunter;
   final String? name;
   final bool? ready;
-  /// Biomes enabled for the next map (for [ClientMessageType.setBiomes]).
+
+  /// Biomes enabled for the lobby preview and the next round.
   final List<CaveBiome>? biomes;
+  final bool? sandbox;
 }

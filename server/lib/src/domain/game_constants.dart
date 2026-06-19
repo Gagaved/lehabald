@@ -35,7 +35,18 @@ class GameConstants {
   static const maxWebCharges = 2;
   // Wizard cooldown is on *laying a pair of portals*, not on passing through.
   // It starts only once the second portal of a pair is placed.
-  static const portalCooldownMs = 10000;
+  static const portalCooldownMs = 20000;
+
+  // Wizard: place reusable crystals and close wall-visible polygonal chains.
+  static const wizardMaxCrystals = 6;
+  static const wizardActivationCooldownMs = 5000;
+  static const wizardFailedActivationStunMs = 1000;
+  static const wizardChainSlowFactor = 0.3;
+  static const wizardChainCollisionRadius = 0.24;
+  static const wizardSaturationReferenceArea = 20.0;
+  static const wizardSaturationBaseMs = 30000;
+  static const wizardSaturationMinMultiplier = 0.05;
+  static const wizardSaturationMaxMultiplier = 1.5;
   // How many cracked walls are scattered on the map — the only cells where the
   // Spider may spin a web. Kept small so they're a deliberate, scarce resource.
   static const crackedWallCount = 8;
@@ -64,21 +75,29 @@ class GameConstants {
   static const quicksandSpots = 6; // patch seeds
   static const quicksandSlowFactor = 0.5;
 
-  // Amethyst biome shards: purple crystals scattered on the floor. Stepping on
-  // one shatters it and rings out an expanding purple pulse that lingers and
-  // reveals the stepper's position to everyone.
+  // Amethyst biome: permanent crystal wall-nodes seed destructible floor shards.
+  // Wall-nodes spawn in groups so each larger colony has several visible roots.
+  static const amethystColonyCount = 3;
+  static const amethystSourcesPerColonyMin = 2;
+  static const amethystSourcesPerColonyMax = 3;
   static const amethystShardCount = 18;
+  static const amethystShardMaxCount = 22;
+  static const amethystShardSourceRadius = 4;
+  static const amethystShardGrowIntervalMs = 6000;
   static const chimeDurationMs = 5000;
   static const chimeMaxRadius = 4.0; // tiles the pulse expands to
 
-  // Amethyst biome mushroom colony: mushrooms grow through stages, then die and
-  // release purple spores in a 1-cell radius. Spores conceal (like bushes) and
-  // slow movement. Trampling an immature mushroom drops one spore and resets it.
+  // Amethyst biome mushroom colonies: mushrooms grow through stages, then die
+  // and release purple spores in a 3x3 area. The mature warning stage lasts
+  // longer; trampling during that stage triggers the same full burst.
   static const mushroomStartCount = 10;
-  static const mushroomMaxCount = 24;
+  static const mushroomMaxCount = 18;
   static const mushroomMaxStage = 3; // 0=sprout .. 3=mature (dies next grow)
   static const mushroomGrowIntervalMs = 12000;
+  static const mushroomMatureIntervalMs = 18000;
   static const mushroomSporeDurationMs = 8000;
+  static const mushroomSporeGrowChance = 0.5;
+  static const mushroomSporeMaxBirthsPerTick = 2;
   static const mushroomSporeSlowFactor = 0.7;
   static const mushroomSpreadRadius = 3;
 

@@ -38,6 +38,7 @@ class PlayerConnection {
   int webCharges = 0;
   int webCooldownUntil = 0;
   int portalCooldownUntil = 0;
+  int magicChainCooldownUntil = 0;
   int stunnedUntil = 0;
   int invulnerableUntil = 0;
   int webSlowedUntil = 0;
@@ -117,6 +118,29 @@ class PortalState {
   final int createdAt;
 }
 
+class MagicCrystalState {
+  MagicCrystalState({
+    required this.id,
+    required this.x,
+    required this.y,
+    this.fallen = false,
+    this.burstAt = 0,
+  });
+
+  final int id;
+  final int x;
+  final int y;
+  bool fallen;
+  int burstAt;
+}
+
+class MagicChainState {
+  MagicChainState({required this.id, required this.contours});
+
+  final int id;
+  final List<List<int>> contours;
+}
+
 class TrailPoint {
   TrailPoint({
     required this.x,
@@ -184,7 +208,8 @@ class ChimeState {
 /// A growing mushroom in the amethyst colony. Advances through [stage] until it
 /// reaches the max stage, then dies and releases spores.
 class MushroomState {
-  MushroomState({required this.x, required this.y, this.stage = 0, this.nextGrowAt = 0});
+  MushroomState(
+      {required this.x, required this.y, this.stage = 0, this.nextGrowAt = 0});
 
   final int x;
   final int y;
@@ -213,6 +238,11 @@ class GameRound {
   List<WebState> webs = [];
   List<BarrelState> barrels = [];
   List<PortalState> portals = [];
+  List<MagicCrystalState> magicCrystals = [];
+  List<MagicChainState> magicChains = [];
+  int nextMagicCrystalId = 1;
+  int nextMagicChainId = 1;
+  double wizardSaturation = 0;
   List<int> pendingTrapRechargeAt = [];
   List<int> pendingWebRechargeAt = [];
   // Spider "Raffaello" mode: collect Raffaellos to lay an egg clutch.
@@ -224,6 +254,7 @@ class GameRound {
   List<ChimeState> chimes = [];
   List<MushroomState> mushrooms = [];
   List<SporeState> spores = [];
+  int nextAmethystGrowAt = 0;
   int rafaelkiEaten = 0;
   Map<int, List<TrailPoint>> trails = {0: [], 1: []};
 }

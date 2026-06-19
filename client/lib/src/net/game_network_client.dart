@@ -214,8 +214,16 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
     send(const ClientMessage(type: ClientMessageType.useAbility));
   }
 
+  void placeMagicCrystal() {
+    send(const ClientMessage(type: ClientMessageType.placeMagicCrystal));
+  }
+
   void layClutch() {
     send(const ClientMessage(type: ClientMessageType.layClutch));
+  }
+
+  void activateMagicChain() {
+    send(const ClientMessage(type: ClientMessageType.activateMagicChain));
   }
 
   void restart() {
@@ -224,6 +232,10 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
 
   void setBiomes(List<CaveBiome> biomes) {
     send(ClientMessage(type: ClientMessageType.setBiomes, biomes: biomes));
+  }
+
+  void setSandbox(bool enabled) {
+    send(ClientMessage(type: ClientMessageType.setSandbox, sandbox: enabled));
   }
 
   void _onMessage(dynamic raw) {

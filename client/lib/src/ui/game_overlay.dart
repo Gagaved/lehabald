@@ -90,6 +90,7 @@ class _Hud extends StatelessWidget {
     String cdLabel(String name, int ms) =>
         ms > 0 ? '$name ${(ms / 1000).ceil()}с' : name;
     final spiderMode = s?.game.spiderMode == true;
+    final wizardMode = s != null && _aspectOf(s) == LehaAspect.wizard;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -105,24 +106,30 @@ class _Hud extends StatelessWidget {
                   : isHunter
                       ? hunterName
                       : 'Наблюдатель'),
-          _Metric(
-            label: isLeha
-                ? (spiderMode ? 'Рафаэлки' : 'Время / TikTok')
-                : isHunter
-                    ? 'Охота'
-                    : 'Просмотр',
-            value: isLeha
-                ? (spiderMode
-                    ? '${s?.game.rafaelkiEaten ?? 0}/${s?.game.rafaelkiNeeded ?? 4}'
-                    : '$time / ${s?.logos.length ?? 0}$power')
-                : time,
-          ),
+          if (!wizardMode)
+            _Metric(
+              label: isLeha
+                  ? (spiderMode ? 'Рафаэлки' : 'Время / TikTok')
+                  : isHunter
+                      ? 'Охота'
+                      : 'Просмотр',
+              value: isLeha
+                  ? (spiderMode
+                      ? '${s?.game.rafaelkiEaten ?? 0}/${s?.game.rafaelkiNeeded ?? 4}'
+                      : '$time / ${s?.logos.length ?? 0}$power')
+                  : time,
+            ),
           // Clutch alert / hatch countdown — the hunter's notice that a clutch
           // was laid (he still has to find it), and Leha's hatch timer.
           if (s?.game.clutchActive == true)
             _Metric(
               label: isHunter ? '⚠ Кладка' : 'Кладка',
               value: '${((s!.game.clutchHatchMs) / 1000).ceil()}с',
+            ),
+          if (wizardMode)
+            _Metric(
+              label: 'Насыщение',
+              value: '${(s.game.wizardSaturation * 100).floor()}%',
             ),
           if (hunter != null)
             _Metric(label: '$hunterName HP', value: '${hunter.hp}'),
@@ -156,6 +163,22 @@ class _Hud extends StatelessWidget {
               onPressed:
                   s?.game.clutchAvailable == true ? network.layClutch : null,
               child: const Text('Кладка (F)'),
+            ),
+          if (isLeha && wizardMode)
+            FilledButton.tonal(
+              onPressed: s.game.magicCrystalAvailable
+                  ? network.placeMagicCrystal
+                  : null,
+              child: Text('Кристалл ${s.game.magicCrystalCharges} (C)'),
+            ),
+          if (isLeha && wizardMode)
+            FilledButton.tonal(
+              onPressed: s.game.magicChainCooldownMs == 0
+                  ? network.activateMagicChain
+                  : null,
+              child: Text(s.game.magicChainCooldownMs > 0
+                  ? 'Цепь ${(s.game.magicChainCooldownMs / 1000).ceil()}с'
+                  : 'Цепь (F)'),
             ),
           FilledButton(
             onPressed: network.restart,
@@ -236,7 +259,7 @@ class _Hud extends StatelessWidget {
       if (s.game.abilityCooldownMs > 0) {
         return 'Портал ${(s.game.abilityCooldownMs / 1000).ceil()}с';
       }
-      return 'Портал';
+      return 'Портал ${s.game.abilityCharges}';
     }
     return 'Способность';
   }
@@ -277,10 +300,10 @@ const _lehaChars = [
   _CharOption(
       'Леха-Маг',
       'assets/images/leha-wizard.png',
-      'Ставит пару порталов для телепорта. Через них проходят и Леха, и Охотник; '
-          'проход бесплатный, порталы исчезают. КД 10с на постановку новой пары '
-          '(после второго портала). Победа: продержаться 3 минуты. '
-          'Поражение: попасться.',
+      'Ставит порталы (КД 20с). Кристалл (C) ставит и подбирает до 6 кристаллов. Кнопка Цепь (F) замыкает видимый '
+          'контур возле выбранного кристалла. Энергия уничтожает объекты, '
+          'замедляет Охотника и насыщает ритуал. Победа: заполнить насыщение. '
+          'Охотник может валить кристаллы касанием.',
       PlayerRole.leha,
       aspect: LehaAspect.wizard),
 ];
@@ -584,6 +607,15 @@ class _LobbyState extends State<_Lobby> {
               const SizedBox(height: 6),
               _biomeToggles(snapshot),
               const SizedBox(height: 12),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Песочница'),
+                subtitle:
+                    const Text('Можно играть одному, условия победы отключены'),
+                value: snapshot?.sandboxMode ?? false,
+                onChanged: widget.network.setSandbox,
+              ),
+              const SizedBox(height: 4),
               const _SectionLabel('Боты'),
               const SizedBox(height: 6),
               Row(
@@ -997,7 +1029,9 @@ class _ActionButton extends StatelessWidget {
       if (aspect == LehaAspect.spider) {
         label = 'Паутина';
       } else if (aspect == LehaAspect.wizard) {
-        label = 'Портал';
+        label = game.abilityCooldownMs > 0
+            ? 'Портал\n${(game.abilityCooldownMs / 1000).ceil()}с'
+            : 'Портал';
       } else {
         return const SizedBox.shrink(); // Super-Leha has no active ability
       }
@@ -1007,7 +1041,7 @@ class _ActionButton extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return SizedBox(
+    final action = SizedBox(
       width: 96,
       height: 96,
       child: FilledButton(
@@ -1022,6 +1056,30 @@ class _ActionButton extends StatelessWidget {
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
       ),
     );
+    if (role == PlayerRole.leha && _aspectOf(snapshot) == LehaAspect.wizard) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          action,
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            onPressed:
+                game.magicCrystalAvailable ? network.placeMagicCrystal : null,
+            child: Text('Кристалл ${game.magicCrystalCharges}'),
+          ),
+          const SizedBox(height: 8),
+          FilledButton.tonal(
+            onPressed: game.magicChainCooldownMs == 0
+                ? network.activateMagicChain
+                : null,
+            child: Text(game.magicChainCooldownMs > 0
+                ? 'Цепь ${(game.magicChainCooldownMs / 1000).ceil()}с'
+                : 'Цепь'),
+          ),
+        ],
+      );
+    }
+    return action;
   }
 }
 

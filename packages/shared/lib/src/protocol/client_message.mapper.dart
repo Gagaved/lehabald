@@ -41,8 +41,12 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.placeTrap;
       case r'useAbility':
         return ClientMessageType.useAbility;
+      case r'placeMagicCrystal':
+        return ClientMessageType.placeMagicCrystal;
       case r'layClutch':
         return ClientMessageType.layClutch;
+      case r'activateMagicChain':
+        return ClientMessageType.activateMagicChain;
       case r'selectAspect':
         return ClientMessageType.selectAspect;
       case r'selectHunter':
@@ -57,6 +61,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.restart;
       case r'setBiomes':
         return ClientMessageType.setBiomes;
+      case r'setSandbox':
+        return ClientMessageType.setSandbox;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -79,8 +85,12 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'placeTrap';
       case ClientMessageType.useAbility:
         return r'useAbility';
+      case ClientMessageType.placeMagicCrystal:
+        return r'placeMagicCrystal';
       case ClientMessageType.layClutch:
         return r'layClutch';
+      case ClientMessageType.activateMagicChain:
+        return r'activateMagicChain';
       case ClientMessageType.selectAspect:
         return r'selectAspect';
       case ClientMessageType.selectHunter:
@@ -95,6 +105,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'restart';
       case ClientMessageType.setBiomes:
         return r'setBiomes';
+      case ClientMessageType.setSandbox:
+        return r'setSandbox';
     }
   }
 }
@@ -173,6 +185,12 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     _$biomes,
     opt: true,
   );
+  static bool? _$sandbox(ClientMessage v) => v.sandbox;
+  static const Field<ClientMessage, bool> _f$sandbox = Field(
+    'sandbox',
+    _$sandbox,
+    opt: true,
+  );
 
   @override
   final MappableFields<ClientMessage> fields = const {
@@ -184,6 +202,7 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     #name: _f$name,
     #ready: _f$ready,
     #biomes: _f$biomes,
+    #sandbox: _f$sandbox,
   };
 
   static ClientMessage _instantiate(DecodingData data) {
@@ -196,6 +215,7 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       name: data.dec(_f$name),
       ready: data.dec(_f$ready),
       biomes: data.dec(_f$biomes),
+      sandbox: data.dec(_f$sandbox),
     );
   }
 
@@ -272,6 +292,7 @@ abstract class ClientMessageCopyWith<$R, $In extends ClientMessage, $Out>
     String? name,
     bool? ready,
     List<CaveBiome>? biomes,
+    bool? sandbox,
   });
   ClientMessageCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -303,6 +324,7 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     Object? name = $none,
     Object? ready = $none,
     Object? biomes = $none,
+    Object? sandbox = $none,
   }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
@@ -313,6 +335,7 @@ class _ClientMessageCopyWithImpl<$R, $Out>
       if (name != $none) #name: name,
       if (ready != $none) #ready: ready,
       if (biomes != $none) #biomes: biomes,
+      if (sandbox != $none) #sandbox: sandbox,
     }),
   );
   @override
@@ -325,6 +348,7 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     name: data.get(#name, or: $value.name),
     ready: data.get(#ready, or: $value.ready),
     biomes: data.get(#biomes, or: $value.biomes),
+    sandbox: data.get(#sandbox, or: $value.sandbox),
   );
 
   @override

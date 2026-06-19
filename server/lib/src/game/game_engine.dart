@@ -32,6 +32,7 @@ class GameEngine {
 
   /// Biomes the next generated map may use (toggled from the lobby).
   Set<CaveBiome> enabledBiomes = CaveBiome.values.toSet();
+  bool sandboxMode = false;
   int _nextId = 1;
   final _rng = Random();
 
@@ -84,8 +85,12 @@ class GameEngine {
         placeTrap(client);
       case ClientMessageType.useAbility:
         useAbility(client);
+      case ClientMessageType.placeMagicCrystal:
+        placeOrPickMagicCrystal(client);
       case ClientMessageType.layClutch:
         layClutch(client);
+      case ClientMessageType.activateMagicChain:
+        activateMagicChain(client);
       case ClientMessageType.selectAspect:
         final aspect = message.aspect;
         if (aspect != null) selectAspect(client, aspect);
@@ -108,16 +113,52 @@ class GameEngine {
       case ClientMessageType.setBiomes:
         final biomes = message.biomes;
         if (biomes != null && biomes.isNotEmpty) {
-          enabledBiomes = biomes.toSet();
+          setEnabledBiomes(biomes);
+        }
+      case ClientMessageType.setSandbox:
+        if (round.phase == GamePhase.waiting) {
+          sandboxMode = message.sandbox ?? false;
+          ensureRoundState();
         }
     }
   }
 
+  /// Applies map filters immediately to the lobby preview. An active round is
+  /// never replaced underneath the players; in that case the selection remains
+  /// the configuration for the next reset.
+  void setEnabledBiomes(Iterable<CaveBiome> biomes) {
+    final next = biomes.toSet();
+    if (next.isEmpty) return;
+    enabledBiomes = next;
+    if (round.phase != GamePhase.waiting) return;
+    _regenerateLobbyMap();
+  }
+
+  void _regenerateLobbyMap() {
+    _maze = MazeService.generate(biomes: enabledBiomes);
+    logos = switch (findPlayer(0)?.aspect) {
+      LehaAspect.spider => _spawnRafaelki(),
+      LehaAspect.wizard => <String>{},
+      _ => _maze.createLogos(),
+    };
+    final now = nowMs();
+    round
+      ..shardsIntact = Set<String>.from(_maze.amethystShards)
+      ..chimes = []
+      ..mushrooms = _spawnMushrooms()
+      ..spores = []
+      ..nextAmethystGrowAt = now + GameConstants.amethystShardGrowIntervalMs
+      ..sarcophagi = _spawnSarcophagi()
+      ..mummies = [];
+  }
+
   void reset({bool keepBotsReady = true}) {
     _maze = MazeService.generate(biomes: enabledBiomes);
-    logos = findPlayer(0)?.aspect == LehaAspect.spider
-        ? _spawnRafaelki()
-        : _maze.createLogos();
+    logos = switch (findPlayer(0)?.aspect) {
+      LehaAspect.spider => _spawnRafaelki(),
+      LehaAspect.wizard => <String>{},
+      _ => _maze.createLogos(),
+    };
     round = GameRound();
     for (final client in clients.values) {
       final start = GameConstants.starts[client.slot ?? 0];
@@ -141,6 +182,7 @@ class GameEngine {
         ..webCharges = client.slot == 0 ? GameConstants.maxWebCharges : 0
         ..webCooldownUntil = 0
         ..portalCooldownUntil = 0
+        ..magicChainCooldownUntil = 0
         ..stunnedUntil = 0
         ..invulnerableUntil = 0
         ..webSlowedUntil = 0
@@ -262,11 +304,15 @@ class GameEngine {
       ..webCharges =
           aspect == LehaAspect.spider ? GameConstants.maxWebCharges : 0
       ..webCooldownUntil = 0
-      ..portalCooldownUntil = 0;
+      ..portalCooldownUntil = 0
+      ..magicChainCooldownUntil = 0;
     // Keep the lobby board's collectibles in sync with the chosen aspect:
     // Spider shows 5 Raffaellos, everyone else the TikTok logos.
-    logos =
-        aspect == LehaAspect.spider ? _spawnRafaelki() : _maze.createLogos();
+    logos = switch (aspect) {
+      LehaAspect.spider => _spawnRafaelki(),
+      LehaAspect.wizard => <String>{},
+      LehaAspect.superLeha => _maze.createLogos(),
+    };
     ensureRoundState();
   }
 
@@ -417,10 +463,436 @@ class GameEngine {
       round.portals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
       round.portals.removeAt(0);
     }
-    // Second portal of the pair just landed — start the 10s placement cooldown.
+    // Second portal of the pair just landed — start the placement cooldown.
     if (round.portals.length == 2) {
       client.portalCooldownUntil = now + GameConstants.portalCooldownMs;
     }
+  }
+
+  void placeOrPickMagicCrystal(PlayerConnection client) {
+    if (round.phase != GamePhase.playing ||
+        client.slot != 0 ||
+        client.aspect != LehaAspect.wizard ||
+        nowMs() < client.stunnedUntil) {
+      return;
+    }
+    final current = centerCell(client);
+    final nearby = round.magicCrystals.where((crystal) {
+      final dx = crystal.x + 0.5 - client.x;
+      final dy = crystal.y + 0.5 - client.y;
+      return dx * dx + dy * dy <= 0.85 * 0.85;
+    }).toList();
+    if (nearby.isNotEmpty) {
+      _removeMagicCrystal(nearby.first.id, nowMs());
+      return;
+    }
+    if (round.magicCrystals.length >= GameConstants.wizardMaxCrystals) return;
+    final direction = client.lastDirection;
+    final target = Point(
+      (current.x + direction.dx).round(),
+      (current.y + direction.dy).round(),
+    );
+    if (target.x < 0 ||
+        target.x >= maze.cols ||
+        target.y < 0 ||
+        target.y >= maze.rows ||
+        maze.isWall(target.x, target.y) ||
+        round.magicCrystals
+            .any((crystal) => crystal.x == target.x && crystal.y == target.y)) {
+      return;
+    }
+    round.magicCrystals.add(MagicCrystalState(
+      id: round.nextMagicCrystalId++,
+      x: target.x,
+      y: target.y,
+    ));
+  }
+
+  void activateMagicChain(PlayerConnection client) {
+    final now = nowMs();
+    if (round.phase != GamePhase.playing ||
+        client.slot != 0 ||
+        client.aspect != LehaAspect.wizard ||
+        now < client.stunnedUntil ||
+        now < client.magicChainCooldownUntil) {
+      return;
+    }
+    final seed = round.magicCrystals.where((crystal) {
+      if (crystal.fallen) return false;
+      final dx = crystal.x + 0.5 - client.x;
+      final dy = crystal.y + 0.5 - client.y;
+      return dx * dx + dy * dy <= 1.0;
+    }).firstOrNull;
+    if (seed == null) return;
+
+    final cycle = _bestMagicCycle(seed.id);
+    if (cycle == null) {
+      _fellMagicCrystal(seed.id, now, explode: true);
+      client
+        ..stunnedUntil = now + GameConstants.wizardFailedActivationStunMs
+        ..magicChainCooldownUntil =
+            now + GameConstants.wizardActivationCooldownMs
+        ..direction = null
+        ..nextDirection = null;
+      return;
+    }
+    if (_magicContourExists(cycle)) return;
+
+    final touching = round.magicChains
+        .where((chain) => chain.contours.any((contour) =>
+            contour.toSet().intersection(cycle.toSet()).length >= 2))
+        .toList();
+    if (touching.isEmpty) {
+      round.magicChains.add(MagicChainState(
+        id: round.nextMagicChainId++,
+        contours: [cycle],
+      ));
+    } else {
+      // Two contours sharing 2+ crystals are one logical chain, but the old
+      // closed contour remains energized. The cycle search maximizes newly
+      // added unique edge length, so incremental activation grows the network
+      // instead of repeatedly selecting near-identical nested triangles.
+      final contours = <List<int>>[cycle];
+      for (final chain in touching) {
+        contours.addAll(chain.contours);
+      }
+      final id = touching.map((chain) => chain.id).reduce(min);
+      round.magicChains.removeWhere(touching.contains);
+      round.magicChains.add(MagicChainState(id: id, contours: contours));
+    }
+    _destroyObjectsOnMagicChains();
+  }
+
+  List<int>? _bestMagicCycle(int seedId) {
+    final crystals =
+        round.magicCrystals.where((crystal) => !crystal.fallen).toList();
+    if (crystals.length < 3) return null;
+    final byId = {for (final crystal in crystals) crystal.id: crystal};
+    final others = crystals.where((crystal) => crystal.id != seedId).toList();
+    List<int>? best;
+    var bestAddedLength = -1.0;
+    var bestPerimeter = -1.0;
+    var bestArea = -1.0;
+    final energizedEdges = _magicChainEdgeKeys();
+
+    void search(List<int> path, Set<int> used) {
+      if (path.length >= 3 &&
+          _validMagicContour(path, byId) &&
+          _magicContourCompatibleWithExisting(path, byId)) {
+        var addedLength = 0.0;
+        var perimeter = 0.0;
+        for (var i = 0; i < path.length; i++) {
+          final a = byId[path[i]]!, b = byId[path[(i + 1) % path.length]]!;
+          final length = sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+          perimeter += length;
+          if (!energizedEdges.contains(_magicEdgeKey(a.id, b.id))) {
+            addedLength += length;
+          }
+        }
+        final area = _magicContourArea(path, byId);
+        if (addedLength > bestAddedLength + 1e-9 ||
+            ((addedLength - bestAddedLength).abs() <= 1e-9 &&
+                (perimeter > bestPerimeter + 1e-9 ||
+                    ((perimeter - bestPerimeter).abs() <= 1e-9 &&
+                        (area > bestArea + 1e-9 ||
+                            ((area - bestArea).abs() <= 1e-9 &&
+                                path.length > (best?.length ?? 0))))))) {
+          bestAddedLength = addedLength;
+          bestPerimeter = perimeter;
+          bestArea = area;
+          best = List<int>.from(path);
+        }
+      }
+      if (path.length >= crystals.length) return;
+      for (final crystal in others) {
+        if (!used.add(crystal.id)) continue;
+        path.add(crystal.id);
+        search(path, used);
+        path.removeLast();
+        used.remove(crystal.id);
+      }
+    }
+
+    search([seedId], {seedId});
+    return best;
+  }
+
+  String _magicEdgeKey(int a, int b) => a < b ? '$a:$b' : '$b:$a';
+
+  Set<String> _magicChainEdgeKeys() {
+    final result = <String>{};
+    for (final chain in round.magicChains) {
+      for (final contour in chain.contours) {
+        for (var i = 0; i < contour.length; i++) {
+          result.add(
+              _magicEdgeKey(contour[i], contour[(i + 1) % contour.length]));
+        }
+      }
+    }
+    return result;
+  }
+
+  bool _magicContourCompatibleWithExisting(
+      List<int> candidate, Map<int, MagicCrystalState> crystals) {
+    for (var i = 0; i < candidate.length; i++) {
+      final aId = candidate[i], bId = candidate[(i + 1) % candidate.length];
+      final a = crystals[aId]!, b = crystals[bId]!;
+      for (final chain in round.magicChains) {
+        for (final contour in chain.contours) {
+          for (var j = 0; j < contour.length; j++) {
+            final cId = contour[j], dId = contour[(j + 1) % contour.length];
+            if ({aId, bId}.intersection({cId, dId}).isNotEmpty) continue;
+            final c = crystals[cId], d = crystals[dId];
+            if (c == null || d == null) continue;
+            if (_segmentsIntersect(
+              Point(a.x + 0.5, a.y + 0.5),
+              Point(b.x + 0.5, b.y + 0.5),
+              Point(c.x + 0.5, c.y + 0.5),
+              Point(d.x + 0.5, d.y + 0.5),
+            )) {
+              return false;
+            }
+          }
+        }
+      }
+    }
+    return true;
+  }
+
+  bool _validMagicContour(List<int> ids, Map<int, MagicCrystalState> crystals) {
+    if (ids.length < 3 || ids.toSet().length != ids.length) return false;
+    for (var i = 0; i < ids.length; i++) {
+      final a = crystals[ids[i]], b = crystals[ids[(i + 1) % ids.length]];
+      if (a == null || b == null || a.fallen || b.fallen) return false;
+      if (!maze.hasLineOfSight(
+        Point(a.x + 0.5, a.y + 0.5),
+        Point(b.x + 0.5, b.y + 0.5),
+        ignoreCover: true,
+      )) {
+        return false;
+      }
+    }
+    if (_magicContourArea(ids, crystals) <= 1e-4) {
+      return false;
+    }
+    for (var i = 0; i < ids.length; i++) {
+      final a1 = crystals[ids[i]]!, a2 = crystals[ids[(i + 1) % ids.length]]!;
+      for (var j = i + 1; j < ids.length; j++) {
+        if (j == i || j == (i + 1) % ids.length || (j + 1) % ids.length == i) {
+          continue;
+        }
+        final b1 = crystals[ids[j]]!, b2 = crystals[ids[(j + 1) % ids.length]]!;
+        if (_segmentsIntersect(
+          Point(a1.x + 0.5, a1.y + 0.5),
+          Point(a2.x + 0.5, a2.y + 0.5),
+          Point(b1.x + 0.5, b1.y + 0.5),
+          Point(b2.x + 0.5, b2.y + 0.5),
+        )) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  double _magicContourArea(
+      List<int> ids, Map<int, MagicCrystalState> crystals) {
+    var sum = 0.0;
+    for (var i = 0; i < ids.length; i++) {
+      final a = crystals[ids[i]]!, b = crystals[ids[(i + 1) % ids.length]]!;
+      sum += (a.x + 0.5) * (b.y + 0.5) - (b.x + 0.5) * (a.y + 0.5);
+    }
+    return sum.abs() / 2;
+  }
+
+  bool _segmentsIntersect(
+      Point<double> a, Point<double> b, Point<double> c, Point<double> d) {
+    double cross(Point<double> p, Point<double> q, Point<double> r) =>
+        (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+    final abC = cross(a, b, c), abD = cross(a, b, d);
+    final cdA = cross(c, d, a), cdB = cross(c, d, b);
+    return abC * abD <= 0 && cdA * cdB <= 0;
+  }
+
+  bool _magicContourExists(List<int> candidate) {
+    bool sameCycle(List<int> a, List<int> b) {
+      if (a.length != b.length || a.toSet().difference(b.toSet()).isNotEmpty) {
+        return false;
+      }
+      for (var offset = 0; offset < b.length; offset++) {
+        if (b[offset] != a.first) continue;
+        final forward =
+            List.generate(a.length, (i) => b[(offset + i) % b.length]);
+        final reverse = List.generate(
+            a.length, (i) => b[(offset - i + b.length * 2) % b.length]);
+        if (_sameInts(a, forward) || _sameInts(a, reverse)) return true;
+      }
+      return false;
+    }
+
+    return round.magicChains.any((chain) =>
+        chain.contours.any((contour) => sameCycle(candidate, contour)));
+  }
+
+  bool _sameInts(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  void _removeMagicCrystal(int id, int now) {
+    round.magicCrystals.removeWhere((crystal) => crystal.id == id);
+    _rebuildMagicChainsWithout(id, now);
+  }
+
+  void _fellMagicCrystal(int id, int now, {bool explode = false}) {
+    final crystal = round.magicCrystals.where((c) => c.id == id).firstOrNull;
+    if (crystal == null || crystal.fallen) return;
+    crystal
+      ..fallen = true
+      ..burstAt = explode ? now : 0;
+    _rebuildMagicChainsWithout(id, now);
+  }
+
+  void _rebuildMagicChainsWithout(int id, int now) {
+    var changed = false;
+    final byId = {
+      for (final crystal in round.magicCrystals) crystal.id: crystal
+    };
+    final rebuilt = <MagicChainState>[];
+    for (final chain in round.magicChains) {
+      final contours = <List<int>>[];
+      for (final contour in chain.contours) {
+        if (!contour.contains(id)) {
+          contours.add(contour);
+          continue;
+        }
+        changed = true;
+        final remaining =
+            contour.where((crystalId) => crystalId != id).toList();
+        if (_validMagicContour(remaining, byId)) contours.add(remaining);
+      }
+      if (contours.isNotEmpty) {
+        rebuilt.add(MagicChainState(id: chain.id, contours: contours));
+      }
+    }
+    round.magicChains = rebuilt;
+    if (changed) {
+      final wizard = findPlayer(0);
+      if (wizard?.aspect == LehaAspect.wizard) {
+        wizard!.magicChainCooldownUntil =
+            now + GameConstants.wizardActivationCooldownMs;
+      }
+    }
+  }
+
+  void updateMagicChains(int now, int dtMs) {
+    final wizard = findPlayer(0);
+    if (wizard?.aspect != LehaAspect.wizard) return;
+    final hunter = findPlayer(1);
+    if (hunter != null) {
+      for (final crystal in round.magicCrystals) {
+        if (crystal.fallen) continue;
+        final dx = crystal.x + 0.5 - hunter.x;
+        final dy = crystal.y + 0.5 - hunter.y;
+        if (dx * dx + dy * dy <= 0.62 * 0.62) {
+          _fellMagicCrystal(crystal.id, now);
+          break;
+        }
+      }
+    }
+    if (round.magicChains.isEmpty) return;
+    _destroyObjectsOnMagicChains();
+
+    final byId = {
+      for (final crystal in round.magicCrystals) crystal.id: crystal
+    };
+    var multiplier = 0.0;
+    for (final chain in round.magicChains) {
+      for (final contour in chain.contours) {
+        final area = _magicContourArea(contour, byId);
+        multiplier +=
+            pow(area / GameConstants.wizardSaturationReferenceArea, 1.5).clamp(
+                GameConstants.wizardSaturationMinMultiplier,
+                GameConstants.wizardSaturationMaxMultiplier);
+      }
+    }
+    round.wizardSaturation +=
+        dtMs / GameConstants.wizardSaturationBaseMs * multiplier;
+    if (round.wizardSaturation >= 1) {
+      round.wizardSaturation = 1;
+      endGame(0, 'Леха-Маг насытил магические цепи.');
+    }
+  }
+
+  Iterable<(Point<double>, Point<double>)> _magicChainEdges() sync* {
+    final byId = {
+      for (final crystal in round.magicCrystals) crystal.id: crystal
+    };
+    final emitted = <String>{};
+    for (final chain in round.magicChains) {
+      for (final contour in chain.contours) {
+        for (var i = 0; i < contour.length; i++) {
+          final a = byId[contour[i]],
+              b = byId[contour[(i + 1) % contour.length]];
+          if (a == null || b == null || a.fallen || b.fallen) continue;
+          if (!emitted.add(_magicEdgeKey(a.id, b.id))) continue;
+          yield (
+            Point(a.x + 0.5, a.y + 0.5),
+            Point(b.x + 0.5, b.y + 0.5),
+          );
+        }
+      }
+    }
+  }
+
+  bool _pointOnMagicChain(double x, double y, [double extraRadius = 0]) {
+    final point = Point<double>(x, y);
+    final radius = GameConstants.wizardChainCollisionRadius + extraRadius;
+    for (final edge in _magicChainEdges()) {
+      if (_distanceToSegment(point, edge.$1, edge.$2) <= radius) return true;
+    }
+    return false;
+  }
+
+  double _distanceToSegment(Point<double> p, Point<double> a, Point<double> b) {
+    final dx = b.x - a.x, dy = b.y - a.y;
+    final lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 1e-9) {
+      return sqrt(pow(p.x - a.x, 2) + pow(p.y - a.y, 2));
+    }
+    final t =
+        (((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared).clamp(0.0, 1.0);
+    final qx = a.x + dx * t, qy = a.y + dy * t;
+    return sqrt(pow(p.x - qx, 2) + pow(p.y - qy, 2));
+  }
+
+  void _destroyObjectsOnMagicChains() {
+    if (round.magicChains.isEmpty) return;
+    bool hitsCell(int x, int y) => _pointOnMagicChain(x + 0.5, y + 0.5, 0.25);
+    for (var y = 0; y < maze.rows; y++) {
+      for (var x = 0; x < maze.cols; x++) {
+        if (maze.isWall(x, y) || !hitsCell(x, y)) continue;
+        maze.destroyNonWallContent(x, y);
+        round.shardsIntact.remove('$x,$y');
+        logos.remove('$x,$y');
+      }
+    }
+    round.traps.removeWhere((trap) => hitsCell(trap.x, trap.y));
+    round.webs.removeWhere((web) => hitsCell(web.x, web.y));
+    round.barrels
+        .removeWhere((barrel) => _pointOnMagicChain(barrel.x, barrel.y));
+    round.mushrooms.removeWhere((mushroom) => hitsCell(mushroom.x, mushroom.y));
+    round.spores.removeWhere((spore) => hitsCell(spore.x, spore.y));
+    round.mummies.removeWhere((mummy) => _pointOnMagicChain(mummy.x, mummy.y));
+    if (round.clutch != null && hitsCell(round.clutch!.x, round.clutch!.y)) {
+      round.clutch = null;
+    }
+    maze.dynamicCover
+      ..clear()
+      ..addAll(round.spores.map((spore) => '${spore.x},${spore.y}'));
   }
 
   // ---- Bots -------------------------------------------------------------
@@ -719,13 +1191,17 @@ class GameEngine {
         clients.values.where((client) => client.slot != null).toList();
     final hasLeha = activePlayers.any((client) => client.slot == 0);
     final hasHunter = activePlayers.any((client) => client.slot == 1);
-    final bothReady = hasLeha &&
-        hasHunter &&
-        activePlayers
-            .where((client) => client.slot == 0 || client.slot == 1)
-            .every((client) => client.ready);
+    final selectedPlayers = activePlayers
+        .where((client) => client.slot == 0 || client.slot == 1)
+        .toList();
+    final canStart = sandboxMode
+        ? selectedPlayers.isNotEmpty &&
+            selectedPlayers.every((client) => client.ready)
+        : hasLeha &&
+            hasHunter &&
+            selectedPlayers.every((client) => client.ready);
 
-    if (!hasLeha || !hasHunter || !bothReady) {
+    if (!canStart) {
       if (round.phase != GamePhase.ended) {
         round.phase = GamePhase.waiting;
         round.startedAt = null;
@@ -745,6 +1221,11 @@ class GameEngine {
         ..webs = []
         ..barrels = []
         ..portals = []
+        ..magicCrystals = []
+        ..magicChains = []
+        ..nextMagicCrystalId = 1
+        ..nextMagicChainId = 1
+        ..wizardSaturation = 0
         ..pendingTrapRechargeAt = []
         ..pendingWebRechargeAt = []
         ..clutch = null
@@ -754,16 +1235,16 @@ class GameEngine {
         ..chimes = []
         ..mushrooms = _spawnMushrooms()
         ..spores = []
+        ..nextAmethystGrowAt =
+            nowMs() + GameConstants.amethystShardGrowIntervalMs
         ..rafaelkiEaten = 0
         ..trails = {0: [], 1: []};
       maze.dynamicCover.clear();
-      // Spider plays the Raffaello mode (5 candies, no TikToks); other Lehas
-      // keep the classic TikTok logos.
-      if (findPlayer(0)?.aspect == LehaAspect.spider) {
-        logos = _spawnRafaelki();
-      } else {
-        logos = _maze.createLogos();
-      }
+      logos = switch (findPlayer(0)?.aspect) {
+        LehaAspect.spider => _spawnRafaelki(),
+        LehaAspect.wizard => <String>{},
+        _ => _maze.createLogos(),
+      };
       final hunter = findPlayer(1);
       if (hunter != null) {
         hunter
@@ -785,6 +1266,7 @@ class GameEngine {
               leha.aspect == LehaAspect.spider ? GameConstants.maxWebCharges : 0
           ..webCooldownUntil = 0
           ..portalCooldownUntil = 0
+          ..magicChainCooldownUntil = 0
           ..stunnedUntil = 0
           ..invulnerableUntil = 0
           ..blindUntil = 0
@@ -807,19 +1289,47 @@ class GameEngine {
     }).toList();
   }
 
-  /// Seeds the initial amethyst mushroom colony on open floor. Starting stages
-  /// are randomised so some mushrooms are already mature at kickoff.
+  /// Seeds a few connected mushroom colonies instead of scattering individuals.
   List<MushroomState> _spawnMushrooms() {
     if (maze.biome != CaveBiome.amethyst) return [];
     final now = nowMs();
     final cells = _openFloorCells()..shuffle(_rng);
-    return cells.take(GameConstants.mushroomStartCount).map((p) {
+    final allowed = cells.map((p) => '${p.x},${p.y}').toSet();
+    final selected = <String>{};
+    final frontier = <Point<int>>[];
+    for (final seed in cells) {
+      if (frontier.length >= 3) break;
+      if (frontier
+          .every((p) => (p.x - seed.x).abs() + (p.y - seed.y).abs() >= 6)) {
+        frontier.add(seed);
+      }
+    }
+    const dirs = [Point(1, 0), Point(-1, 0), Point(0, 1), Point(0, -1)];
+    while (frontier.isNotEmpty &&
+        selected.length < GameConstants.mushroomStartCount) {
+      final cell = frontier.removeAt(_rng.nextInt(frontier.length));
+      final key = '${cell.x},${cell.y}';
+      if (!allowed.contains(key) || !selected.add(key)) continue;
+      final neighbours = dirs
+          .map((d) => Point(cell.x + d.x, cell.y + d.y))
+          .where((p) =>
+              allowed.contains('${p.x},${p.y}') &&
+              !selected.contains('${p.x},${p.y}'))
+          .toList()
+        ..shuffle(_rng);
+      frontier.addAll(neighbours.take(2));
+    }
+    return selected.map((key) {
+      final p = key.split(',').map(int.parse).toList();
       final stage = _rng.nextInt(GameConstants.mushroomMaxStage + 1);
       return MushroomState(
-        x: p.x,
-        y: p.y,
+        x: p[0],
+        y: p[1],
         stage: stage,
-        nextGrowAt: now + _rng.nextInt(GameConstants.mushroomGrowIntervalMs),
+        nextGrowAt: now +
+            _rng.nextInt(stage == GameConstants.mushroomMaxStage
+                ? GameConstants.mushroomMatureIntervalMs
+                : GameConstants.mushroomGrowIntervalMs),
       );
     }).toList();
   }
@@ -851,8 +1361,8 @@ class GameEngine {
 
   void updateChimes(int now) {
     if (round.chimes.isEmpty) return;
-    round.chimes.removeWhere(
-        (c) => now - c.firedAt >= GameConstants.chimeDurationMs);
+    round.chimes
+        .removeWhere((c) => now - c.firedAt >= GameConstants.chimeDurationMs);
   }
 
   /// Trampling a mushroom drops a single spore and resets it to a sprout — it is
@@ -862,7 +1372,11 @@ class GameEngine {
     final cx = player.x.floor(), cy = player.y.floor();
     for (final m in round.mushrooms) {
       if (m.x != cx || m.y != cy) continue;
-      _addSpore(cx, cy, now);
+      if (m.stage == GameConstants.mushroomMaxStage) {
+        _burstSpores(cx, cy, now);
+      } else {
+        _addSpore(cx, cy, now);
+      }
       m
         ..stage = 0
         ..nextGrowAt = now + GameConstants.mushroomGrowIntervalMs;
@@ -882,87 +1396,173 @@ class GameEngine {
     round.spores.add(SporeState(x: x, y: y, expiresAt: expiresAt));
   }
 
+  void _burstSpores(int x, int y, int now) {
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -1; dx <= 1; dx++) {
+        _addSpore(x + dx, y + dy, now);
+      }
+    }
+  }
+
   /// Advances the mushroom colony: grows mushrooms, kills mature ones into spore
   /// bursts that spawn fresh sprouts nearby, and expires old spores.
   void updateMushrooms(int now) {
     if (maze.biome != CaveBiome.amethyst) return;
 
     final survivors = <MushroomState>[];
-    final newborns = <MushroomState>[];
     for (final m in round.mushrooms) {
       if (now < m.nextGrowAt) {
         survivors.add(m);
         continue;
       }
       if (m.stage < GameConstants.mushroomMaxStage) {
+        final nextStage = m.stage + 1;
         m
-          ..stage += 1
-          ..nextGrowAt = now + GameConstants.mushroomGrowIntervalMs;
+          ..stage = nextStage
+          ..nextGrowAt = now +
+              (nextStage == GameConstants.mushroomMaxStage
+                  ? GameConstants.mushroomMatureIntervalMs
+                  : GameConstants.mushroomGrowIntervalMs);
         survivors.add(m);
         continue;
       }
-      // Mature mushroom dies: burst spores in a 1-cell radius, spread sprouts.
-      for (var dy = -1; dy <= 1; dy++) {
-        for (var dx = -1; dx <= 1; dx++) {
-          _addSpore(m.x + dx, m.y + dy, now);
-        }
-      }
-      newborns.addAll(_spreadSprouts(m, now,
-          survivors.length + newborns.length + round.mushrooms.length));
+      // Mature mushroom dies into fog. Any new growth is resolved only when
+      // those spores expire.
+      _burstSpores(m.x, m.y, now);
     }
-    survivors.addAll(newborns);
     round.mushrooms = survivors;
 
-    // Expire old spores, then publish the live cover set for visibility checks.
+    final expired = round.spores.where((s) => now >= s.expiresAt).toList()
+      ..shuffle(_rng);
+    var births = 0;
+    for (final spore in expired) {
+      if (births >= GameConstants.mushroomSporeMaxBirthsPerTick ||
+          round.mushrooms.length >= GameConstants.mushroomMaxCount) {
+        break;
+      }
+      if (_growMushroomFromSpore(spore, now)) births++;
+    }
     round.spores.removeWhere((s) => now >= s.expiresAt);
     maze.dynamicCover
       ..clear()
       ..addAll(round.spores.map((s) => '${s.x},${s.y}'));
   }
 
-  /// Spawns 1-2 fresh sprouts near a dead mushroom so the colony crawls outward,
-  /// respecting the population cap.
-  List<MushroomState> _spreadSprouts(MushroomState parent, int now, int liveCount) {
-    final result = <MushroomState>[];
-    final occupied = {
-      for (final m in round.mushrooms) '${m.x},${m.y}',
-    };
+  /// Regrows one destructible shard along a colony frontier. Permanent wall
+  /// sources restart growth even when players clear every floor shard.
+  void updateAmethystShards(int now) {
+    if (maze.biome != CaveBiome.amethyst || now < round.nextAmethystGrowAt) {
+      return;
+    }
+    round.nextAmethystGrowAt = now + GameConstants.amethystShardGrowIntervalMs;
+    if (round.shardsIntact.length >= GameConstants.amethystShardMaxCount) {
+      return;
+    }
+
+    const dirs = [Point(1, 0), Point(-1, 0), Point(0, 1), Point(0, -1)];
+    final groups = maze.amethystWallGroups
+        .map((group) => group.map((key) {
+              final xy = key.split(',').map(int.parse).toList();
+              return Point(xy[0], xy[1]);
+            }).toList())
+        .toList();
+    final shards = round.shardsIntact.map((key) {
+      final xy = key.split(',').map(int.parse).toList();
+      return Point(xy[0], xy[1]);
+    }).toList();
+    final counts = List<int>.filled(groups.length, 0);
+    for (final shard in shards) {
+      final group = _nearestAmethystGroup(shard, groups);
+      if (group != null) counts[group]++;
+    }
+    final growthOrder = List<int>.generate(groups.length, (index) => index)
+      ..sort((a, b) => counts[a].compareTo(counts[b]));
+
     final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
-    final want = 1 + _rng.nextInt(2); // 1 or 2
-    const r = GameConstants.mushroomSpreadRadius;
-    final candidates = <Point<int>>[];
-    for (var dy = -r; dy <= r; dy++) {
-      for (var dx = -r; dx <= r; dx++) {
-        if (dx == 0 && dy == 0) continue;
-        final nx = parent.x + dx, ny = parent.y + dy;
-        if (nx <= 0 || nx >= maze.cols - 1 || ny <= 0 || ny >= maze.rows - 1) {
-          continue;
+    // Try the emptiest colony first. If its local geometry is exhausted, fall
+    // through to the next one rather than stalling all growth.
+    for (final groupIndex in growthOrder) {
+      final sources = groups[groupIndex];
+      final localShards = shards
+          .where((shard) => _nearestAmethystGroup(shard, groups) == groupIndex);
+      final roots = <Point<int>>[...sources, ...localShards];
+      final candidates = <Point<int>>[];
+      final seen = <String>{};
+      for (final root in roots) {
+        for (final d in dirs) {
+          final p = Point(root.x + d.x, root.y + d.y);
+          final key = '${p.x},${p.y}';
+          if (!seen.add(key) ||
+              p.x <= 0 ||
+              p.x >= maze.cols - 1 ||
+              p.y <= 0 ||
+              p.y >= maze.rows - 1 ||
+              maze.isWall(p.x, p.y) ||
+              starts.contains(key) ||
+              round.shardsIntact.contains(key) ||
+              GameConstants.tunnelRows.contains(p.y) ||
+              GameConstants.tunnelCols.contains(p.x) ||
+              !sources.any((source) =>
+                  (source.x - p.x).abs() + (source.y - p.y).abs() <=
+                  GameConstants.amethystShardSourceRadius)) {
+            continue;
+          }
+          candidates.add(p);
         }
-        if (GameConstants.tunnelRows.contains(ny) ||
-            GameConstants.tunnelCols.contains(nx)) {
-          continue;
-        }
-        final key = '$nx,$ny';
-        if (maze.isWall(nx, ny) || occupied.contains(key) ||
-            starts.contains(key)) {
-          continue;
-        }
-        candidates.add(Point(nx, ny));
+      }
+      if (candidates.isEmpty) continue;
+      final cell = candidates[_rng.nextInt(candidates.length)];
+      round.shardsIntact.add('${cell.x},${cell.y}');
+      return;
+    }
+  }
+
+  int? _nearestAmethystGroup(Point<int> cell, List<List<Point<int>>> groups) {
+    int? nearest;
+    var bestDistance = 1 << 30;
+    for (var index = 0; index < groups.length; index++) {
+      final distance = groups[index]
+          .map(
+              (source) => (source.x - cell.x).abs() + (source.y - cell.y).abs())
+          .reduce(min);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        nearest = index;
       }
     }
-    candidates.shuffle(_rng);
-    for (final c in candidates) {
-      if (result.length >= want) break;
-      if (liveCount + result.length >= GameConstants.mushroomMaxCount) break;
-      occupied.add('${c.x},${c.y}');
-      result.add(MushroomState(
-        x: c.x,
-        y: c.y,
-        stage: 0,
-        nextGrowAt: now + GameConstants.mushroomGrowIntervalMs,
-      ));
+    return nearest;
+  }
+
+  /// An isolated spore has a 50% chance to leave a sprout. Every mushroom in
+  /// the local colony divides that chance again, naturally thinning dense areas.
+  bool _growMushroomFromSpore(SporeState spore, int now) {
+    final key = '${spore.x},${spore.y}';
+    final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    if (spore.x <= 0 ||
+        spore.x >= maze.cols - 1 ||
+        spore.y <= 0 ||
+        spore.y >= maze.rows - 1 ||
+        maze.isWall(spore.x, spore.y) ||
+        starts.contains(key) ||
+        GameConstants.tunnelRows.contains(spore.y) ||
+        GameConstants.tunnelCols.contains(spore.x) ||
+        round.mushrooms.any((m) => m.x == spore.x && m.y == spore.y)) {
+      return false;
     }
-    return result;
+    final nearby = round.mushrooms
+        .where((m) =>
+            (m.x - spore.x).abs() <= GameConstants.mushroomSpreadRadius &&
+            (m.y - spore.y).abs() <= GameConstants.mushroomSpreadRadius)
+        .length;
+    final chance = GameConstants.mushroomSporeGrowChance / (nearby + 1);
+    if (_rng.nextDouble() >= chance) return false;
+    round.mushrooms.add(MushroomState(
+      x: spore.x,
+      y: spore.y,
+      stage: 0,
+      nextGrowAt: now + GameConstants.mushroomGrowIntervalMs,
+    ));
+    return true;
   }
 
   void enforceReadyTimeout(int now) {
@@ -1041,7 +1641,9 @@ class GameEngine {
     updateSarcophagi(now);
     updateMummies(now, GameConstants.tickMs / 1000);
     updateMushrooms(now);
+    updateAmethystShards(now);
     updateChimes(now);
+    updateMagicChains(now, GameConstants.tickMs);
     resolveCollision(leha, hunter, now);
     resolveTrap(leha, now);
     resolveClutch(hunter, now);
@@ -1050,7 +1652,7 @@ class GameEngine {
     final startedAt = round.startedAt;
     // Spider's Raffaello mode has no survival timer — only a hatched clutch
     // (Spider wins) or being caught (hunter wins) ends the round.
-    if (!_isSpiderRound() &&
+    if (findPlayer(0)?.aspect == LehaAspect.superLeha &&
         startedAt != null &&
         now - startedAt >= GameConstants.roundDurationMs) {
       endGame(0, 'Леха продержался 3 минуты.');
@@ -1412,6 +2014,10 @@ class GameEngine {
         final parts = key.split(',').map(int.parse).toList();
         return Vec2i(parts[0], parts[1]);
       }).toList(),
+      amethystWalls: maze.amethystWalls.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
       amethystShards: round.shardsIntact.map((key) {
         final parts = key.split(',').map(int.parse).toList();
         return Vec2i(parts[0], parts[1]);
@@ -1446,6 +2052,7 @@ class GameEngine {
               ))
           .toList(),
       enabledBiomes: enabledBiomes.toList(),
+      sandboxMode: sandboxMode,
       logos: visibleLogosFor(viewer).where((key) {
         if (!lehaBlinded) return true;
         final parts = key.split(',').map(int.parse).toList();
@@ -1463,6 +2070,23 @@ class GameEngine {
       webs: visibleWebsFor(viewer),
       barrels: visibleBarrelsFor(viewer, now),
       portals: visiblePortalsFor(viewer),
+      magicCrystals: round.magicCrystals
+          .map((crystal) => MagicCrystalDto(
+                id: crystal.id,
+                x: crystal.x,
+                y: crystal.y,
+                fallen: crystal.fallen,
+                burstProgress: crystal.burstAt == 0
+                    ? 1
+                    : _round3(((now - crystal.burstAt) / 700).clamp(0.0, 1.0)),
+              ))
+          .toList(),
+      magicChains: round.magicChains
+          .map((chain) => MagicChainDto(
+                id: chain.id,
+                contours: chain.contours,
+              ))
+          .toList(),
       clutch: visibleClutchFor(viewer, now),
       trail: trailForClient(viewer, now),
       players: visiblePlayers,
@@ -1522,6 +2146,15 @@ class GameEngine {
         clutchActive: round.clutch != null,
         clutchHatchMs:
             round.clutch == null ? 0 : max(0, round.clutch!.hatchAt - now),
+        wizardSaturation: _round3(round.wizardSaturation),
+        magicChainCooldownMs: viewer.aspect == LehaAspect.wizard
+            ? max(0, viewer.magicChainCooldownUntil - now)
+            : 0,
+        magicCrystalCharges:
+            viewer.slot == 0 && viewer.aspect == LehaAspect.wizard
+                ? GameConstants.wizardMaxCrystals - round.magicCrystals.length
+                : 0,
+        magicCrystalAvailable: magicCrystalAvailableFor(viewer, now),
       ),
       status: statusFor(viewer),
       leaderboard: stats
@@ -1660,6 +2293,9 @@ class GameEngine {
     if (maze.isSpore(player.x.floor(), player.y.floor())) {
       base *= GameConstants.mushroomSporeSlowFactor;
     }
+    if (player.slot == 1 && _pointOnMagicChain(player.x, player.y, 0.18)) {
+      base *= GameConstants.wizardChainSlowFactor;
+    }
     return base;
   }
 
@@ -1675,6 +2311,7 @@ class GameEngine {
   }
 
   void collectLogo(PlayerConnection player) {
+    if (player.aspect == LehaAspect.wizard) return;
     final cell = centerCell(player);
     final key = '${cell.x},${cell.y}';
     if (!logos.remove(key)) return;
@@ -1871,6 +2508,7 @@ class GameEngine {
   }
 
   void endGame(int winnerSlot, String reason) {
+    if (sandboxMode) return;
     round
       ..phase = GamePhase.ended
       ..endedAt = nowMs()
@@ -2191,7 +2829,6 @@ class GameEngine {
     return switch (viewer.aspect) {
       LehaAspect.superLeha => false,
       LehaAspect.spider => viewer.webCharges > 0,
-      // Laying a portal is blocked during the post-pair placement cooldown.
       LehaAspect.wizard => now >= viewer.portalCooldownUntil,
     };
   }
@@ -2212,8 +2849,25 @@ class GameEngine {
     return switch (viewer.aspect) {
       LehaAspect.superLeha => 0,
       LehaAspect.spider => viewer.webCharges,
-      LehaAspect.wizard => 2 - round.portals.length.clamp(0, 2),
+      LehaAspect.wizard => max(0, 2 - round.portals.length),
     };
+  }
+
+  bool magicCrystalAvailableFor(PlayerConnection viewer, int now) {
+    if (viewer.slot != 0 ||
+        viewer.aspect != LehaAspect.wizard ||
+        round.phase != GamePhase.playing ||
+        now < viewer.stunnedUntil) {
+      return false;
+    }
+    if (round.magicCrystals.length < GameConstants.wizardMaxCrystals) {
+      return true;
+    }
+    return round.magicCrystals.any((crystal) {
+      final dx = crystal.x + 0.5 - viewer.x;
+      final dy = crystal.y + 0.5 - viewer.y;
+      return dx * dx + dy * dy <= 0.85 * 0.85;
+    });
   }
 
   PlayerDto serializePlayer(PlayerConnection player, int now) {

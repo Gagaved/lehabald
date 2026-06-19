@@ -23,6 +23,7 @@ class LehaBaldGame extends FlameGame {
   int _renderFrameCount = 0;
   double _renderDtEwmaMs = 0;
   double _renderDtMaxMs = 0;
+  double _visualTime = 0;
 
   late Image playerHead;
   late Image chaserHead;
@@ -91,6 +92,7 @@ class LehaBaldGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
+    _visualTime += dt;
     _recordRenderTiming(dt);
     _updatePlayerSmoothing(dt);
   }
@@ -203,12 +205,14 @@ class LehaBaldGame extends FlameGame {
     canvas.scale(scale);
 
     _drawBoard(canvas, snapshot);
+    _drawAmethystWalls(canvas, snapshot.amethystWalls);
     _drawQuicksand(canvas, snapshot.quicksand);
     _drawSpores(canvas, snapshot.spores);
     _drawAmethystShards(canvas, snapshot.amethystShards);
     _drawCrackedWalls(canvas, snapshot.crackedWalls);
     _drawBushes(canvas, snapshot.bushes);
     _drawMushroomColony(canvas, snapshot.mushrooms);
+    _drawMagicChains(canvas, snapshot.magicCrystals, snapshot.magicChains);
     _drawCrystalEntities(canvas, snapshot.crystals);
     _drawCrystalLinks(
         canvas, snapshot.players, snapshot.illusions, snapshot.crystals);
@@ -317,9 +321,26 @@ class LehaBaldGame extends FlameGame {
       return;
     }
 
-    // Spider lays an egg clutch on F.
+    if (event.logicalKey == LogicalKeyboardKey.keyC && event is KeyDownEvent) {
+      final snapshot = network.snapshot;
+      final me = snapshot?.players
+          .where((player) => player.id == snapshot.you.id)
+          .firstOrNull;
+      if (me?.aspect == LehaAspect.wizard) network.placeMagicCrystal();
+      return;
+    }
+
+    // Spider lays a clutch; Wizard closes a crystal chain.
     if (event.logicalKey == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
-      network.layClutch();
+      final snapshot = network.snapshot;
+      final me = snapshot?.players
+          .where((player) => player.id == snapshot.you.id)
+          .firstOrNull;
+      if (me?.aspect == LehaAspect.wizard) {
+        network.activateMagicChain();
+      } else {
+        network.layClutch();
+      }
       return;
     }
 
@@ -439,14 +460,18 @@ class LehaBaldGame extends FlameGame {
       // vertical offset and phase so the patch looks organic and continuous.
       const lines = 3;
       for (var i = 0; i < lines; i++) {
-        final baseY = cy + tile * (0.22 + i * 0.28) + tile * 0.06 * rnd.nextDouble();
+        final baseY =
+            cy + tile * (0.22 + i * 0.28) + tile * 0.06 * rnd.nextDouble();
         final amp = tile * (0.05 + rnd.nextDouble() * 0.05);
         final dir = rnd.nextBool() ? 1 : -1;
         final path = Path()..moveTo(cx, baseY);
         path.cubicTo(
-          cx + tile * 0.33, baseY - amp * dir,
-          cx + tile * 0.66, baseY + amp * dir,
-          cx + tile, baseY,
+          cx + tile * 0.33,
+          baseY - amp * dir,
+          cx + tile * 0.66,
+          baseY + amp * dir,
+          cx + tile,
+          baseY,
         );
         canvas.drawPath(path, stroke);
       }
@@ -454,21 +479,247 @@ class LehaBaldGame extends FlameGame {
   }
 
   void _drawSpores(Canvas canvas, List<Vec2i> spores) {
+    final paint = Paint();
     for (final s in spores) {
-      final cx = s.x * tile, cy = s.y * tile;
-      // Soft purple fog fills the cell (concealment cue), merging between cells.
-      canvas.drawRect(
-        Rect.fromLTWH(cx, cy, tile, tile),
-        Paint()..color = const Color(0x33b06bdd),
+      final center = Offset((s.x + 0.5) * tile, (s.y + 0.5) * tile);
+      final cellPhase = s.x * 1.731 + s.y * 2.417;
+
+      // Persistent overlapping lobes form one readable cloud without a blur
+      // filter. Each lobe drifts and breathes slowly; neighbouring cells overlap
+      // naturally instead of exposing square tile boundaries.
+      for (var i = 0; i < 7; i++) {
+        final phase = cellPhase + i * 2.193;
+        final angle = phase + sin(_visualTime * 0.31 + phase) * 0.22;
+        final spread = tile * (0.12 + (i % 3) * 0.055);
+        final drift = Offset(
+          cos(angle) * spread + sin(_visualTime * 0.48 + phase) * tile * 0.035,
+          sin(angle) * spread * 0.72 +
+              cos(_visualTime * 0.39 + phase) * tile * 0.03,
+        );
+        final breathe = 0.92 + 0.12 * sin(_visualTime * 0.72 + phase);
+        final radius = tile * (0.24 + (i % 4) * 0.025) * breathe;
+        final alpha = 0.105 + (i % 3) * 0.018;
+        paint.color = const Color(0xffb06bdd).withValues(alpha: alpha);
+        canvas.drawCircle(center + drift, radius, paint);
+      }
+
+      // Short-lived satellite puffs continuously appear, expand and dissolve.
+      // Staggered phases keep the whole cloud from pulsing in sync.
+      for (var i = 0; i < 3; i++) {
+        final phase = (cellPhase * 0.37 + i * 0.34) % 1.0;
+        final life = (_visualTime * 0.18 + phase) % 1.0;
+        final angle = cellPhase + i * 2.1 + life * 0.8;
+        final drift = Offset(cos(angle), sin(angle) * 0.7) * tile * 0.24;
+        final radius = tile * (0.08 + life * 0.25);
+        final alpha = sin(life * pi) * 0.13;
+        paint.color = const Color(0xffd9a8ff).withValues(alpha: alpha);
+        canvas.drawCircle(center + drift, radius, paint);
+      }
+    }
+  }
+
+  void _drawMagicChains(
+    Canvas canvas,
+    List<MagicCrystalDto> crystals,
+    List<MagicChainDto> chains,
+  ) {
+    if (crystals.isEmpty) return;
+    final byId = {for (final crystal in crystals) crystal.id: crystal};
+    final activeIds = <int>{};
+    final drawnEdges = <String>{};
+    final under = Paint()
+      ..color = const Color(0xdd09000f)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..strokeCap = StrokeCap.round;
+    final halo = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final energy = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.65
+      ..strokeCap = StrokeCap.round;
+    for (final chain in chains) {
+      for (final contour in chain.contours) {
+        activeIds.addAll(contour);
+        for (var edgeIndex = 0; edgeIndex < contour.length; edgeIndex++) {
+          final a = byId[contour[edgeIndex]];
+          final b = byId[contour[(edgeIndex + 1) % contour.length]];
+          if (a == null || b == null || a.fallen || b.fallen) continue;
+          final edgeKey = a.id < b.id ? '${a.id}:${b.id}' : '${b.id}:${a.id}';
+          if (!drawnEdges.add(edgeKey)) continue;
+          final start = Offset((a.x + 0.5) * tile, (a.y + 0.5) * tile);
+          final end = Offset((b.x + 0.5) * tile, (b.y + 0.5) * tile);
+          final delta = end - start;
+          final length = delta.distance;
+          if (length <= 0.1) continue;
+          final normal = Offset(-delta.dy / length, delta.dx / length);
+          final path = Path()..moveTo(start.dx, start.dy);
+          const segments = 10;
+          for (var i = 1; i < segments; i++) {
+            final t = i / segments;
+            final phase = chain.id * 1.7 + edgeIndex * 2.3 + i * 3.1;
+            final jitter = sin(_visualTime * 8 + phase) * tile * 0.055;
+            final point = start + delta * t + normal * jitter;
+            path.lineTo(point.dx, point.dy);
+          }
+          path.lineTo(end.dx, end.dy);
+          final hue = (_visualTime * 95 + a.id * 43 + b.id * 67) % 360;
+          final colors = [
+            HSVColor.fromAHSV(1, hue, 0.88, 1).toColor(),
+            HSVColor.fromAHSV(1, (hue + 105) % 360, 0.82, 1).toColor(),
+            HSVColor.fromAHSV(1, (hue + 215) % 360, 0.9, 1).toColor(),
+          ];
+          canvas.drawPath(path, under);
+          halo.shader = Gradient.linear(
+            start,
+            end,
+            colors.map((color) => color.withValues(alpha: 0.65)).toList(),
+            const [0, 0.5, 1],
+          );
+          canvas.drawPath(path, halo);
+          energy.shader = Gradient.linear(start, end, [
+            const Color(0xffffffff),
+            colors[1],
+            const Color(0xffffffff),
+          ], const [
+            0,
+            0.5,
+            1
+          ]);
+          canvas.drawPath(path, energy);
+        }
+      }
+    }
+
+    for (final crystal in crystals) {
+      final center = Offset((crystal.x + 0.5) * tile, (crystal.y + 0.5) * tile);
+      if (crystal.burstProgress < 1) {
+        final progress = crystal.burstProgress;
+        final burstPaint = Paint()
+          ..color =
+              const Color(0xffe8adff).withValues(alpha: (1 - progress) * 0.9)
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round;
+        for (var i = 0; i < 8; i++) {
+          final angle = i * pi / 4 + crystal.id * 0.37;
+          final inner = Offset(cos(angle), sin(angle)) * tile * progress * 0.18;
+          final outer =
+              Offset(cos(angle), sin(angle)) * tile * (0.18 + progress * 0.48);
+          canvas.drawLine(center + inner, center + outer, burstPaint);
+        }
+      }
+      if (crystal.fallen) {
+        final fallen = RRect.fromRectAndRadius(
+          Rect.fromCenter(
+              center: center, width: tile * 0.65, height: tile * 0.2),
+          const Radius.circular(3),
+        );
+        final fallenHue = (_visualTime * 70 + crystal.id * 53) % 360;
+        canvas.drawRRect(
+          fallen,
+          Paint()
+            ..shader = Gradient.linear(
+                fallen.outerRect.topLeft, fallen.outerRect.bottomRight, [
+              HSVColor.fromAHSV(1, fallenHue, 0.85, 1).toColor(),
+              HSVColor.fromAHSV(1, (fallenHue + 140) % 360, 0.8, 1).toColor(),
+            ]),
+        );
+        canvas.drawRRect(
+          fallen,
+          Paint()
+            ..color = const Color(0xffffffff)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+        continue;
+      }
+      final active = activeIds.contains(crystal.id);
+      final height = tile * 0.38;
+      final width = tile * 0.22;
+      final gem = Path()
+        ..moveTo(center.dx, center.dy - height)
+        ..lineTo(center.dx + width, center.dy - height * 0.1)
+        ..lineTo(center.dx + width * 0.55, center.dy + height * 0.75)
+        ..lineTo(center.dx - width * 0.55, center.dy + height * 0.75)
+        ..lineTo(center.dx - width, center.dy - height * 0.1)
+        ..close();
+      final hue = (_visualTime * (active ? 85 : 55) + crystal.id * 47) % 360;
+      final pulse = 0.5 + 0.5 * sin(_visualTime * 5 + crystal.id * 1.3);
+      final gemColors = [
+        HSVColor.fromAHSV(1, hue, 0.86, 1).toColor(),
+        HSVColor.fromAHSV(1, (hue + 115) % 360, 0.72, 1).toColor(),
+        HSVColor.fromAHSV(1, (hue + 235) % 360, 0.9, 1).toColor(),
+      ];
+      canvas.drawCircle(
+        center,
+        tile * (active ? 0.38 + pulse * 0.035 : 0.3 + pulse * 0.02),
+        Paint()
+          ..color = const Color(0xcc05000a)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = active ? 4 : 3,
       );
-      final rnd = Random(s.x * 73856093 ^ s.y * 19349663);
-      final puff = Paint()
-        ..color = const Color(0x2ad9a8ff)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
-      for (var i = 0; i < 4; i++) {
-        final ox = cx + tile * (0.2 + rnd.nextDouble() * 0.6);
-        final oy = cy + tile * (0.2 + rnd.nextDouble() * 0.6);
-        canvas.drawCircle(Offset(ox, oy), tile * 0.28, puff);
+      canvas.drawCircle(
+        center,
+        tile * (active ? 0.33 + pulse * 0.03 : 0.26 + pulse * 0.02),
+        Paint()
+          ..color = gemColors[1].withValues(alpha: active ? 0.75 : 0.5)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = active ? 2.5 : 1.5,
+      );
+      canvas.drawPath(
+        gem,
+        Paint()
+          ..shader = Gradient.linear(
+            Offset(center.dx - width, center.dy - height),
+            Offset(center.dx + width, center.dy + height),
+            gemColors,
+            const [0, 0.5, 1],
+          ),
+      );
+      canvas.drawPath(
+        gem,
+        Paint()
+          ..color = const Color(0xffffffff)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = active ? 2.2 : 1.4,
+      );
+    }
+  }
+
+  void _drawAmethystWalls(Canvas canvas, List<Vec2i> walls) {
+    for (final w in walls) {
+      final left = w.x * tile, top = w.y * tile;
+      final center = Offset(left + tile / 2, top + tile / 2);
+      canvas.drawCircle(
+        center,
+        tile * 0.42,
+        Paint()
+          ..color = const Color(0x449d4edd)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+      );
+      final rnd = Random(w.x * 92837111 ^ w.y * 689287499);
+      for (var i = 0; i < 5; i++) {
+        final x = left + tile * (0.18 + rnd.nextDouble() * 0.64);
+        final baseY = top + tile * (0.76 + rnd.nextDouble() * 0.10);
+        final height = tile * (0.28 + rnd.nextDouble() * 0.38);
+        final width = tile * (0.10 + rnd.nextDouble() * 0.09);
+        final crystal = Path()
+          ..moveTo(x, baseY - height)
+          ..lineTo(x + width, baseY - height * 0.28)
+          ..lineTo(x + width * 0.65, baseY)
+          ..lineTo(x - width * 0.65, baseY)
+          ..lineTo(x - width, baseY - height * 0.28)
+          ..close();
+        canvas.drawPath(crystal, Paint()..color = const Color(0xff7b3fb4));
+        canvas.drawPath(
+          crystal,
+          Paint()
+            ..color = const Color(0xffd9a8ff)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
       }
     }
   }
@@ -522,18 +773,22 @@ class LehaBaldGame extends FlameGame {
           Paint()..color = const Color(0xffe7d3ff).withValues(alpha: 0.85),
         );
         // Glow + cap (brighter as it matures).
-        canvas.drawCircle(Offset(mx, my), capR * 1.6,
-            Paint()..color = const Color(0xff9d4edd).withValues(alpha: 0.12 * t));
+        canvas.drawCircle(
+            Offset(mx, my),
+            capR * 1.6,
+            Paint()
+              ..color = const Color(0xff9d4edd).withValues(alpha: 0.12 * t));
         canvas.drawArc(
           Rect.fromCircle(center: Offset(mx, my), radius: capR),
           pi,
           pi,
           true,
-          Paint()..color = Color.lerp(const Color(0xff7b4bbd),
-              const Color(0xffc77dff), t)!,
+          Paint()
+            ..color = Color.lerp(
+                const Color(0xff7b4bbd), const Color(0xffc77dff), t)!,
         );
-        canvas.drawCircle(Offset(mx - capR * 0.3, my - capR * 0.25), capR * 0.16,
-            Paint()..color = const Color(0xffeccbff));
+        canvas.drawCircle(Offset(mx - capR * 0.3, my - capR * 0.25),
+            capR * 0.16, Paint()..color = const Color(0xffeccbff));
       }
       // A mature mushroom about to burst gets a faint warning halo.
       if (m.stage >= 3) {
@@ -559,10 +814,16 @@ class LehaBaldGame extends FlameGame {
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
       );
       // Lingering marker pinning the spot where someone stepped.
-      canvas.drawCircle(center, tile * 0.3,
-          Paint()..color = const Color(0xff9d4edd).withValues(alpha: 0.6 * fade));
-      canvas.drawCircle(center, tile * 0.14,
-          Paint()..color = const Color(0xffe7d3ff).withValues(alpha: 0.8 * fade));
+      canvas.drawCircle(
+          center,
+          tile * 0.3,
+          Paint()
+            ..color = const Color(0xff9d4edd).withValues(alpha: 0.6 * fade));
+      canvas.drawCircle(
+          center,
+          tile * 0.14,
+          Paint()
+            ..color = const Color(0xffe7d3ff).withValues(alpha: 0.8 * fade));
     }
   }
 

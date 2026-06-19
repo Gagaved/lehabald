@@ -18,6 +18,11 @@ class MazeService {
     blockedVoidSpaces = _computeBlockedVoidSpaces(maze);
     superLogoKeys = _pickSuperLogoKeys(maze, random);
     crackedWalls = _computeCrackedWalls(random);
+    amethystWallGroups = biome == CaveBiome.amethyst
+        ? _computeAmethystWallGroups(random)
+        : const [];
+    amethystWalls = amethystWallGroups.expand((group) => group).toSet();
+    crackedWalls.removeAll(amethystWalls);
     // Special biomes swap ordinary cover for their own entities.
     if (biome == CaveBiome.frost) {
       crystals = _computeCrystals(random);
@@ -65,6 +70,12 @@ class MazeService {
   /// Amethyst-biome scatter-shard cells (empty otherwise).
   late final Set<String> amethystShards;
 
+  /// Permanent amethyst wall-nodes. These remain solid and regrow floor shards.
+  late final Set<String> amethystWalls;
+
+  /// Wall-node groups, one group per independently balanced shard colony.
+  late final List<Set<String>> amethystWallGroups;
+
   /// Dynamic concealing cells updated each tick by the engine (amethyst spores).
   /// Treated like bushes for line-of-sight and visibility.
   final Set<String> dynamicCover = {};
@@ -90,6 +101,16 @@ class MazeService {
   bool conceals(int x, int y) => isBush(x, y) || isSpore(x, y);
 
   bool isCrackedWall(int x, int y) => crackedWalls.contains('$x,$y');
+
+  /// Clears destructible floor content while preserving every wall cell.
+  void destroyNonWallContent(int x, int y) {
+    final key = '$x,$y';
+    if (bushes.contains(key)) bushes.remove(key);
+    if (crystals.contains(key)) crystals.remove(key);
+    if (quicksand.contains(key)) quicksand.remove(key);
+    if (amethystShards.contains(key)) amethystShards.remove(key);
+    dynamicCover.remove(key);
+  }
 
   /// Picks a small set of single-thickness interior walls (open floor on two
   /// opposite sides) as the Spider's web-able "cracked" walls.
@@ -182,25 +203,140 @@ class MazeService {
         .toSet();
   }
 
-  /// Scatters [GameConstants.amethystShardCount] single shard cells on open
-  /// floor, away from spawns and tunnels.
-  Set<String> _computeAmethystShards(Random rng) {
+  /// Chooses permanent interior wall-nodes distributed over the map. Each node
+  /// must border floor so its shard colony has somewhere to grow.
+  List<Set<String>> _computeAmethystWallGroups(Random rng) {
     final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
-    final open = <Point<int>>[];
-    for (var y = 1; y < rows - 1; y++) {
+    bool validFloor(int x, int y) =>
+        !isWall(x, y) &&
+        !GameConstants.tunnelRows.contains(y) &&
+        !GameConstants.tunnelCols.contains(x) &&
+        !starts.contains('$x,$y');
+    int growthCapacity(int sourceX, int sourceY) {
+      const dirs = [Point(1, 0), Point(-1, 0), Point(0, 1), Point(0, -1)];
+      final queue = Queue<Point<int>>();
+      final seen = <String>{};
+      for (final d in dirs) {
+        final p = Point(sourceX + d.x, sourceY + d.y);
+        if (validFloor(p.x, p.y)) queue.add(p);
+      }
+      while (queue.isNotEmpty && seen.length < 3) {
+        final cell = queue.removeFirst();
+        final key = '${cell.x},${cell.y}';
+        if (!seen.add(key)) continue;
+        for (final d in dirs) {
+          final next = Point(cell.x + d.x, cell.y + d.y);
+          final distance = (sourceX - next.x).abs() + (sourceY - next.y).abs();
+          if (distance <= GameConstants.amethystShardSourceRadius &&
+              validFloor(next.x, next.y) &&
+              !seen.contains('${next.x},${next.y}')) {
+            queue.add(next);
+          }
+        }
+      }
+      return seen.length;
+    }
+
+    final candidates = <Point<int>>[];
+    for (var y = 2; y < rows - 2; y++) {
       if (GameConstants.tunnelRows.contains(y)) continue;
-      for (var x = 1; x < cols - 1; x++) {
-        if (GameConstants.tunnelCols.contains(x)) continue;
-        final key = '$x,$y';
-        if (isWall(x, y) || starts.contains(key)) continue;
-        open.add(Point(x, y));
+      for (var x = 2; x < cols - 2; x++) {
+        if (!isWall(x, y)) continue;
+        if (growthCapacity(x, y) >= 3) candidates.add(Point(x, y));
       }
     }
-    open.shuffle(rng);
-    return open
-        .take(GameConstants.amethystShardCount)
-        .map((p) => '${p.x},${p.y}')
-        .toSet();
+    candidates.shuffle(rng);
+    final groups = <Set<String>>[];
+    final used = <String>{};
+    for (final anchor in candidates) {
+      if (groups.length >= GameConstants.amethystColonyCount) break;
+      final farFromOtherColonies = groups.every((group) => group.every((key) {
+            final xy = key.split(',').map(int.parse).toList();
+            return (xy[0] - anchor.x).abs() + (xy[1] - anchor.y).abs() >= 9;
+          }));
+      if (!farFromOtherColonies) continue;
+
+      final target = GameConstants.amethystSourcesPerColonyMin +
+          rng.nextInt(GameConstants.amethystSourcesPerColonyMax -
+              GameConstants.amethystSourcesPerColonyMin +
+              1);
+      final nearby = candidates.where((wall) {
+        final key = '${wall.x},${wall.y}';
+        final distance = (wall.x - anchor.x).abs() + (wall.y - anchor.y).abs();
+        return !used.contains(key) && distance <= 3;
+      }).toList()
+        ..shuffle(rng);
+      nearby.sort((a, b) {
+        final da = (a.x - anchor.x).abs() + (a.y - anchor.y).abs();
+        final db = (b.x - anchor.x).abs() + (b.y - anchor.y).abs();
+        return da.compareTo(db);
+      });
+      final group =
+          nearby.take(target).map((wall) => '${wall.x},${wall.y}').toSet();
+      if (group.length < GameConstants.amethystSourcesPerColonyMin) continue;
+      groups.add(group);
+      used.addAll(group);
+    }
+    return groups;
+  }
+
+  /// Grows connected initial shard colonies outward from amethyst wall-nodes.
+  Set<String> _computeAmethystShards(Random rng) {
+    final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    final groups = amethystWallGroups
+        .map((group) => group.map((key) {
+              final xy = key.split(',').map(int.parse).toList();
+              return Point(xy[0], xy[1]);
+            }).toList())
+        .toList();
+    if (groups.isEmpty) return {};
+    bool allowed(Point<int> p, List<Point<int>> sources) =>
+        p.x > 0 &&
+        p.x < cols - 1 &&
+        p.y > 0 &&
+        p.y < rows - 1 &&
+        !GameConstants.tunnelRows.contains(p.y) &&
+        !GameConstants.tunnelCols.contains(p.x) &&
+        !isWall(p.x, p.y) &&
+        !starts.contains('${p.x},${p.y}') &&
+        sources.any((source) =>
+            (source.x - p.x).abs() + (source.y - p.y).abs() <=
+            GameConstants.amethystShardSourceRadius);
+    const dirs = [Point(1, 0), Point(-1, 0), Point(0, 1), Point(0, -1)];
+    final result = <String>{};
+    for (var index = 0; index < groups.length; index++) {
+      final sources = groups[index];
+      final base = GameConstants.amethystShardCount ~/ groups.length;
+      final extra = index < GameConstants.amethystShardCount % groups.length;
+      final quota = base + (extra ? 1 : 0);
+      final colony = <String>{};
+      final frontier = sources
+          .expand((source) =>
+              dirs.map((d) => Point(source.x + d.x, source.y + d.y)))
+          .where((p) => allowed(p, sources))
+          .toList()
+        ..shuffle(rng);
+      while (frontier.isNotEmpty && colony.length < quota) {
+        final cell = frontier.removeAt(rng.nextInt(frontier.length));
+        final key = '${cell.x},${cell.y}';
+        if (!allowed(cell, sources) ||
+            result.contains(key) ||
+            !colony.add(key)) {
+          continue;
+        }
+        final next = dirs
+            .map((d) => Point(cell.x + d.x, cell.y + d.y))
+            .where((p) =>
+                allowed(p, sources) &&
+                !result.contains('${p.x},${p.y}') &&
+                !colony.contains('${p.x},${p.y}'))
+            .toList()
+          ..shuffle(rng);
+        frontier.addAll(next.take(2));
+      }
+      result.addAll(colony);
+    }
+    return result;
   }
 
   /// Grows [GameConstants.quicksandSpots] small quicksand patches on open floor,
@@ -237,7 +373,8 @@ class MazeService {
       final seen = <String>{'${seed.x},${seed.y}'};
       while (queue.isNotEmpty && patch.length < target) {
         final cell = queue.removeAt(rng.nextInt(queue.length));
-        if (!allowed(cell.x, cell.y) || result.contains('${cell.x},${cell.y}')) {
+        if (!allowed(cell.x, cell.y) ||
+            result.contains('${cell.x},${cell.y}')) {
           continue;
         }
         patch.add(cell);
@@ -315,7 +452,8 @@ class MazeService {
   /// The ray steps through every wall-cell boundary it crosses and stops as
   /// soon as it enters a wall tile.  Returns true if the straight line from
   /// [a] to [b] passes through no wall tiles.
-  bool hasLineOfSight(Point<double> a, Point<double> b) {
+  bool hasLineOfSight(Point<double> a, Point<double> b,
+      {bool ignoreCover = false}) {
     final dx = b.x - a.x;
     final dy = b.y - a.y;
     final dist = sqrt(dx * dx + dy * dy);
@@ -350,7 +488,7 @@ class MazeService {
       // Cover conceals everything behind it: an intermediate bush or spore patch
       // blocks the ray (the target cell itself is allowed through above, handled
       // by callers).
-      if (!isViewerCell && conceals(cellX, cellY)) return false;
+      if (!ignoreCover && !isViewerCell && conceals(cellX, cellY)) return false;
 
       if (tMaxX < tMaxY) {
         tMaxX += tDeltaX;
@@ -456,7 +594,8 @@ class MazeService {
       final seen = <String>{'${seed.x},${seed.y}'};
       while (queue.isNotEmpty && patch.length < target) {
         final cell = queue.removeAt(rng.nextInt(queue.length));
-        if (!allowed(cell.x, cell.y) || result.contains('${cell.x},${cell.y}')) {
+        if (!allowed(cell.x, cell.y) ||
+            result.contains('${cell.x},${cell.y}')) {
           continue;
         }
         patch.add(cell);
