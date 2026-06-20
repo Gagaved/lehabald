@@ -20,6 +20,7 @@ class LehaBaldGame extends FlameGame {
   CaveBiome? _paletteBiome;
   int? _paletteSeed;
   final Map<String, _PlayerRenderState> _renderPlayers = {};
+  final Map<String, _PortalRenderState> _renderPortals = {};
   int _renderFrameCount = 0;
   double _renderDtEwmaMs = 0;
   double _renderDtMaxMs = 0;
@@ -38,8 +39,6 @@ class LehaBaldGame extends FlameGame {
   Image? simaHead;
   Image? simaFemboy;
   Image? trapImage;
-  Image? portalActiveImage;
-  Image? portalInactiveImage;
   Image? webImage;
   Image? rafaelkaImage;
   Image? clutchImage;
@@ -68,8 +67,6 @@ class LehaBaldGame extends FlameGame {
     simaHead = await _tryLoad('sima-head.png');
     simaFemboy = await _tryLoad('sima-femboy.png');
     trapImage = await _tryLoad('trap.png');
-    portalActiveImage = await _tryLoad('portal-active.png');
-    portalInactiveImage = await _tryLoad('portal-inactive.png');
     webImage = await _tryLoad('web.png');
     rafaelkaImage = await _tryLoad('rafaelka.png');
     clutchImage = await _tryLoad('clutch.png');
@@ -95,6 +92,39 @@ class LehaBaldGame extends FlameGame {
     _visualTime += dt;
     _recordRenderTiming(dt);
     _updatePlayerSmoothing(dt);
+    _updatePortalAnimations(dt);
+  }
+
+  void _updatePortalAnimations(double dt) {
+    final visible = network.snapshot?.portals ?? const <PortalDto>[];
+    final seen = <String>{};
+    for (final portal in visible) {
+      final key = '${portal.x},${portal.y}';
+      seen.add(key);
+      final state = _renderPortals.putIfAbsent(
+        key,
+        () => _PortalRenderState(
+          x: portal.x,
+          y: portal.y,
+          index: portal.index,
+          active: portal.active,
+        ),
+      );
+      state
+        ..index = portal.index
+        ..active = portal.active
+        ..present = true;
+    }
+    for (final entry in _renderPortals.entries) {
+      final state = entry.value;
+      state.present = seen.contains(entry.key);
+      final speed = state.present ? 1 / 0.38 : 1 / 0.28;
+      state.visibility =
+          (state.visibility + dt * speed * (state.present ? 1 : -1))
+              .clamp(0.0, 1.0);
+    }
+    _renderPortals
+        .removeWhere((_, state) => !state.present && state.visibility <= 0);
   }
 
   void _recordRenderTiming(double dt) {
@@ -221,7 +251,7 @@ class LehaBaldGame extends FlameGame {
     _drawWebs(canvas, snapshot.webs);
     _drawLogos(canvas, snapshot.logos, snapshot.game.spiderMode);
     _drawClutch(canvas, snapshot.clutch);
-    _drawPortals(canvas, snapshot.portals);
+    _drawPortals(canvas);
     _drawTraps(canvas, snapshot.traps);
     _drawBarrels(canvas, snapshot.barrels);
     _drawMummies(canvas, snapshot.mummies);
@@ -1360,47 +1390,155 @@ class LehaBaldGame extends FlameGame {
     }
   }
 
-  void _drawPortals(Canvas canvas, List<PortalDto> portals) {
-    final t = DateTime.now().millisecondsSinceEpoch;
-    for (final portal in portals) {
+  void _drawPortals(Canvas canvas) {
+    for (final portal in _renderPortals.values) {
+      final raw = portal.visibility;
+      final eased = raw * raw * (3 - 2 * raw);
+      if (eased <= 0) continue;
+      final openingKick = portal.present ? sin(raw * pi) * 0.12 : 0.0;
+      final scale = (eased + openingKick).clamp(0.0, 1.08);
       final center =
           Offset(portal.x * tile + tile / 2, portal.y * tile + tile / 2);
-      final image = portal.active ? portalActiveImage : portalInactiveImage;
-      if (image != null) {
-        if (portal.active) {
-          // Active: pulsing violet glow + slow spin.
-          final pulse = 0.5 + 0.5 * sin(t / 300.0);
-          canvas.drawCircle(
-            center,
-            tile * (0.5 + 0.08 * pulse),
-            Paint()
-              ..color = Color.fromRGBO(181, 108, 255, 0.22 + 0.16 * pulse)
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-          );
-          canvas.save();
-          canvas.translate(center.dx, center.dy);
-          canvas.rotate(t / 1300.0);
-          _drawImage(canvas, image, Offset.zero, tile * 1.05, 1);
-          canvas.restore();
-        } else {
-          // Inactive: dim, static, slightly transparent.
-          _drawImage(canvas, image, center, tile * 0.92, 0.7);
-        }
-        continue;
+      final direction = portal.index.isEven ? 1.0 : -1.0;
+      final spin = _visualTime * (portal.active ? 1.9 : 0.55) * direction;
+      // Both ends share one animated palette; opposite spin direction is the
+      // visual pairing cue between entrance and exit.
+      final hue = (_visualTime * 42) % 360;
+      final primary = HSVColor.fromAHSV(1, hue, 0.76, 1).toColor();
+      final secondary =
+          HSVColor.fromAHSV(1, (hue + 115) % 360, 0.82, 1).toColor();
+
+      canvas.save();
+      canvas.translate(center.dx, center.dy);
+      canvas.scale(scale);
+
+      // Chunky stone rim: the same compact, layered geometry as cave walls.
+      for (var i = 0; i < 10; i++) {
+        final angle = i * pi * 2 / 10 + spin * 0.08;
+        final radial = Offset(cos(angle), sin(angle));
+        final tangential = Offset(-radial.dy, radial.dx);
+        final c = radial * tile * 0.39;
+        final halfW = tile * 0.105;
+        final halfH = tile * 0.075;
+        final stone = Path()
+          ..moveTo((c + tangential * halfW - radial * halfH).dx,
+              (c + tangential * halfW - radial * halfH).dy)
+          ..lineTo((c - tangential * halfW - radial * halfH).dx,
+              (c - tangential * halfW - radial * halfH).dy)
+          ..lineTo((c - tangential * halfW + radial * halfH).dx,
+              (c - tangential * halfW + radial * halfH).dy)
+          ..lineTo((c + tangential * halfW + radial * halfH).dx,
+              (c + tangential * halfW + radial * halfH).dy)
+          ..close();
+        canvas.drawPath(
+          stone,
+          Paint()
+            ..color = Color.lerp(
+                const Color(0xff252338), const Color(0xff51456a), i / 18)!,
+        );
+        canvas.drawPath(
+          stone,
+          Paint()
+            ..color = const Color(0xff0a0911)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2,
+        );
       }
-      // Fallback: procedural rings.
-      final color =
-          portal.active ? const Color(0xffb56cff) : const Color(0xff6f7890);
+
+      // The dark aperture reads as a hole in the floor on every biome.
       canvas.drawCircle(
-        center,
-        tile * 0.42,
+          Offset.zero, tile * 0.32, Paint()..color = const Color(0xff030207));
+      canvas.drawCircle(
+        Offset.zero,
+        tile * 0.335,
         Paint()
-          ..color = color
+          ..color = portal.active
+              ? primary.withValues(alpha: 0.8)
+              : const Color(0xff77758a)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 4,
+          ..strokeWidth = 2.4,
       );
-      canvas.drawCircle(
-          center, tile * 0.18, Paint()..color = color.withValues(alpha: 0.28));
+
+      if (portal.active) {
+        // Counter-rotating broken rings create visible depth into the paired
+        // tunnel. Pair ends rotate in opposite directions via [direction].
+        for (var ring = 0; ring < 3; ring++) {
+          final radius = tile * (0.25 - ring * 0.055);
+          final phase = spin * (1 + ring * 0.32) + ring * 1.7;
+          final paint = Paint()
+            ..color = (ring.isEven ? primary : secondary)
+                .withValues(alpha: 0.88 - ring * 0.16)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2.3 - ring * 0.4
+            ..strokeCap = StrokeCap.round;
+          for (var segment = 0; segment < 3; segment++) {
+            canvas.drawArc(
+              Rect.fromCircle(center: Offset.zero, radius: radius),
+              phase + segment * pi * 2 / 3,
+              pi * 0.33,
+              false,
+              paint,
+            );
+          }
+        }
+
+        // Sparks travel from the mouth toward the centre: an immediate cue
+        // that this is a connected passage, not just a floor decoration.
+        for (var i = 0; i < 6; i++) {
+          final travel = (_visualTime * 0.9 + i / 6) % 1.0;
+          final radius = tile * (0.29 * (1 - travel));
+          final angle = spin + i * pi * 2 / 6 + travel * 1.6 * direction;
+          final point = Offset(cos(angle), sin(angle)) * radius;
+          canvas.drawCircle(
+            point,
+            tile * (0.045 - travel * 0.025),
+            Paint()
+              ..color = Color.lerp(primary, secondary, travel)!
+                  .withValues(alpha: 1 - travel * 0.45),
+          );
+        }
+        canvas.drawCircle(Offset.zero, tile * 0.055,
+            Paint()..color = const Color(0xfff4f2ff));
+      } else {
+        // Waiting portal: incomplete ring and outward pulse clearly signal
+        // that it has no destination yet.
+        final waitPulse = 0.5 + 0.5 * sin(_visualTime * 3.2);
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset.zero, radius: tile * 0.24),
+          spin,
+          pi * 1.35,
+          false,
+          Paint()
+            ..color = const Color(0xff8f8aa3)
+                .withValues(alpha: 0.55 + waitPulse * 0.25)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..strokeCap = StrokeCap.round,
+        );
+        canvas.drawCircle(
+          Offset.zero,
+          tile * (0.11 + waitPulse * 0.025),
+          Paint()
+            ..color = const Color(0xff77758a).withValues(alpha: 0.22)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5,
+        );
+      }
+
+      // Installation/removal sweep: opening draws clockwise, closing erases
+      // in reverse while the whole construction collapses into the floor.
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset.zero, radius: tile * 0.47),
+        -pi / 2,
+        pi * 2 * raw,
+        false,
+        Paint()
+          ..color = portal.active ? secondary : const Color(0xffa09bad)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.restore();
     }
   }
 
@@ -1642,6 +1780,22 @@ class LehaBaldGame extends FlameGame {
 
 /// The cover motif drawn for a biome's bushes.
 enum _BushKind { leaves, mushrooms, embers, cactus }
+
+class _PortalRenderState {
+  _PortalRenderState({
+    required this.x,
+    required this.y,
+    required this.index,
+    required this.active,
+  });
+
+  final int x;
+  final int y;
+  int index;
+  bool active;
+  bool present = true;
+  double visibility = 0;
+}
 
 class _PlayerRenderState {
   _PlayerRenderState({required this.position}) : target = position;
