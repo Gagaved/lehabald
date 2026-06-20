@@ -1,30 +1,45 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flame/components.dart';
+import 'package:flame/effects.dart';
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/animation.dart' show Curves;
 import 'package:flutter/painting.dart' show HSVColor;
 import 'package:flutter/services.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
+import 'player_interpolator.dart';
 
-class LehaBaldGame extends FlameGame {
+part 'components/game_scene_component.dart';
+part 'components/game_input_controller.dart';
+part 'components/portal_component.dart';
+part 'components/reconciled_layer.dart';
+part 'components/trap_component.dart';
+part 'components/web_component.dart';
+
+class LehaBaldGame extends FlameGame
+    with
+        HasKeyboardHandlerComponents,
+        SingleGameInstance,
+        HasPerformanceTracker {
   LehaBaldGame({required this.network});
 
   static const tile = 32.0;
   final GameNetworkClient network;
-  final _heldKeys = <LogicalKeyboardKey, MoveDirection>{};
 
   /// The active cave palette, rebuilt only when the biome or stone seed changes.
   _BiomePalette _palette = _BiomePalette.build(CaveBiome.forest, 0);
   CaveBiome? _paletteBiome;
   int? _paletteSeed;
-  final Map<String, _PlayerRenderState> _renderPlayers = {};
-  final Map<String, _PortalRenderState> _renderPortals = {};
+  final Map<String, PlayerInterpolator> _renderPlayers = {};
+  late final _GameSceneComponent _scene;
   int _renderFrameCount = 0;
-  double _renderDtEwmaMs = 0;
-  double _renderDtMaxMs = 0;
   double _visualTime = 0;
+  int _maxRenderMs = 0;
+  int _maxUpdateMs = 0;
 
   late Image playerHead;
   late Image chaserHead;
@@ -43,19 +58,8 @@ class LehaBaldGame extends FlameGame {
   Image? rafaelkaImage;
   Image? clutchImage;
 
-  // Single keyboard path: the HardwareKeyboard handler receives every key
-  // regardless of which widget holds focus. We intentionally do NOT use Flame's
-  // KeyboardEvents mixin too — that would deliver each press twice and fire
-  // one-shot actions (place portal / trap / ability) twice per keystroke.
-  bool _hardwareKeyHandler(KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyUpEvent) return false;
-    _handleKey(event);
-    return false; // don't consume — let other handlers see it too
-  }
-
   @override
   Future<void> onLoad() async {
-    HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
     playerHead = await images.load('player-head.png');
     chaserHead = await images.load('chaser-head.png');
     poweredHead = await images.load('leha-powered.png');
@@ -70,12 +74,8 @@ class LehaBaldGame extends FlameGame {
     webImage = await _tryLoad('web.png');
     rafaelkaImage = await _tryLoad('rafaelka.png');
     clutchImage = await _tryLoad('clutch.png');
-  }
-
-  @override
-  void onRemove() {
-    HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
-    super.onRemove();
+    _scene = _GameSceneComponent();
+    addAll([_scene, _GameInputController()]);
   }
 
   Future<Image?> _tryLoad(String name) async {
@@ -90,57 +90,28 @@ class LehaBaldGame extends FlameGame {
   void update(double dt) {
     super.update(dt);
     _visualTime += dt;
-    _recordRenderTiming(dt);
+    _recordPerformanceSample();
     _updatePlayerSmoothing(dt);
-    _updatePortalAnimations(dt);
   }
 
-  void _updatePortalAnimations(double dt) {
-    final visible = network.snapshot?.portals ?? const <PortalDto>[];
-    final seen = <String>{};
-    for (final portal in visible) {
-      final key = '${portal.x},${portal.y}';
-      seen.add(key);
-      final state = _renderPortals.putIfAbsent(
-        key,
-        () => _PortalRenderState(
-          x: portal.x,
-          y: portal.y,
-          index: portal.index,
-          active: portal.active,
-        ),
-      );
-      state
-        ..index = portal.index
-        ..active = portal.active
-        ..present = true;
-    }
-    for (final entry in _renderPortals.entries) {
-      final state = entry.value;
-      state.present = seen.contains(entry.key);
-      final speed = state.present ? 1 / 0.38 : 1 / 0.28;
-      state.visibility =
-          (state.visibility + dt * speed * (state.present ? 1 : -1))
-              .clamp(0.0, 1.0);
-    }
-    _renderPortals
-        .removeWhere((_, state) => !state.present && state.visibility <= 0);
-  }
-
-  void _recordRenderTiming(double dt) {
-    final dtMs = dt * 1000;
+  void _recordPerformanceSample() {
     _renderFrameCount += 1;
-    _renderDtEwmaMs =
-        _renderDtEwmaMs == 0 ? dtMs : _renderDtEwmaMs * 0.95 + dtMs * 0.05;
-    _renderDtMaxMs = max(_renderDtMaxMs, dtMs);
+    // Track the worst frame in the window so transient spikes (e.g. blurred
+    // chimes/spores spawned when stepping on objects) show up — the averaged
+    // updateTime/renderTime hide them.
+    if (renderTime > _maxRenderMs) _maxRenderMs = renderTime;
+    if (updateTime > _maxUpdateMs) _maxUpdateMs = updateTime;
     if (_renderFrameCount % 300 == 0) {
       network.addClientLog('render-stats', {
         'frame': _renderFrameCount,
-        'dtAvgMs': _renderDtEwmaMs.toStringAsFixed(1),
-        'dtMaxMs': _renderDtMaxMs.toStringAsFixed(1),
+        'updateMs': updateTime,
+        'renderMs': renderTime,
+        'maxRenderMs': _maxRenderMs,
+        'maxUpdateMs': _maxUpdateMs,
         'smoothedPlayers': _renderPlayers.length,
       });
-      _renderDtMaxMs = 0;
+      _maxRenderMs = 0;
+      _maxUpdateMs = 0;
     }
   }
 
@@ -159,108 +130,21 @@ class LehaBaldGame extends FlameGame {
       final target = Offset(player.x, player.y);
       final state = _renderPlayers.putIfAbsent(
         player.id,
-        () => _PlayerRenderState(position: target),
+        () => PlayerInterpolator(target),
       );
       if (state.snapshotVersion != snapshotVersion) {
-        state.acceptSnapshot(target, snapshotVersion, snapshotReceivedMs);
+        state.acceptSnapshot(target, snapshotReceivedMs);
+        state.snapshotVersion = snapshotVersion;
       }
-      final extrapolateSeconds =
-          ((nowMs - state.sampleMs).clamp(0, 120)) / 1000.0;
-      final desired = state.target +
-          Offset(
-            state.velocity.dx * extrapolateSeconds,
-            state.velocity.dy * extrapolateSeconds,
-          );
-      final dx = desired.dx - state.position.dx;
-      final dy = desired.dy - state.position.dy;
-      final dist = sqrt(dx * dx + dy * dy);
-      // A genuine teleport, tunnel wrap, reconnect, or visibility re-entry
-      // should snap. Normal movement is smoothed between 60Hz snapshots.
-      if (dist > 2.2) {
-        if (state.initialized) {
-          network.addClientLog('pos-jump', {
-            'id': player.id,
-            'slot': player.slot,
-            'dist': dist.toStringAsFixed(2),
-            'from':
-                '${state.position.dx.toStringAsFixed(2)},${state.position.dy.toStringAsFixed(2)}',
-            'to':
-                '${desired.dx.toStringAsFixed(2)},${desired.dy.toStringAsFixed(2)}',
-          });
-        }
-        state.position = desired;
-      } else {
-        final isMe = player.id == snapshot.you.id;
-        final stiffness = isMe ? 34.0 : 24.0;
-        final alpha = (1 - exp(-stiffness * dt)).clamp(0.0, 1.0);
-        state.position = Offset(
-          state.position.dx + dx * alpha,
-          state.position.dy + dy * alpha,
-        );
-      }
-      state.initialized = true;
+      state.tick(nowMs, dt, isMe: player.id == snapshot.you.id);
     }
     _renderPlayers.removeWhere((id, _) => !seen.contains(id));
   }
 
   @override
   void render(Canvas canvas) {
+    if (network.snapshot == null) _drawEmpty(canvas);
     super.render(canvas);
-    final snapshot = network.snapshot;
-    if (snapshot == null) {
-      _drawEmpty(canvas);
-      return;
-    }
-
-    // Reserve a strip at the top for the HUD overlay so it never covers the
-    // map; the board is centred within the remaining area.
-    const topInset = 88.0;
-    final availH = (size.y - topInset).clamp(1.0, size.y);
-    final scale =
-        min(size.x / (snapshot.cols * tile), availH / (snapshot.rows * tile));
-    final boardW = snapshot.cols * tile * scale;
-    final boardH = snapshot.rows * tile * scale;
-    final dx = (size.x - boardW) / 2;
-    final dy = topInset + (availH - boardH) / 2;
-
-    // Rebuild the palette only when the map's theme actually changes.
-    if (snapshot.biome != _paletteBiome || snapshot.stoneSeed != _paletteSeed) {
-      _palette = _BiomePalette.build(snapshot.biome, snapshot.stoneSeed);
-      _paletteBiome = snapshot.biome;
-      _paletteSeed = snapshot.stoneSeed;
-    }
-
-    canvas.save();
-    canvas.translate(dx, dy);
-    canvas.scale(scale);
-
-    _drawBoard(canvas, snapshot);
-    _drawAmethystWalls(canvas, snapshot.amethystWalls);
-    _drawQuicksand(canvas, snapshot.quicksand);
-    _drawSpores(canvas, snapshot.spores);
-    _drawAmethystShards(canvas, snapshot.amethystShards);
-    _drawCrackedWalls(canvas, snapshot.crackedWalls);
-    _drawBushes(canvas, snapshot.bushes);
-    _drawMushroomColony(canvas, snapshot.mushrooms);
-    _drawMagicChains(canvas, snapshot.magicCrystals, snapshot.magicChains);
-    _drawCrystalEntities(canvas, snapshot.crystals);
-    _drawCrystalLinks(
-        canvas, snapshot.players, snapshot.illusions, snapshot.crystals);
-    _drawSarcophagi(canvas, snapshot.sarcophagi);
-    _drawTrail(canvas, snapshot.trail);
-    _drawWebs(canvas, snapshot.webs);
-    _drawLogos(canvas, snapshot.logos, snapshot.game.spiderMode);
-    _drawClutch(canvas, snapshot.clutch);
-    _drawPortals(canvas);
-    _drawTraps(canvas, snapshot.traps);
-    _drawBarrels(canvas, snapshot.barrels);
-    _drawMummies(canvas, snapshot.mummies);
-    _drawIllusions(canvas, snapshot.illusions);
-    _drawPlayers(canvas, snapshot.players, snapshot.you.id, snapshot.crystals);
-    _drawChimes(canvas, snapshot.chimes);
-    _drawBlindFog(canvas, snapshot);
-
-    canvas.restore();
   }
 
   /// When Leha is hit by a barrel his sight collapses to a small radius:
@@ -325,69 +209,6 @@ class LehaBaldGame extends FlameGame {
         );
       }
       canvas.restore();
-    }
-  }
-
-  void _handleKey(KeyEvent event) {
-    if (event.logicalKey == LogicalKeyboardKey.space && event is KeyDownEvent) {
-      final snapshot = network.snapshot;
-      if (snapshot?.you.role == PlayerRole.hunter) {
-        // Only Bakhirkin places a trap; Sasha/Sima use their active ability.
-        if (_myHunterKind(snapshot) == HunterKind.bakhirkin) {
-          network.placeTrap();
-        } else {
-          network.useAbility();
-        }
-      } else if (snapshot?.you.role == PlayerRole.leha) {
-        network.useAbility();
-      }
-      return;
-    }
-
-    if ((event.logicalKey == LogicalKeyboardKey.keyE ||
-            event.logicalKey == LogicalKeyboardKey.keyQ) &&
-        event is KeyDownEvent) {
-      network.useAbility();
-      return;
-    }
-
-    if (event.logicalKey == LogicalKeyboardKey.keyC && event is KeyDownEvent) {
-      final snapshot = network.snapshot;
-      final me = snapshot?.players
-          .where((player) => player.id == snapshot.you.id)
-          .firstOrNull;
-      if (me?.aspect == LehaAspect.wizard) network.placeMagicCrystal();
-      return;
-    }
-
-    // Spider lays a clutch; Wizard closes a crystal chain.
-    if (event.logicalKey == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
-      final snapshot = network.snapshot;
-      final me = snapshot?.players
-          .where((player) => player.id == snapshot.you.id)
-          .firstOrNull;
-      if (me?.aspect == LehaAspect.wizard) {
-        network.activateMagicChain();
-      } else {
-        network.layClutch();
-      }
-      return;
-    }
-
-    final direction = _directionForKey(event.logicalKey);
-    if (direction == null) return;
-
-    if (event is KeyDownEvent) {
-      _heldKeys[event.logicalKey] = direction;
-    } else {
-      _heldKeys.remove(event.logicalKey);
-    }
-
-    final combined = _combinedDirection();
-    if (combined == null) {
-      network.stop();
-    } else {
-      network.input(combined);
     }
   }
 
@@ -1328,220 +1149,6 @@ class LehaBaldGame extends FlameGame {
     }
   }
 
-  void _drawTraps(Canvas canvas, List<TrapDto> traps) {
-    for (final trap in traps) {
-      final center = Offset(trap.x * tile + tile / 2, trap.y * tile + tile / 2);
-      if (trap.triggered) {
-        // Triggered: bright expanding flash for Hunter's catch notification.
-        canvas.drawCircle(
-            center, tile * 0.55, Paint()..color = const Color(0x55ffaa00));
-        canvas.drawCircle(
-          center,
-          tile * 0.55,
-          Paint()
-            ..color = const Color(0xffffaa00)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3,
-        );
-        canvas.drawCircle(
-            center, tile * 0.22, Paint()..color = const Color(0xccffcc44));
-      } else if (trapImage != null) {
-        // Faint danger ring under the steel trap sprite.
-        canvas.drawCircle(
-            center, tile * 0.5, Paint()..color = const Color(0x33ff0050));
-        _drawImage(canvas, trapImage!, center, tile * 1.1, 1);
-      } else {
-        canvas.drawCircle(
-            center, tile * 0.36, Paint()..color = const Color(0x44ff0050));
-        canvas.drawCircle(
-          center,
-          tile * 0.36,
-          Paint()
-            ..color = const Color(0xccff0050)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3,
-        );
-      }
-    }
-  }
-
-  void _drawWebs(Canvas canvas, List<WebDto> webs) {
-    final image = webImage;
-    if (image != null) {
-      for (final web in webs) {
-        final center = Offset(web.x * tile + tile / 2, web.y * tile + tile / 2);
-        _drawImage(canvas, image, center, tile * 1.02, 0.92);
-      }
-      return;
-    }
-    // Fallback: procedural web.
-    final fill = Paint()..color = const Color(0x5588f4ff);
-    final stroke = Paint()
-      ..color = const Color(0xaae7fbff)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    for (final web in webs) {
-      final rect =
-          Rect.fromLTWH(web.x * tile + 4, web.y * tile + 4, tile - 8, tile - 8);
-      canvas.drawRect(rect, fill);
-      canvas.drawLine(rect.topLeft, rect.bottomRight, stroke);
-      canvas.drawLine(rect.topRight, rect.bottomLeft, stroke);
-      canvas.drawRect(rect, stroke);
-    }
-  }
-
-  void _drawPortals(Canvas canvas) {
-    for (final portal in _renderPortals.values) {
-      final raw = portal.visibility;
-      final eased = raw * raw * (3 - 2 * raw);
-      if (eased <= 0) continue;
-      final openingKick = portal.present ? sin(raw * pi) * 0.12 : 0.0;
-      final scale = (eased + openingKick).clamp(0.0, 1.08);
-      final center =
-          Offset(portal.x * tile + tile / 2, portal.y * tile + tile / 2);
-      final direction = portal.index.isEven ? 1.0 : -1.0;
-      final spin = _visualTime * (portal.active ? 1.9 : 0.55) * direction;
-      // Both ends share one animated palette; opposite spin direction is the
-      // visual pairing cue between entrance and exit.
-      final hue = (_visualTime * 42) % 360;
-      final primary = HSVColor.fromAHSV(1, hue, 0.76, 1).toColor();
-      final secondary =
-          HSVColor.fromAHSV(1, (hue + 115) % 360, 0.82, 1).toColor();
-
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.scale(scale);
-
-      // Chunky stone rim: the same compact, layered geometry as cave walls.
-      for (var i = 0; i < 10; i++) {
-        final angle = i * pi * 2 / 10 + spin * 0.08;
-        final radial = Offset(cos(angle), sin(angle));
-        final tangential = Offset(-radial.dy, radial.dx);
-        final c = radial * tile * 0.39;
-        final halfW = tile * 0.105;
-        final halfH = tile * 0.075;
-        final stone = Path()
-          ..moveTo((c + tangential * halfW - radial * halfH).dx,
-              (c + tangential * halfW - radial * halfH).dy)
-          ..lineTo((c - tangential * halfW - radial * halfH).dx,
-              (c - tangential * halfW - radial * halfH).dy)
-          ..lineTo((c - tangential * halfW + radial * halfH).dx,
-              (c - tangential * halfW + radial * halfH).dy)
-          ..lineTo((c + tangential * halfW + radial * halfH).dx,
-              (c + tangential * halfW + radial * halfH).dy)
-          ..close();
-        canvas.drawPath(
-          stone,
-          Paint()
-            ..color = Color.lerp(
-                const Color(0xff252338), const Color(0xff51456a), i / 18)!,
-        );
-        canvas.drawPath(
-          stone,
-          Paint()
-            ..color = const Color(0xff0a0911)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.2,
-        );
-      }
-
-      // The dark aperture reads as a hole in the floor on every biome.
-      canvas.drawCircle(
-          Offset.zero, tile * 0.32, Paint()..color = const Color(0xff030207));
-      canvas.drawCircle(
-        Offset.zero,
-        tile * 0.335,
-        Paint()
-          ..color = portal.active
-              ? primary.withValues(alpha: 0.8)
-              : const Color(0xff77758a)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.4,
-      );
-
-      if (portal.active) {
-        // Counter-rotating broken rings create visible depth into the paired
-        // tunnel. Pair ends rotate in opposite directions via [direction].
-        for (var ring = 0; ring < 3; ring++) {
-          final radius = tile * (0.25 - ring * 0.055);
-          final phase = spin * (1 + ring * 0.32) + ring * 1.7;
-          final paint = Paint()
-            ..color = (ring.isEven ? primary : secondary)
-                .withValues(alpha: 0.88 - ring * 0.16)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.3 - ring * 0.4
-            ..strokeCap = StrokeCap.round;
-          for (var segment = 0; segment < 3; segment++) {
-            canvas.drawArc(
-              Rect.fromCircle(center: Offset.zero, radius: radius),
-              phase + segment * pi * 2 / 3,
-              pi * 0.33,
-              false,
-              paint,
-            );
-          }
-        }
-
-        // Sparks travel from the mouth toward the centre: an immediate cue
-        // that this is a connected passage, not just a floor decoration.
-        for (var i = 0; i < 6; i++) {
-          final travel = (_visualTime * 0.9 + i / 6) % 1.0;
-          final radius = tile * (0.29 * (1 - travel));
-          final angle = spin + i * pi * 2 / 6 + travel * 1.6 * direction;
-          final point = Offset(cos(angle), sin(angle)) * radius;
-          canvas.drawCircle(
-            point,
-            tile * (0.045 - travel * 0.025),
-            Paint()
-              ..color = Color.lerp(primary, secondary, travel)!
-                  .withValues(alpha: 1 - travel * 0.45),
-          );
-        }
-        canvas.drawCircle(Offset.zero, tile * 0.055,
-            Paint()..color = const Color(0xfff4f2ff));
-      } else {
-        // Waiting portal: incomplete ring and outward pulse clearly signal
-        // that it has no destination yet.
-        final waitPulse = 0.5 + 0.5 * sin(_visualTime * 3.2);
-        canvas.drawArc(
-          Rect.fromCircle(center: Offset.zero, radius: tile * 0.24),
-          spin,
-          pi * 1.35,
-          false,
-          Paint()
-            ..color = const Color(0xff8f8aa3)
-                .withValues(alpha: 0.55 + waitPulse * 0.25)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2
-            ..strokeCap = StrokeCap.round,
-        );
-        canvas.drawCircle(
-          Offset.zero,
-          tile * (0.11 + waitPulse * 0.025),
-          Paint()
-            ..color = const Color(0xff77758a).withValues(alpha: 0.22)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.5,
-        );
-      }
-
-      // Installation/removal sweep: opening draws clockwise, closing erases
-      // in reverse while the whole construction collapses into the floor.
-      canvas.drawArc(
-        Rect.fromCircle(center: Offset.zero, radius: tile * 0.47),
-        -pi / 2,
-        pi * 2 * raw,
-        false,
-        Paint()
-          ..color = portal.active ? secondary : const Color(0xffa09bad)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.restore();
-    }
-  }
-
   void _drawPlayers(Canvas canvas, List<PlayerDto> players, String myId,
       List<Vec2i> crystals) {
     for (final player in players) {
@@ -1708,124 +1315,10 @@ class LehaBaldGame extends FlameGame {
       paint,
     );
   }
-
-  /// Combines currently held axis keys into a single direction (incl. diagonals).
-  MoveDirection? _combinedDirection() {
-    final dirs = _heldKeys.values.toSet();
-    final hasUp = dirs.contains(MoveDirection.up);
-    final hasDown = dirs.contains(MoveDirection.down);
-    final hasLeft = dirs.contains(MoveDirection.left);
-    final hasRight = dirs.contains(MoveDirection.right);
-    final up = hasUp && !hasDown;
-    final down = hasDown && !hasUp;
-    final left = hasLeft && !hasRight;
-    final right = hasRight && !hasLeft;
-    if (up && left) {
-      return MoveDirection.upLeft;
-    }
-    if (up && right) {
-      return MoveDirection.upRight;
-    }
-    if (down && left) {
-      return MoveDirection.downLeft;
-    }
-    if (down && right) {
-      return MoveDirection.downRight;
-    }
-    if (up) {
-      return MoveDirection.up;
-    }
-    if (down) {
-      return MoveDirection.down;
-    }
-    if (left) {
-      return MoveDirection.left;
-    }
-    if (right) {
-      return MoveDirection.right;
-    }
-    return null;
-  }
-
-  HunterKind? _myHunterKind(GameSnapshotDto? snapshot) {
-    if (snapshot == null) {
-      return null;
-    }
-    final me =
-        snapshot.players.where((p) => p.id == snapshot.you.id).firstOrNull;
-    if (me?.hunterKind != null) return me!.hunterKind;
-    return snapshot.lobby.roles
-        .where((r) => r.role == PlayerRole.hunter)
-        .firstOrNull
-        ?.hunterKind;
-  }
-
-  MoveDirection? _directionForKey(LogicalKeyboardKey key) {
-    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
-      return MoveDirection.up;
-    }
-    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyS) {
-      return MoveDirection.down;
-    }
-    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
-      return MoveDirection.left;
-    }
-    if (key == LogicalKeyboardKey.arrowRight ||
-        key == LogicalKeyboardKey.keyD) {
-      return MoveDirection.right;
-    }
-    return null;
-  }
 }
 
 /// The cover motif drawn for a biome's bushes.
 enum _BushKind { leaves, mushrooms, embers, cactus }
-
-class _PortalRenderState {
-  _PortalRenderState({
-    required this.x,
-    required this.y,
-    required this.index,
-    required this.active,
-  });
-
-  final int x;
-  final int y;
-  int index;
-  bool active;
-  bool present = true;
-  double visibility = 0;
-}
-
-class _PlayerRenderState {
-  _PlayerRenderState({required this.position}) : target = position;
-
-  Offset position;
-  Offset target;
-  Offset velocity = Offset.zero;
-  int snapshotVersion = 0;
-  int sampleMs = 0;
-  bool initialized = false;
-
-  void acceptSnapshot(Offset nextTarget, int version, int receivedMs) {
-    if (sampleMs > 0 && receivedMs > sampleMs) {
-      final dt = (receivedMs - sampleMs) / 1000.0;
-      final measured = Offset(
-        (nextTarget.dx - target.dx) / dt,
-        (nextTarget.dy - target.dy) / dt,
-      );
-      final speed = measured.distance;
-      // Teleports, tunnel wraps, and visibility re-entry should not poison the
-      // predictor with a huge velocity.
-      velocity = speed > 12 ? Offset.zero : measured;
-    } else {
-      velocity = Offset.zero;
-    }
-    target = nextTarget;
-    snapshotVersion = version;
-    sampleMs = receivedMs;
-  }
-}
 
 class _CrystalInfluence {
   const _CrystalInfluence({required this.center, required this.opacity});

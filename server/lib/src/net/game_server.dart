@@ -151,6 +151,11 @@ class GameServer {
     }
 
     request.response.headers.contentType = _contentTypeFor(file.path);
+    // Dev/LAN server: never let the browser cache a stale client build.
+    request.response.headers
+      ..set(HttpHeaders.cacheControlHeader, 'no-store, must-revalidate')
+      ..set(HttpHeaders.pragmaHeader, 'no-cache')
+      ..set(HttpHeaders.expiresHeader, '0');
     unawaited(
       file.openRead().pipe(request.response).catchError((Object _) {}),
     );
