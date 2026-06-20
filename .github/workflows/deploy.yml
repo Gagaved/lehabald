@@ -1,0 +1,56 @@
+name: Deploy on tag
+
+# Триггерится, когда в репозиторий пушится тег вида vX.Y.Z (например v1.0.0).
+# Тег можно повесить на любой коммит: git tag v1.0.0 <hash> && git push origin v1.0.0
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# Не запускать два деплоя одновременно.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t lehabald:latest .
+
+      - name: Save image to file
+        run: docker save lehabald:latest | gzip > image.tar.gz
+
+      - name: Set up SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload image to server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: scp -i ~/.ssh/id_rsa image.tar.gz "$SSH_USER@$SSH_HOST:~/image.tar.gz"
+
+      - name: Load image and restart container
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          ssh -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" '
+            set -e
+            sudo docker load -i ~/image.tar.gz
+            sudo docker rm -f lehabald 2>/dev/null || true
+            sudo docker run -d --name lehabald --restart unless-stopped -p 4173:4173 lehabald:latest
+            sudo docker image prune -f
+            rm -f ~/image.tar.gz
+          '

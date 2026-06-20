@@ -1,0 +1,24 @@
+# Build artifacts & caches — rebuilt inside the image
+**/.dart_tool/
+**/build/
+**/.fvm/
+client/.flutter-plugins
+client/.flutter-plugins-dependencies
+
+# Git & local tooling
+.git/
+.github/
+.claude/
+.codex-remote-attachments/
+
+# Runtime logs / outputs
+*.log
+server/*.json
+server/server_bin
+client/.test_out.txt
+tools/dev.log
+
+# Editor / OS junk
+.idea/
+.vscode/
+*.iml

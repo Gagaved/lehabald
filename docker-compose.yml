@@ -1,0 +1,10 @@
+services:
+  lehabald:
+    build: .
+    image: lehabald:latest
+    container_name: lehabald
+    ports:
+      - "4173:4173"
+    environment:
+      - PORT=4173
+    restart: unless-stopped
