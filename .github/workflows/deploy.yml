@@ -18,6 +18,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # полная история + теги — нужно для changelog
+
+      - name: Build release notes
+        id: notes
+        run: |
+          TAG="${{ github.ref_name }}"
+          PREV=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+          # 1) если тег аннотированный (git tag -a ... -m "...") — берём его текст
+          TAGMSG=$(git for-each-ref "refs/tags/$TAG" --format='%(contents)' | sed '/^-----BEGIN/,$d')
+          if [ -n "$(echo "$TAGMSG" | tr -d '[:space:]')" ]; then
+            NOTES="$TAGMSG"
+          elif [ -n "$PREV" ]; then
+            # 2) иначе — список коммитов с прошлого релиза
+            NOTES=$(git log --no-merges --pretty=format:'• %s' "$PREV..$TAG")
+          else
+            NOTES=$(git log --no-merges --pretty=format:'• %s' "$TAG")
+          fi
+          [ -z "$NOTES" ] && NOTES="(без изменений)"
+          {
+            echo "notes<<__EOF__"
+            echo "$NOTES"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
         run: docker build -t lehabald:latest .
@@ -54,3 +78,36 @@ jobs:
             sudo docker image prune -f
             rm -f ~/image.tar.gz
           '
+
+      - name: Notify Telegram (success)
+        if: success()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+          TAG: ${{ github.ref_name }}
+          NOTES: ${{ steps.notes.outputs.notes }}
+        run: |
+          printf '%s\n' \
+            "🚀 Lehabald $TAG задеплоен" \
+            "" \
+            "📋 Что нового:" \
+            "$NOTES" \
+            "" \
+            "🎮 Играть: http://37.230.168.117:4173" > msg.txt
+          curl -s "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$TG_CHAT_ID" \
+            --data-urlencode "message_thread_id=$TG_THREAD_ID" \
+            --data-urlencode "text@msg.txt" >/dev/null
+
+      - name: Notify Telegram (failure)
+        if: failure()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          TG_THREAD_ID: ${{ secrets.TG_THREAD_ID }}
+        run: |
+          curl -s "https://api.telegram.org/bot$TG_BOT_TOKEN/sendMessage" \
+            --data-urlencode "chat_id=$TG_CHAT_ID" \
+            --data-urlencode "message_thread_id=$TG_THREAD_ID" \
+            --data-urlencode "text=❌ Деплой ${{ github.ref_name }} упал. Логи: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >/dev/null
