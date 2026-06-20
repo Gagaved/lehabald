@@ -13,3 +13,6 @@ server/.dart_tool/
 # Runtime artifacts
 server/games.log
 server/leha_stats.json
+server/server.err.log
+server/server.out.log
+.codex-remote-attachments/
