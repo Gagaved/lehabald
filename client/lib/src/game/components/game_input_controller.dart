@@ -11,16 +11,30 @@ class _GameInputController extends Component
     KeyEvent event,
     Set<LogicalKeyboardKey> keysPressed,
   ) {
+    if (event.logicalKey == LogicalKeyboardKey.escape &&
+        event is KeyDownEvent) {
+      game.network.cancelTargeting();
+      return false;
+    }
     if (event.logicalKey == LogicalKeyboardKey.space && event is KeyDownEvent) {
       final snapshot = game.network.snapshot;
       if (snapshot?.you.role == PlayerRole.hunter) {
         if (_myHunterKind(snapshot) == HunterKind.bakhirkin) {
-          game.network.placeTrap();
+          game.network.beginTargeting(TargetingSkill.trap);
+        } else if (_myHunterKind(snapshot) == HunterKind.sashaYakuza) {
+          game.network.beginTargeting(TargetingSkill.barrel);
         } else {
-          game.network.useAbility();
+          game.network.beginTargeting(TargetingSkill.femboy);
         }
       } else if (snapshot?.you.role == PlayerRole.leha) {
-        game.network.useAbility();
+        final me = snapshot?.players
+            .where((player) => player.id == snapshot.you.id)
+            .firstOrNull;
+        if (me?.aspect == LehaAspect.spider) {
+          game.network.beginTargeting(TargetingSkill.web);
+        } else if (me?.aspect == LehaAspect.wizard) {
+          game.network.beginTargeting(TargetingSkill.portal);
+        }
       }
       return false;
     }
@@ -28,7 +42,15 @@ class _GameInputController extends Component
     if ((event.logicalKey == LogicalKeyboardKey.keyE ||
             event.logicalKey == LogicalKeyboardKey.keyQ) &&
         event is KeyDownEvent) {
-      game.network.useAbility();
+      final snapshot = game.network.snapshot;
+      final me = snapshot?.players
+          .where((player) => player.id == snapshot.you.id)
+          .firstOrNull;
+      if (me?.aspect == LehaAspect.spider) {
+        game.network.beginTargeting(TargetingSkill.web);
+      } else if (me?.aspect == LehaAspect.wizard) {
+        game.network.beginTargeting(TargetingSkill.portal);
+      }
       return false;
     }
 
@@ -37,7 +59,9 @@ class _GameInputController extends Component
       final me = snapshot?.players
           .where((player) => player.id == snapshot.you.id)
           .firstOrNull;
-      if (me?.aspect == LehaAspect.wizard) game.network.placeMagicCrystal();
+      if (me?.aspect == LehaAspect.wizard) {
+        game.network.beginTargeting(TargetingSkill.crystal);
+      }
       return false;
     }
 
@@ -47,9 +71,9 @@ class _GameInputController extends Component
           .where((player) => player.id == snapshot.you.id)
           .firstOrNull;
       if (me?.aspect == LehaAspect.wizard) {
-        game.network.activateMagicChain();
+        game.network.beginTargeting(TargetingSkill.chain);
       } else {
-        game.network.layClutch();
+        game.network.beginTargeting(TargetingSkill.clutch);
       }
       return false;
     }

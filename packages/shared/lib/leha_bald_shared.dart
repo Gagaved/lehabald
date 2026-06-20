@@ -7,6 +7,7 @@ export 'src/protocol/client_message.dart';
 export 'src/protocol/direction.dart';
 export 'src/protocol/game_snapshot.dart';
 export 'src/protocol/game_types.dart';
+export 'src/protocol/skill_target.dart';
 
 void ensureProtocolMappersInitialized() {
   MoveDirectionMapper.ensureInitialized();

@@ -113,7 +113,7 @@ class GameConstants {
   static const barrelCooldownMs = 10000;
   static const barrelStunMs = 1000;
   static const barrelBlindMs = 1000;
-  static const barrelRadius = 0.34;
+  static const barrelRadius = SkillTargetRange.barrelRadius;
   static const barrelHitRadius = 0.6; // distance for a barrel to catch Leha
   // Homing barrels (thrown with Leha in sight) bend course by at most this many
   // radians per tick toward him — a nudge, not a guided missile.

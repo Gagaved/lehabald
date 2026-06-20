@@ -82,15 +82,15 @@ class GameEngine {
       case ClientMessageType.spectate:
         becomeSpectator(client);
       case ClientMessageType.placeTrap:
-        placeTrap(client);
+        placeTrap(client, message.targetX, message.targetY);
       case ClientMessageType.useAbility:
-        useAbility(client);
+        useAbility(client, message.targetX, message.targetY);
       case ClientMessageType.placeMagicCrystal:
-        placeOrPickMagicCrystal(client);
+        placeOrPickMagicCrystal(client, message.targetX, message.targetY);
       case ClientMessageType.layClutch:
-        layClutch(client);
+        layClutch(client, message.targetX, message.targetY);
       case ClientMessageType.activateMagicChain:
-        activateMagicChain(client);
+        activateMagicChain(client, message.targetX, message.targetY);
       case ClientMessageType.selectAspect:
         final aspect = message.aspect;
         if (aspect != null) selectAspect(client, aspect);
@@ -120,6 +120,8 @@ class GameEngine {
           sandboxMode = message.sandbox ?? false;
           ensureRoundState();
         }
+      case ClientMessageType.aim:
+        updateAim(client, message.targetX, message.targetY);
     }
   }
 
@@ -343,7 +345,7 @@ class GameEngine {
   /// Bakhirkin's trap button: places a trap, or — if he's standing on one of
   /// his own un-sprung traps — picks it back up (refunding the charge). There's
   /// no cooldown; he just can't have more than [maxTrapCharges] traps out.
-  void placeTrap(PlayerConnection client) {
+  void placeTrap(PlayerConnection client, [double? targetX, double? targetY]) {
     final now = nowMs();
     if (round.phase != GamePhase.playing ||
         client.slot != 1 ||
@@ -351,7 +353,10 @@ class GameEngine {
         now < client.stunnedUntil) {
       return;
     }
-    final cell = centerCell(client);
+    final targeted =
+        _targetCell(client, targetX, targetY, SkillTargetRange.trap);
+    if (targetX != null && targeted == null) return;
+    final cell = targeted ?? centerCell(client);
     // Same button collects an un-sprung trap underfoot.
     final existing = round.traps.indexWhere((trap) =>
         trap.triggeredAt == null && trap.x == cell.x && trap.y == cell.y);
@@ -376,10 +381,12 @@ class GameEngine {
 
   static const _trapNeverExpires = 1 << 62;
 
-  void useAbility(PlayerConnection client) {
+  void useAbility(PlayerConnection client, [double? targetX, double? targetY]) {
     if (round.phase != GamePhase.playing) return;
     if (client.slot == 1) {
-      if (client.hunterKind == HunterKind.sashaYakuza) throwBarrel(client);
+      if (client.hunterKind == HunterKind.sashaYakuza) {
+        throwBarrel(client, targetX, targetY);
+      }
       if (client.hunterKind == HunterKind.sima) activateFemboy(client);
       return;
     }
@@ -388,9 +395,9 @@ class GameEngine {
       case LehaAspect.superLeha:
         return;
       case LehaAspect.spider:
-        placeWeb(client);
+        placeWeb(client, targetX, targetY);
       case LehaAspect.wizard:
-        placePortal(client);
+        placePortal(client, targetX, targetY);
     }
   }
 
@@ -401,37 +408,39 @@ class GameEngine {
     client.simaCooldownUntil = now + GameConstants.simaFemboyCooldownMs;
   }
 
-  void throwBarrel(PlayerConnection client) {
+  void throwBarrel(PlayerConnection client,
+      [double? targetX, double? targetY]) {
     final now = nowMs();
     if (now < client.barrelCooldownUntil || now < client.stunnedUntil) return;
-    final dir = client.lastDirection;
+    final aimX = targetX == null ? client.lastDirection.dx : targetX - client.x;
+    final aimY = targetY == null ? client.lastDirection.dy : targetY - client.y;
+    final aimLength = sqrt(aimX * aimX + aimY * aimY);
+    if (aimLength < 1e-4) return;
     client.barrelCooldownUntil = now + GameConstants.barrelCooldownMs;
-    // Lock on if Leha is in a clear line of sight at the moment of the throw.
-    final leha = findPlayer(0);
-    final homing =
-        leha != null && maze.hasLineOfSight(playerPos(client), playerPos(leha));
     round.barrels.add(BarrelState(
       x: client.x,
       y: client.y,
-      dirX: dir.dx,
-      dirY: dir.dy,
+      dirX: aimX / aimLength,
+      dirY: aimY / aimLength,
       spawnedAt: now,
       ownerId: client.id,
-      homing: homing,
+      // Cursor targeting and the preview promise a deterministic ricochet path.
+      homing: false,
     ));
   }
 
-  void placeWeb(PlayerConnection client) {
+  void placeWeb(PlayerConnection client, [double? targetX, double? targetY]) {
     if (client.webCharges <= 0) return;
     final now = nowMs();
     final cell = centerCell(client);
     // Can't spin a new web while standing inside a wall — otherwise she could
     // chain webs cell-by-cell and camp inside walls indefinitely.
     if (maze.isWall(cell.x, cell.y)) return;
+    final target = _targetCell(client, targetX, targetY, SkillTargetRange.web);
+    if (targetX != null && target == null) return;
     final dir = client.lastDirection;
-    // Place ONE web directly in front of Leha (same as facing direction).
-    final bx = (cell.x + dir.dx).round();
-    final by = (cell.y + dir.dy).round();
+    final bx = target?.x ?? (cell.x + dir.dx).round();
+    final by = target?.y ?? (cell.y + dir.dy).round();
     if (bx < 0 || bx >= maze.cols || by < 0 || by >= maze.rows) return;
     // Webs may only go on the map's scarce cracked walls.
     if (!maze.isCrackedWall(bx, by)) return;
@@ -441,7 +450,8 @@ class GameEngine {
     scheduleWebRecharge(client, now);
   }
 
-  void placePortal(PlayerConnection client) {
+  void placePortal(PlayerConnection client,
+      [double? targetX, double? targetY]) {
     final now = nowMs();
     // The cooldown is on *laying a pair* of portals, not on teleporting. It
     // starts only once the second portal lands, and blocks laying any new
@@ -449,8 +459,12 @@ class GameEngine {
     if (now < client.portalCooldownUntil) return;
     final current = centerCell(client);
     final direction = client.lastDirection;
-    final cell = Point(
-        (current.x + direction.dx).round(), (current.y + direction.dy).round());
+    final targeted =
+        _targetCell(client, targetX, targetY, SkillTargetRange.portal);
+    if (targetX != null && targeted == null) return;
+    final cell = targeted ??
+        Point((current.x + direction.dx).round(),
+            (current.y + direction.dy).round());
     if (cell.x < 0 ||
         cell.x >= maze.cols ||
         cell.y < 0 ||
@@ -469,7 +483,8 @@ class GameEngine {
     }
   }
 
-  void placeOrPickMagicCrystal(PlayerConnection client) {
+  void placeOrPickMagicCrystal(PlayerConnection client,
+      [double? targetX, double? targetY]) {
     if (round.phase != GamePhase.playing ||
         client.slot != 0 ||
         client.aspect != LehaAspect.wizard ||
@@ -477,10 +492,16 @@ class GameEngine {
       return;
     }
     final current = centerCell(client);
+    final pickX = targetX ?? client.x;
+    final pickY = targetY ?? client.y;
     final nearby = round.magicCrystals.where((crystal) {
-      final dx = crystal.x + 0.5 - client.x;
-      final dy = crystal.y + 0.5 - client.y;
-      return dx * dx + dy * dy <= 0.85 * 0.85;
+      final dx = crystal.x + 0.5 - pickX;
+      final dy = crystal.y + 0.5 - pickY;
+      final px = crystal.x + 0.5 - client.x;
+      final py = crystal.y + 0.5 - client.y;
+      return dx * dx + dy * dy <= 0.85 * 0.85 &&
+          px * px + py * py <=
+              SkillTargetRange.crystal * SkillTargetRange.crystal;
     }).toList();
     if (nearby.isNotEmpty) {
       _removeMagicCrystal(nearby.first.id, nowMs());
@@ -488,10 +509,12 @@ class GameEngine {
     }
     if (round.magicCrystals.length >= GameConstants.wizardMaxCrystals) return;
     final direction = client.lastDirection;
-    final target = Point(
-      (current.x + direction.dx).round(),
-      (current.y + direction.dy).round(),
-    );
+    final targeted =
+        _targetCell(client, targetX, targetY, SkillTargetRange.crystal);
+    if (targetX != null && targeted == null) return;
+    final target = targeted ??
+        Point((current.x + direction.dx).round(),
+            (current.y + direction.dy).round());
     if (target.x < 0 ||
         target.x >= maze.cols ||
         target.y < 0 ||
@@ -508,7 +531,8 @@ class GameEngine {
     ));
   }
 
-  void activateMagicChain(PlayerConnection client) {
+  void activateMagicChain(PlayerConnection client,
+      [double? targetX, double? targetY]) {
     final now = nowMs();
     if (round.phase != GamePhase.playing ||
         client.slot != 0 ||
@@ -517,11 +541,16 @@ class GameEngine {
         now < client.magicChainCooldownUntil) {
       return;
     }
+    final target =
+        _targetCell(client, targetX, targetY, SkillTargetRange.chain);
+    if (targetX != null && target == null) return;
+    final seedX = targetX ?? client.x;
+    final seedY = targetY ?? client.y;
     final seed = round.magicCrystals.where((crystal) {
       if (crystal.fallen) return false;
-      final dx = crystal.x + 0.5 - client.x;
-      final dy = crystal.y + 0.5 - client.y;
-      return dx * dx + dy * dy <= 1.0;
+      final dx = crystal.x + 0.5 - seedX;
+      final dy = crystal.y + 0.5 - seedY;
+      return dx * dx + dy * dy <= (targetX == null ? 1.0 : 0.85 * 0.85);
     }).firstOrNull;
     if (seed == null) return;
 
@@ -2350,12 +2379,15 @@ class GameEngine {
 
   /// Spider lays an egg clutch once she's eaten enough Raffaellos. Allowed on
   /// floor and in bushes, but not on walls or webs. One clutch at a time.
-  void layClutch(PlayerConnection client) {
+  void layClutch(PlayerConnection client, [double? targetX, double? targetY]) {
     if (round.phase != GamePhase.playing) return;
     if (client.slot != 0 || client.aspect != LehaAspect.spider) return;
     if (round.clutch != null) return;
     if (round.rafaelkiEaten < GameConstants.rafaelkiNeeded) return;
-    final cell = centerCell(client);
+    final targeted =
+        _targetCell(client, targetX, targetY, SkillTargetRange.clutch);
+    if (targetX != null && targeted == null) return;
+    final cell = targeted ?? centerCell(client);
     if (maze.isWall(cell.x, cell.y)) return;
     if (round.webs.any((w) => w.x == cell.x && w.y == cell.y)) return;
     round
@@ -2533,6 +2565,41 @@ class GameEngine {
 
   Point<int> centerCell(PlayerConnection player) =>
       Point(player.x.floor(), player.y.floor());
+
+  Point<int>? _targetCell(
+      PlayerConnection player, double? x, double? y, double radius) {
+    if (x == null || y == null) return null;
+    final dx = x - player.x;
+    final dy = y - player.y;
+    if (dx * dx + dy * dy > radius * radius) return null;
+    final cell = Point<int>(x.floor(), y.floor());
+    if (cell.x < 0 ||
+        cell.x >= maze.cols ||
+        cell.y < 0 ||
+        cell.y >= maze.rows) {
+      return null;
+    }
+    return cell;
+  }
+
+  void updateAim(PlayerConnection player, double? x, double? y) {
+    if (x == null || y == null || player.slot == null) return;
+    final dx = x - player.x;
+    final dy = y - player.y;
+    if (dx.abs() < 0.05 && dy.abs() < 0.05) return;
+    final horizontal = dx.abs() > dy.abs() * 2 ? dx.sign : 0;
+    final vertical = dy.abs() > dx.abs() * 2 ? dy.sign : 0;
+    player.lastDirection = switch ((horizontal, vertical, dx.sign, dy.sign)) {
+      (1, 0, _, _) => MoveDirection.right,
+      (-1, 0, _, _) => MoveDirection.left,
+      (0, 1, _, _) => MoveDirection.down,
+      (0, -1, _, _) => MoveDirection.up,
+      (_, _, 1, 1) => MoveDirection.downRight,
+      (_, _, 1, -1) => MoveDirection.upRight,
+      (_, _, -1, 1) => MoveDirection.downLeft,
+      _ => MoveDirection.upLeft,
+    };
+  }
 
   bool canMoveFrom(PlayerConnection player, MoveDirection direction) {
     final cell = centerCell(player);
@@ -2872,8 +2939,6 @@ class GameEngine {
 
   PlayerDto serializePlayer(PlayerConnection player, int now) {
     final aspect = player.slot == 0 ? player.aspect : null;
-    final showFacing =
-        aspect == LehaAspect.spider || aspect == LehaAspect.wizard;
     return PlayerDto(
       id: player.id,
       slot: player.slot,
@@ -2892,7 +2957,7 @@ class GameEngine {
       femboy: player.slot == 1 &&
           player.hunterKind == HunterKind.sima &&
           now < player.simaFemboyUntil,
-      facing: showFacing ? player.lastDirection : null,
+      facing: player.lastDirection,
     );
   }
 

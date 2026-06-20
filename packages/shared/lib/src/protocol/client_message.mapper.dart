@@ -63,6 +63,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.setBiomes;
       case r'setSandbox':
         return ClientMessageType.setSandbox;
+      case r'aim':
+        return ClientMessageType.aim;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -107,6 +109,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'setBiomes';
       case ClientMessageType.setSandbox:
         return r'setSandbox';
+      case ClientMessageType.aim:
+        return r'aim';
     }
   }
 }
@@ -191,6 +195,18 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     _$sandbox,
     opt: true,
   );
+  static double? _$targetX(ClientMessage v) => v.targetX;
+  static const Field<ClientMessage, double> _f$targetX = Field(
+    'targetX',
+    _$targetX,
+    opt: true,
+  );
+  static double? _$targetY(ClientMessage v) => v.targetY;
+  static const Field<ClientMessage, double> _f$targetY = Field(
+    'targetY',
+    _$targetY,
+    opt: true,
+  );
 
   @override
   final MappableFields<ClientMessage> fields = const {
@@ -203,6 +219,8 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     #ready: _f$ready,
     #biomes: _f$biomes,
     #sandbox: _f$sandbox,
+    #targetX: _f$targetX,
+    #targetY: _f$targetY,
   };
 
   static ClientMessage _instantiate(DecodingData data) {
@@ -216,6 +234,8 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       ready: data.dec(_f$ready),
       biomes: data.dec(_f$biomes),
       sandbox: data.dec(_f$sandbox),
+      targetX: data.dec(_f$targetX),
+      targetY: data.dec(_f$targetY),
     );
   }
 
@@ -293,6 +313,8 @@ abstract class ClientMessageCopyWith<$R, $In extends ClientMessage, $Out>
     bool? ready,
     List<CaveBiome>? biomes,
     bool? sandbox,
+    double? targetX,
+    double? targetY,
   });
   ClientMessageCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -325,6 +347,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     Object? ready = $none,
     Object? biomes = $none,
     Object? sandbox = $none,
+    Object? targetX = $none,
+    Object? targetY = $none,
   }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
@@ -336,6 +360,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
       if (ready != $none) #ready: ready,
       if (biomes != $none) #biomes: biomes,
       if (sandbox != $none) #sandbox: sandbox,
+      if (targetX != $none) #targetX: targetX,
+      if (targetY != $none) #targetY: targetY,
     }),
   );
   @override
@@ -349,6 +375,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     ready: data.get(#ready, or: $value.ready),
     biomes: data.get(#biomes, or: $value.biomes),
     sandbox: data.get(#sandbox, or: $value.sandbox),
+    targetX: data.get(#targetX, or: $value.targetX),
+    targetY: data.get(#targetY, or: $value.targetY),
   );
 
   @override

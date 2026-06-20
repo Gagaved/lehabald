@@ -12,6 +12,7 @@ import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
 import 'player_interpolator.dart';
+import 'skill_targeting.dart';
 
 part 'components/game_scene_component.dart';
 part 'components/game_input_controller.dart';
@@ -1171,9 +1172,6 @@ class LehaBaldGame extends FlameGame
       if (player.femboy) {
         _drawHearts(canvas, center, size);
       }
-      if (player.facing != null) {
-        _drawFacingIndicator(canvas, center, player.facing!);
-      }
       if (player.stunned) {
         _drawStun(canvas, center, size);
       }
@@ -1243,13 +1241,6 @@ class LehaBaldGame extends FlameGame
       ..lineTo(c.dx + r * 1.05, c.dy - r * 0.12)
       ..close();
     canvas.drawPath(path, paint);
-  }
-
-  void _drawFacingIndicator(Canvas canvas, Offset center, MoveDirection dir) {
-    const r = tile * 0.52;
-    const dotR = tile * 0.10;
-    final dot = center + Offset(dir.dx * r, dir.dy * r);
-    canvas.drawCircle(dot, dotR, Paint()..color = const Color(0xccffffff));
   }
 
   Image _imageForPlayer(PlayerDto player) {

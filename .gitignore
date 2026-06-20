@@ -15,4 +15,12 @@ server/games.log
 server/leha_stats.json
 server/server.err.log
 server/server.out.log
+server/client.log
+server/pos.log
+server/server.run.log
+tools/dev.log
+client/.test_out.txt
 .codex-remote-attachments/
+
+# Local Claude Code settings
+.claude/settings.local.json

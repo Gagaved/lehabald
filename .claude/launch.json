@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "game",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd server && fvm dart run bin/server.dart"],
+      "port": 4173
+    }
+  ]
+}

@@ -8,6 +8,9 @@ import 'package:leha_bald_shared/leha_bald_shared.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import 'client_log_event.dart';
+import '../game/skill_targeting.dart';
+
 class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   GameNetworkClient({required String initialUrl}) : serverUrl = initialUrl {
     WidgetsBinding.instance.addObserver(this);
@@ -37,6 +40,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
   Timer? _watchdogTimer;
+  Timer? _pingTimer;
   DateTime _lastMessageAt = DateTime.now();
   int _lastMessageMs = 0;
   int _snapshotCount = 0;
@@ -49,7 +53,14 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   int _minGapMs = 1 << 30;
   int _maxGapMs = 0;
   int _lastPayloadBytes = 0;
-  final List<String> _logLines = <String>[];
+  final List<ClientLogEvent> _logs = <ClientLogEvent>[];
+  int _pingSequence = 0;
+  final Map<int, int> _pendingPings = {};
+  double _pingMs = 0;
+  TargetingSkill? targetingSkill;
+  double? aimX;
+  double? aimY;
+  int _lastAimSentAt = 0;
   // Monotonically increasing id for the current connection attempt. Callbacks
   // from a superseded channel carry an older id and are ignored, so a late
   // onDone/onError from a dead socket can never clobber a live connection.
@@ -95,6 +106,50 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   int get snapshotVersion => _snapshotCount;
   int get snapshotReceivedMs => _snapshotReceivedMs;
   String get diagnosticsText => _buildDiagnosticsText();
+  double get pingMs => _pingMs;
+  List<ClientLogEvent> get logs => List.unmodifiable(_logs);
+
+  void beginTargeting(TargetingSkill skill) {
+    targetingSkill = targetingSkill == skill ? null : skill;
+    notifyListeners();
+  }
+
+  void cancelTargeting() {
+    if (targetingSkill == null) return;
+    targetingSkill = null;
+    notifyListeners();
+  }
+
+  void updateAim(double x, double y) {
+    aimX = x;
+    aimY = y;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastAimSentAt < 50) return;
+    _lastAimSentAt = now;
+    send(ClientMessage(type: ClientMessageType.aim, targetX: x, targetY: y));
+  }
+
+  void applyTarget(double x, double y) {
+    final skill = targetingSkill;
+    if (skill == null) return;
+    switch (skill) {
+      case TargetingSkill.trap:
+        placeTrap(targetX: x, targetY: y);
+      case TargetingSkill.barrel ||
+            TargetingSkill.femboy ||
+            TargetingSkill.web ||
+            TargetingSkill.portal:
+        useAbility(targetX: x, targetY: y);
+      case TargetingSkill.crystal:
+        placeMagicCrystal(targetX: x, targetY: y);
+      case TargetingSkill.chain:
+        activateMagicChain(targetX: x, targetY: y);
+      case TargetingSkill.clutch:
+        layClutch(targetX: x, targetY: y);
+    }
+    targetingSkill = null;
+    notifyListeners();
+  }
 
   void addClientLog(String event, [Map<String, Object?> fields = const {}]) {
     _addLog(event, fields);
@@ -120,6 +175,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       );
       _lastMessageAt = DateTime.now();
       _startWatchdog();
+      _startPing();
       // Re-register our nickname: the server creates a fresh connection each time.
       _sendName();
     } catch (_) {
@@ -146,11 +202,26 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
+  void _startPing() {
+    _pingTimer?.cancel();
+    _pendingPings.clear();
+    _pingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      final channel = _channel;
+      if (channel == null || !_appActive) return;
+      final id = ++_pingSequence;
+      final sentAt = DateTime.now().millisecondsSinceEpoch;
+      _pendingPings[id] = sentAt;
+      _pendingPings.removeWhere((_, value) => sentAt - value > 10000);
+      channel.sink.add(jsonEncode({'ping': id}));
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _reconnectTimer?.cancel();
     _watchdogTimer?.cancel();
+    _pingTimer?.cancel();
     _subscription?.cancel();
     _channel?.sink.close();
     super.dispose();
@@ -206,24 +277,35 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
     send(const ClientMessage(type: ClientMessageType.spectate));
   }
 
-  void placeTrap() {
-    send(const ClientMessage(type: ClientMessageType.placeTrap));
+  void placeTrap({double? targetX, double? targetY}) {
+    send(ClientMessage(
+        type: ClientMessageType.placeTrap, targetX: targetX, targetY: targetY));
   }
 
-  void useAbility() {
-    send(const ClientMessage(type: ClientMessageType.useAbility));
+  void useAbility({double? targetX, double? targetY}) {
+    send(ClientMessage(
+        type: ClientMessageType.useAbility,
+        targetX: targetX,
+        targetY: targetY));
   }
 
-  void placeMagicCrystal() {
-    send(const ClientMessage(type: ClientMessageType.placeMagicCrystal));
+  void placeMagicCrystal({double? targetX, double? targetY}) {
+    send(ClientMessage(
+        type: ClientMessageType.placeMagicCrystal,
+        targetX: targetX,
+        targetY: targetY));
   }
 
-  void layClutch() {
-    send(const ClientMessage(type: ClientMessageType.layClutch));
+  void layClutch({double? targetX, double? targetY}) {
+    send(ClientMessage(
+        type: ClientMessageType.layClutch, targetX: targetX, targetY: targetY));
   }
 
-  void activateMagicChain() {
-    send(const ClientMessage(type: ClientMessageType.activateMagicChain));
+  void activateMagicChain({double? targetX, double? targetY}) {
+    send(ClientMessage(
+        type: ClientMessageType.activateMagicChain,
+        targetX: targetX,
+        targetY: targetY));
   }
 
   void restart() {
@@ -247,6 +329,17 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       final decodeWatch = Stopwatch()..start();
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
+      final pong = decoded['pong'];
+      if (pong is int) {
+        final sentAt = _pendingPings.remove(pong);
+        if (sentAt != null) {
+          final measured = max(0, receivedMs - sentAt).toDouble();
+          _pingMs = _pingMs == 0 ? measured : _pingMs * 0.75 + measured * 0.25;
+          _addLog('ping', {'ms': measured.toStringAsFixed(0)});
+          notifyListeners();
+        }
+        return;
+      }
       snapshot = MapperContainer.globals.fromMap<GameSnapshotDto>(decoded);
       decodeWatch.stop();
       _recordSnapshot(raw.length, receivedMs, decodeWatch.elapsedMicroseconds);
@@ -270,6 +363,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
     });
     _channel = null;
     _watchdogTimer?.cancel();
+    _pingTimer?.cancel();
     status = 'Связь потеряна. Переподключение...';
     notifyListeners();
     _reconnectTimer?.cancel();
@@ -303,14 +397,9 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _addLog(String event, [Map<String, Object?> fields = const {}]) {
-    final ts = DateTime.now().toIso8601String();
-    final suffix = fields.entries
-        .where((entry) => entry.value != null)
-        .map((entry) => '${entry.key}=${entry.value}')
-        .join(' ');
-    _logLines.add(suffix.isEmpty ? '$ts $event' : '$ts $event $suffix');
-    if (_logLines.length > _maxLogLines) {
-      _logLines.removeRange(0, _logLines.length - _maxLogLines);
+    _logs.add(ClientLogEvent.create(event, fields));
+    if (_logs.length > _maxLogLines) {
+      _logs.removeRange(0, _logs.length - _maxLogLines);
     }
   }
 
@@ -323,6 +412,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       'time=${now.toIso8601String()}',
       'url=$serverUrl',
       'connected=$connected',
+      'pingMs=${_pingMs.toStringAsFixed(0)}',
       'status=$status',
       'snapshots=$_snapshotCount',
       'snapshotGapMs avg=${_gapEwmaMs.toStringAsFixed(1)} min=$minGap max=$_maxGapMs lastSilent=$silentMs',
@@ -332,7 +422,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
         'you id=${snapshot!.you.id} role=${snapshot!.you.role.name} slot=${snapshot!.you.slot} phase=${snapshot!.game.phase.name} players=${snapshot!.players.length}',
       '',
       'Recent log:',
-      ..._logLines,
+      ..._logs.map((log) => '[${log.category.name}] ${log.formatted}'),
     ];
     return summary.join('\n');
   }

@@ -25,6 +25,7 @@ enum ClientMessageType {
   restart,
   setBiomes,
   setSandbox,
+  aim,
 }
 
 @MappableClass()
@@ -39,6 +40,8 @@ class ClientMessage with ClientMessageMappable {
     this.ready,
     this.biomes,
     this.sandbox,
+    this.targetX,
+    this.targetY,
   });
 
   final ClientMessageType type;
@@ -52,4 +55,6 @@ class ClientMessage with ClientMessageMappable {
   /// Biomes enabled for the lobby preview and the next round.
   final List<CaveBiome>? biomes;
   final bool? sandbox;
+  final double? targetX;
+  final double? targetY;
 }

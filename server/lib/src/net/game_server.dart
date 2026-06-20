@@ -83,6 +83,11 @@ class GameServer {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
+      final ping = decoded['ping'];
+      if (ping is int) {
+        client.socket?.add(jsonEncode({'pong': ping}));
+        return;
+      }
       final message = MapperContainer.globals.fromMap<ClientMessage>(decoded);
       engine.applyMessage(client, message);
       broadcastState();

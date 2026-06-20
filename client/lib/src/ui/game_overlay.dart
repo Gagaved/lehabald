@@ -5,24 +5,36 @@ import 'package:flutter/services.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
+import 'debug_console_drawer.dart';
+import 'game_hud.dart';
 
-class GameOverlay extends StatelessWidget {
+class GameOverlay extends StatefulWidget {
   const GameOverlay({required this.network, super.key});
 
   final GameNetworkClient network;
 
   @override
+  State<GameOverlay> createState() => _GameOverlayState();
+}
+
+class _GameOverlayState extends State<GameOverlay> {
+  bool _consoleOpen = false;
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: network,
+      animation: widget.network,
       builder: (context, _) {
+        final network = widget.network;
         final snapshot = network.snapshot;
         return SafeArea(
           child: Stack(
             children: [
-              Align(
-                alignment: Alignment.topCenter,
-                child: _Hud(network: network, snapshot: snapshot),
+              GameHud(
+                network: network,
+                snapshot: snapshot,
+                onToggleConsole: () =>
+                    setState(() => _consoleOpen = !_consoleOpen),
               ),
               if (snapshot?.game.phase == GamePhase.waiting || snapshot == null)
                 _MainMenu(network: network, snapshot: snapshot),
@@ -41,14 +53,14 @@ class GameOverlay extends StatelessWidget {
                     child: _Joystick(network: network),
                   ),
                 ),
-                Align(
-                  alignment: Alignment.bottomRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 24, bottom: 40),
-                    child: _ActionButton(network: network, snapshot: snapshot!),
+              ],
+              if (_consoleOpen)
+                Positioned.fill(
+                  child: DebugConsoleDrawer(
+                    network: network,
+                    onClose: () => setState(() => _consoleOpen = false),
                   ),
                 ),
-              ],
             ],
           ),
         );
@@ -57,6 +69,8 @@ class GameOverlay extends StatelessWidget {
   }
 }
 
+// Legacy HUD retained temporarily while lobby UI is split from this large file.
+// ignore: unused_element
 class _Hud extends StatelessWidget {
   const _Hud({required this.network, required this.snapshot});
 
@@ -995,6 +1009,8 @@ class _JoystickState extends State<_Joystick> {
 }
 
 /// Right-hand action button — context-sensitive: ability / trap / barrel.
+// Legacy mobile action control; the skill bar now handles all actions.
+// ignore: unused_element
 class _ActionButton extends StatelessWidget {
   const _ActionButton({required this.network, required this.snapshot});
 
