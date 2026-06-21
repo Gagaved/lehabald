@@ -41,6 +41,12 @@ class PlayerConnection {
   int stunnedUntil = 0;
   int invulnerableUntil = 0;
   int webSlowedUntil = 0;
+
+  /// While set in the future the player lays no scent trail at all: breaking
+  /// cover (bush, amethyst spores, sulfur cloud) leaves a footprint gap for a
+  /// short grace period after the player leaves it, so even later the pursuer
+  /// never sees that stretch of the path.
+  int scentMaskedUntil = 0;
   int webPhaseUntil = 0;
   double speed = 0;
   int rockPushCooldownUntil = 0;

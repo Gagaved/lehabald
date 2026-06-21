@@ -26,6 +26,9 @@ class GameConstants {
   static const trailLifetimeMs = 2500;
   static const trailScentRadius = 4; // Hunter's scent reach in cells
   static const trailVisibilityRadius = 4; // Leha's powered trail radius
+  // Breaking cover (bush, amethyst spores, sulfur cloud) keeps masking the
+  // player's scent for this long after they leave it, shaking the pursuer.
+  static const scentMaskGraceMs = 1500;
   static const xrayRadius = 2;
   // Bakhirkin can keep up to this many traps placed on the map at once. There is
   // no cooldown — placing spends a charge, picking a placed trap back up refunds
@@ -56,6 +59,9 @@ class GameConstants {
   static const crystalIllusionFadeStart = 3.0; // full opacity within this range
   static const crystalIllusionMaxRange = 5.0; // invisible beyond this
   static const crystalIllusionCullRange = 5.5; // keep zero-opacity edge stable
+  // The hunter's scent signal is dampened near ice crystals: trail points
+  // within this many cells of any crystal are not shown.
+  static const crystalScentDampenRadius = 3.0;
 
   // Sandstone biome: mummies are sealed inside sandstone wall blocks. A block
   // cracks when a player passes nearby, then releases its mummy (destroying the

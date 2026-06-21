@@ -1324,7 +1324,8 @@ class GameEngine {
           ..invulnerableUntil = 0
           ..stunnedUntil = 0
           ..webSlowedUntil = 0
-          ..webPhaseUntil = 0;
+          ..webPhaseUntil = 0
+          ..scentMaskedUntil = 0;
       }
       final leha = findPlayer(0);
       if (leha != null) {
@@ -1338,7 +1339,8 @@ class GameEngine {
           ..invulnerableUntil = 0
           ..blindUntil = 0
           ..webSlowedUntil = 0
-          ..webPhaseUntil = 0;
+          ..webPhaseUntil = 0
+          ..scentMaskedUntil = 0;
       }
       logger.log({
         'event': 'start',
@@ -2619,8 +2621,15 @@ class GameEngine {
   void updateTrail(PlayerConnection player, int now) {
     final slot = player.slot;
     if (slot == null) return;
-    // No scent is left while hiding in a bush.
-    if (maze.isBush(player.x.floor(), player.y.floor())) return;
+    // No scent is left while hiding in any cover (bush, amethyst spores, sulfur
+    // cloud), and the mask lingers for a grace period after breaking cover so
+    // the victim leaves no footprints at all for a short while — the gap stays
+    // invisible even after the window passes, since no points are ever laid.
+    if (maze.conceals(player.x.floor(), player.y.floor())) {
+      player.scentMaskedUntil = now + GameConstants.scentMaskGraceMs;
+      return;
+    }
+    if (now < player.scentMaskedUntil) return;
     final trail = round.trails[slot] ?? <TrailPoint>[];
     final last = trail.isEmpty ? null : trail.last;
     // Add a new point only when player moved far enough — keeps point count manageable.
@@ -3224,10 +3233,29 @@ class GameEngine {
     final tp = Point(point.x, point.y);
     final distance = sqrt(pow(vp.x - tp.x, 2) + pow(vp.y - tp.y, 2));
     // Hunter smells Leha's trail within scentRadius — no line-of-sight needed.
-    if (viewer.slot == 1) return distance <= GameConstants.trailScentRadius;
+    // Ice crystals dampen the scent: signals near a crystal are not shown.
+    if (viewer.slot == 1) {
+      if (distance > GameConstants.trailScentRadius) return false;
+      return !_nearCrystal(tp);
+    }
     // Leha (powered) sees trail within visibility radius or with direct LOS.
     if (distance <= GameConstants.trailVisibilityRadius) return true;
     return maze.hasLineOfSight(vp, tp);
+  }
+
+  /// Whether a point lies within the scent-dampening field of any ice crystal.
+  bool _nearCrystal(Point<double> p) {
+    if (maze.crystals.isEmpty) return false;
+    const r = GameConstants.crystalScentDampenRadius;
+    for (final key in maze.crystals) {
+      final parts = key.split(',');
+      final cx = int.parse(parts[0]) + 0.5;
+      final cy = int.parse(parts[1]) + 0.5;
+      final dx = cx - p.x;
+      final dy = cy - p.y;
+      if (dx * dx + dy * dy <= r * r) return true;
+    }
+    return false;
   }
 
   bool canSeePlayer(PlayerConnection viewer, PlayerConnection target, int now) {
