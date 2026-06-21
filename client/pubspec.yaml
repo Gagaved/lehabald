@@ -13,6 +13,7 @@ dependencies:
   web_socket_channel: ^3.0.1
   dart_mappable: ^4.3.0
   shared_preferences: ^2.3.2
+  web: ^1.1.1
   leha_bald_shared:
     path: ../packages/shared
 

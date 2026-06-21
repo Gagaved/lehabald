@@ -6,7 +6,6 @@ class GameConstants {
   static const tickMs = 1000 ~/ 60;
   static const roundDurationMs = 180000;
   static const logoTimerReductionMs = 500;
-  static const readyTimeoutMs = 30000;
   static const powerDurationMs = 9000;
   static const trapDurationMs = 10000;
   static const trapCooldownMs = 9000;

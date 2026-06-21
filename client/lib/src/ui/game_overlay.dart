@@ -7,11 +7,17 @@ import 'package:leha_bald_shared/leha_bald_shared.dart';
 import '../net/game_network_client.dart';
 import 'debug_console_drawer.dart';
 import 'game_hud.dart';
+import 'session_flow.dart';
 
 class GameOverlay extends StatefulWidget {
-  const GameOverlay({required this.network, super.key});
+  const GameOverlay({
+    required this.network,
+    required this.onRequestGameFocus,
+    super.key,
+  });
 
   final GameNetworkClient network;
+  final VoidCallback onRequestGameFocus;
 
   @override
   State<GameOverlay> createState() => _GameOverlayState();
@@ -19,6 +25,7 @@ class GameOverlay extends StatefulWidget {
 
 class _GameOverlayState extends State<GameOverlay> {
   bool _consoleOpen = false;
+  int? _focusedRound;
 
   @override
   Widget build(BuildContext context) {
@@ -27,24 +34,40 @@ class _GameOverlayState extends State<GameOverlay> {
       builder: (context, _) {
         final network = widget.network;
         final snapshot = network.snapshot;
+        final sessionPhase = snapshot?.session?.phase;
+        final round = snapshot?.session?.round;
+        if (sessionPhase == SessionPhase.playing && _focusedRound != round) {
+          _focusedRound = round;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            FocusManager.instance.primaryFocus?.unfocus();
+            widget.onRequestGameFocus();
+          });
+        } else if (sessionPhase != SessionPhase.playing) {
+          _focusedRound = null;
+        }
         return SafeArea(
           child: Stack(
             children: [
-              GameHud(
-                network: network,
-                snapshot: snapshot,
-                onToggleConsole: () =>
-                    setState(() => _consoleOpen = !_consoleOpen),
-              ),
-              if (snapshot?.game.phase == GamePhase.waiting || snapshot == null)
-                _MainMenu(network: network, snapshot: snapshot),
-              if ((snapshot?.status ?? network.status).isNotEmpty &&
-                  snapshot?.game.phase != GamePhase.waiting)
-                Center(
-                    child:
-                        _StatusCard(text: snapshot?.status ?? network.status)),
+              if (snapshot == null)
+                SessionDirectoryView(network: network)
+              else if (sessionPhase == SessionPhase.waiting)
+                WaitingRoomView(network: network, snapshot: snapshot)
+              else if (sessionPhase == SessionPhase.picking)
+                PickView(network: network, snapshot: snapshot)
+              else ...[
+                GameHud(
+                  network: network,
+                  snapshot: snapshot,
+                  onToggleConsole: () =>
+                      setState(() => _consoleOpen = !_consoleOpen),
+                ),
+                if (sessionPhase == SessionPhase.roundResult)
+                  RoundResultView(snapshot: snapshot),
+                if (sessionPhase == SessionPhase.matchResult)
+                  MatchResultView(network: network, snapshot: snapshot),
+              ],
               if (MediaQuery.sizeOf(context).width < 720 &&
-                  snapshot?.game.phase == GamePhase.playing &&
+                  sessionPhase == SessionPhase.playing &&
                   snapshot?.you.slot != null) ...[
                 Align(
                   alignment: Alignment.bottomLeft,
@@ -194,10 +217,6 @@ class _Hud extends StatelessWidget {
                   ? 'Цепь ${(s.game.magicChainCooldownMs / 1000).ceil()}с'
                   : 'Цепь (F)'),
             ),
-          FilledButton(
-            onPressed: network.restart,
-            child: Text(role == PlayerRole.spectator ? 'В меню' : 'Рестарт'),
-          ),
           OutlinedButton(
             onPressed: () => _showDiagnostics(context, network),
             child: const Text('Логи'),
@@ -348,6 +367,8 @@ const _hunterChars = [
       hunter: HunterKind.sima),
 ];
 
+// Legacy lobby widgets are kept temporarily for character descriptions.
+// ignore: unused_element
 class _MainMenu extends StatelessWidget {
   const _MainMenu({required this.network, required this.snapshot});
 
@@ -511,10 +532,6 @@ class _LobbyState extends State<_Lobby> {
 
     String readyText(RoleStateDto? state) {
       if (state?.ready == true) return 'готов';
-      final timeoutMs = state?.readyTimeoutMs;
-      if (timeoutMs != null) {
-        return 'не готов, освободится через ${(timeoutMs / 1000).ceil()}с';
-      }
       return 'не готов';
     }
 
@@ -1129,6 +1146,7 @@ class _Metric extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _StatusCard extends StatelessWidget {
   const _StatusCard({required this.text});
 

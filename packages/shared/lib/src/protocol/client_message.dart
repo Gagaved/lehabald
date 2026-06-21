@@ -22,10 +22,13 @@ enum ClientMessageType {
   setName,
   addBot,
   removeBot,
-  restart,
   setBiomes,
   setSandbox,
   aim,
+  createSession,
+  joinSession,
+  leaveSession,
+  rematch,
 }
 
 @MappableClass()
@@ -42,6 +45,8 @@ class ClientMessage with ClientMessageMappable {
     this.sandbox,
     this.targetX,
     this.targetY,
+    this.sessionId,
+    this.sessionName,
   });
 
   final ClientMessageType type;
@@ -57,4 +62,6 @@ class ClientMessage with ClientMessageMappable {
   final bool? sandbox;
   final double? targetX;
   final double? targetY;
+  final String? sessionId;
+  final String? sessionName;
 }

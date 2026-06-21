@@ -36,7 +36,9 @@ String defaultServerUrl() {
 
   final base = Uri.base;
   final scheme = base.scheme == 'https' ? 'wss' : 'ws';
-  if (base.host.isEmpty || base.host == 'localhost' || base.host == '127.0.0.1') {
+  if (base.host.isEmpty ||
+      base.host == 'localhost' ||
+      base.host == '127.0.0.1') {
     return 'ws://127.0.0.1:$_backendPort/ws';
   }
   if (base.port == _devClientPort) {
@@ -45,7 +47,7 @@ String defaultServerUrl() {
   return '$scheme://${base.host}:${base.port}/ws';
 }
 
-class LehaBaldApp extends StatelessWidget {
+class LehaBaldApp extends StatefulWidget {
   const LehaBaldApp({
     required this.network,
     required this.game,
@@ -54,6 +56,19 @@ class LehaBaldApp extends StatelessWidget {
 
   final GameNetworkClient network;
   final LehaBaldGame game;
+
+  @override
+  State<LehaBaldApp> createState() => _LehaBaldAppState();
+}
+
+class _LehaBaldAppState extends State<LehaBaldApp> {
+  final FocusNode _gameFocus = FocusNode(debugLabel: 'game-keyboard-input');
+
+  @override
+  void dispose() {
+    _gameFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,10 +86,20 @@ class LehaBaldApp extends StatelessWidget {
         body: Stack(
           children: [
             Positioned.fill(
-              child: GameWidget(game: game),
+              child: Listener(
+                onPointerDown: (_) => _gameFocus.requestFocus(),
+                child: GameWidget(
+                  game: widget.game,
+                  focusNode: _gameFocus,
+                  autofocus: true,
+                ),
+              ),
             ),
             Positioned.fill(
-              child: GameOverlay(network: network),
+              child: GameOverlay(
+                network: widget.network,
+                onRequestGameFocus: _gameFocus.requestFocus,
+              ),
             ),
           ],
         ),

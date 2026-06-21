@@ -207,9 +207,15 @@ class _TargetingPreviewComponent extends Component
     return switch (skill) {
       TargetingSkill.trap =>
         !wall && !s.bushes.any((cell) => cell.x == x && cell.y == y),
-      TargetingSkill.web =>
-        s.crackedWalls.any((cell) => cell.x == x && cell.y == y) &&
-            !s.webs.any((web) => web.x == x && web.y == y),
+      TargetingSkill.web => (s.crackedWalls
+                  .any((cell) => cell.x == x && cell.y == y) ||
+              (!wall &&
+                  !s.quicksand.any((cell) => cell.x == x && cell.y == y) &&
+                  !s.amethystWalls.any((cell) => cell.x == x && cell.y == y) &&
+                  !s.amethystShards.any((cell) => cell.x == x && cell.y == y) &&
+                  !s.mushrooms.any(
+                      (mushroom) => mushroom.x == x && mushroom.y == y))) &&
+          !s.webs.any((web) => web.x == x && web.y == y),
       TargetingSkill.portal =>
         !wall && !s.bushes.any((cell) => cell.x == x && cell.y == y),
       TargetingSkill.crystal => !wall &&

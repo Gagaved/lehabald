@@ -15,6 +15,7 @@ void ensureProtocolMappersInitialized() {
   LehaAspectMapper.ensureInitialized();
   HunterKindMapper.ensureInitialized();
   GamePhaseMapper.ensureInitialized();
+  SessionPhaseMapper.ensureInitialized();
   Vec2iMapper.ensureInitialized();
   Vec2dMapper.ensureInitialized();
   ClientMessageTypeMapper.ensureInitialized();
@@ -31,6 +32,12 @@ void ensureProtocolMappersInitialized() {
   ScoreDtoMapper.ensureInitialized();
   RoleStateDtoMapper.ensureInitialized();
   LobbyDtoMapper.ensureInitialized();
+  ConnectedUserDtoMapper.ensureInitialized();
+  MatchPlayerDtoMapper.ensureInitialized();
+  RoundResultDtoMapper.ensureInitialized();
+  SessionStateDtoMapper.ensureInitialized();
+  SessionSummaryDtoMapper.ensureInitialized();
+  DirectorySnapshotDtoMapper.ensureInitialized();
   GameInfoDtoMapper.ensureInitialized();
   YouDtoMapper.ensureInitialized();
   UserStatsDtoMapper.ensureInitialized();

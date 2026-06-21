@@ -208,6 +208,64 @@ extension GamePhaseMapperExtension on GamePhase {
   }
 }
 
+class SessionPhaseMapper extends EnumMapper<SessionPhase> {
+  SessionPhaseMapper._();
+
+  static SessionPhaseMapper? _instance;
+  static SessionPhaseMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SessionPhaseMapper._());
+    }
+    return _instance!;
+  }
+
+  static SessionPhase fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  SessionPhase decode(dynamic value) {
+    switch (value) {
+      case r'waiting':
+        return SessionPhase.waiting;
+      case r'picking':
+        return SessionPhase.picking;
+      case r'playing':
+        return SessionPhase.playing;
+      case r'roundResult':
+        return SessionPhase.roundResult;
+      case r'matchResult':
+        return SessionPhase.matchResult;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(SessionPhase self) {
+    switch (self) {
+      case SessionPhase.waiting:
+        return r'waiting';
+      case SessionPhase.picking:
+        return r'picking';
+      case SessionPhase.playing:
+        return r'playing';
+      case SessionPhase.roundResult:
+        return r'roundResult';
+      case SessionPhase.matchResult:
+        return r'matchResult';
+    }
+  }
+}
+
+extension SessionPhaseMapperExtension on SessionPhase {
+  String toValue() {
+    SessionPhaseMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<SessionPhase>(this) as String;
+  }
+}
+
 class CaveBiomeMapper extends EnumMapper<CaveBiome> {
   CaveBiomeMapper._();
 

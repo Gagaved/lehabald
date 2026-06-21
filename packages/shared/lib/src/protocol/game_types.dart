@@ -14,6 +14,9 @@ enum HunterKind { bakhirkin, sashaYakuza, sima }
 @MappableEnum()
 enum GamePhase { waiting, playing, ended }
 
+@MappableEnum()
+enum SessionPhase { waiting, picking, playing, roundResult, matchResult }
+
 /// Visual theme of a generated cave. The server picks one per map; the client
 /// owns the actual palette (tinted further by a per-map stone-colour seed).
 @MappableEnum()

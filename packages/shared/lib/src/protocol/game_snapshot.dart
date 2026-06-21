@@ -287,7 +287,6 @@ class RoleStateDto with RoleStateDtoMappable {
     required this.aspect,
     this.hunterKind,
     this.bot = false,
-    this.readyTimeoutMs,
   });
 
   final PlayerRole role;
@@ -300,9 +299,6 @@ class RoleStateDto with RoleStateDtoMappable {
 
   /// True when this slot is occupied by an AI bot rather than a human.
   final bool bot;
-
-  /// Remaining time before an unready occupied slot is released.
-  final int? readyTimeoutMs;
 }
 
 @MappableClass()
@@ -310,10 +306,117 @@ class LobbyDto with LobbyDtoMappable {
   const LobbyDto({
     required this.roles,
     required this.spectators,
+    this.users = const [],
   });
 
   final List<RoleStateDto> roles;
   final int spectators;
+  final List<ConnectedUserDto> users;
+}
+
+@MappableClass()
+class ConnectedUserDto with ConnectedUserDtoMappable {
+  const ConnectedUserDto({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.bot,
+  });
+
+  final String id;
+  final String name;
+  final PlayerRole role;
+  final bool bot;
+}
+
+@MappableClass()
+class MatchPlayerDto with MatchPlayerDtoMappable {
+  const MatchPlayerDto({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.roundWins,
+    required this.pickLocked,
+    required this.rematch,
+  });
+
+  final String id;
+  final String name;
+  final PlayerRole role;
+  final int roundWins;
+  final bool pickLocked;
+  final bool rematch;
+}
+
+@MappableClass()
+class RoundResultDto with RoundResultDtoMappable {
+  const RoundResultDto({
+    required this.round,
+    required this.winnerId,
+    required this.winnerName,
+    required this.role,
+    required this.reason,
+  });
+
+  final int round;
+  final String winnerId;
+  final String winnerName;
+  final PlayerRole role;
+  final String reason;
+}
+
+@MappableClass()
+class SessionStateDto with SessionStateDtoMappable {
+  const SessionStateDto({
+    required this.id,
+    required this.name,
+    required this.phase,
+    required this.round,
+    required this.players,
+    required this.streakOwnerId,
+    required this.streakRole,
+    required this.history,
+    required this.matchWinnerId,
+    required this.technical,
+  });
+
+  final String id;
+  final String name;
+  final SessionPhase phase;
+  final int round;
+  final List<MatchPlayerDto> players;
+  final String? streakOwnerId;
+  final PlayerRole? streakRole;
+  final List<RoundResultDto> history;
+  final String? matchWinnerId;
+  final bool technical;
+}
+
+@MappableClass()
+class SessionSummaryDto with SessionSummaryDtoMappable {
+  const SessionSummaryDto({
+    required this.id,
+    required this.name,
+    required this.phase,
+    required this.round,
+    required this.players,
+    required this.spectators,
+  });
+
+  final String id;
+  final String name;
+  final SessionPhase phase;
+  final int round;
+  final List<MatchPlayerDto> players;
+  final int spectators;
+}
+
+@MappableClass()
+class DirectorySnapshotDto with DirectorySnapshotDtoMappable {
+  const DirectorySnapshotDto({required this.type, required this.sessions});
+
+  final String type;
+  final List<SessionSummaryDto> sessions;
 }
 
 @MappableClass()
@@ -462,6 +565,7 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     required this.status,
     this.leaderboard = const [],
     this.yourStats,
+    this.session,
   });
 
   final String type;
@@ -538,4 +642,5 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
 
   /// The viewing user's own stats, if they registered a nickname.
   final UserStatsDto? yourStats;
+  final SessionStateDto? session;
 }

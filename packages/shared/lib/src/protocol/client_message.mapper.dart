@@ -57,14 +57,20 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.addBot;
       case r'removeBot':
         return ClientMessageType.removeBot;
-      case r'restart':
-        return ClientMessageType.restart;
       case r'setBiomes':
         return ClientMessageType.setBiomes;
       case r'setSandbox':
         return ClientMessageType.setSandbox;
       case r'aim':
         return ClientMessageType.aim;
+      case r'createSession':
+        return ClientMessageType.createSession;
+      case r'joinSession':
+        return ClientMessageType.joinSession;
+      case r'leaveSession':
+        return ClientMessageType.leaveSession;
+      case r'rematch':
+        return ClientMessageType.rematch;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -103,14 +109,20 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'addBot';
       case ClientMessageType.removeBot:
         return r'removeBot';
-      case ClientMessageType.restart:
-        return r'restart';
       case ClientMessageType.setBiomes:
         return r'setBiomes';
       case ClientMessageType.setSandbox:
         return r'setSandbox';
       case ClientMessageType.aim:
         return r'aim';
+      case ClientMessageType.createSession:
+        return r'createSession';
+      case ClientMessageType.joinSession:
+        return r'joinSession';
+      case ClientMessageType.leaveSession:
+        return r'leaveSession';
+      case ClientMessageType.rematch:
+        return r'rematch';
     }
   }
 }
@@ -207,6 +219,18 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     _$targetY,
     opt: true,
   );
+  static String? _$sessionId(ClientMessage v) => v.sessionId;
+  static const Field<ClientMessage, String> _f$sessionId = Field(
+    'sessionId',
+    _$sessionId,
+    opt: true,
+  );
+  static String? _$sessionName(ClientMessage v) => v.sessionName;
+  static const Field<ClientMessage, String> _f$sessionName = Field(
+    'sessionName',
+    _$sessionName,
+    opt: true,
+  );
 
   @override
   final MappableFields<ClientMessage> fields = const {
@@ -221,6 +245,8 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
     #sandbox: _f$sandbox,
     #targetX: _f$targetX,
     #targetY: _f$targetY,
+    #sessionId: _f$sessionId,
+    #sessionName: _f$sessionName,
   };
 
   static ClientMessage _instantiate(DecodingData data) {
@@ -236,6 +262,8 @@ class ClientMessageMapper extends ClassMapperBase<ClientMessage> {
       sandbox: data.dec(_f$sandbox),
       targetX: data.dec(_f$targetX),
       targetY: data.dec(_f$targetY),
+      sessionId: data.dec(_f$sessionId),
+      sessionName: data.dec(_f$sessionName),
     );
   }
 
@@ -315,6 +343,8 @@ abstract class ClientMessageCopyWith<$R, $In extends ClientMessage, $Out>
     bool? sandbox,
     double? targetX,
     double? targetY,
+    String? sessionId,
+    String? sessionName,
   });
   ClientMessageCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -349,6 +379,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     Object? sandbox = $none,
     Object? targetX = $none,
     Object? targetY = $none,
+    Object? sessionId = $none,
+    Object? sessionName = $none,
   }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
@@ -362,6 +394,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
       if (sandbox != $none) #sandbox: sandbox,
       if (targetX != $none) #targetX: targetX,
       if (targetY != $none) #targetY: targetY,
+      if (sessionId != $none) #sessionId: sessionId,
+      if (sessionName != $none) #sessionName: sessionName,
     }),
   );
   @override
@@ -377,6 +411,8 @@ class _ClientMessageCopyWithImpl<$R, $Out>
     sandbox: data.get(#sandbox, or: $value.sandbox),
     targetX: data.get(#targetX, or: $value.targetX),
     targetY: data.get(#targetY, or: $value.targetY),
+    sessionId: data.get(#sessionId, or: $value.sessionId),
+    sessionName: data.get(#sessionName, or: $value.sessionName),
   );
 
   @override

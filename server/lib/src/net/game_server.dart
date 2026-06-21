@@ -6,15 +6,13 @@ import 'package:dart_mappable/dart_mappable.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../domain/game_constants.dart';
-import '../domain/game_models.dart';
-import '../game/game_engine.dart';
-import '../game/maze_service.dart';
+import 'session_manager.dart';
 
 class GameServer {
-  GameServer({required this.port}) : engine = GameEngine(maze: MazeService.generate());
+  GameServer({required this.port});
 
   final int port;
-  final GameEngine engine;
+  final SessionManager sessions = SessionManager();
   HttpServer? _server;
   Timer? _tickTimer;
   late final Directory? _webRoot = _resolveWebRoot();
@@ -40,7 +38,7 @@ class GameServer {
     _tickTimer = Timer.periodic(
       const Duration(milliseconds: GameConstants.tickMs),
       (_) {
-        engine.tick();
+        sessions.tick();
         broadcastState();
       },
     );
@@ -48,7 +46,8 @@ class GameServer {
     await _printAddresses();
 
     await for (final request in _server!) {
-      if (WebSocketTransformer.isUpgradeRequest(request) && request.uri.path == '/ws') {
+      if (WebSocketTransformer.isUpgradeRequest(request) &&
+          request.uri.path == '/ws') {
         await _handleSocket(request);
       } else {
         _handleHttp(request);
@@ -63,33 +62,33 @@ class GameServer {
 
   Future<void> _handleSocket(HttpRequest request) async {
     final socket = await WebSocketTransformer.upgrade(request);
-    final client = engine.createClient(socket);
+    final client = sessions.createPeer(socket);
     socket.listen(
       (data) => _handleMessage(client, data),
       onDone: () {
-        engine.removeClient(client);
+        sessions.removePeer(client);
         broadcastState();
       },
       onError: (_) {
-        engine.removeClient(client);
+        sessions.removePeer(client);
         broadcastState();
       },
     );
     broadcastState();
   }
 
-  void _handleMessage(PlayerConnection client, Object? raw) {
+  void _handleMessage(ClientPeer client, Object? raw) {
     if (raw is! String) return;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) return;
       final ping = decoded['ping'];
       if (ping is int) {
-        client.socket?.add(jsonEncode({'pong': ping}));
+        client.socket.add(jsonEncode({'pong': ping}));
         return;
       }
       final message = MapperContainer.globals.fromMap<ClientMessage>(decoded);
-      engine.applyMessage(client, message);
+      sessions.applyMessage(client, message);
       broadcastState();
     } catch (_) {
       return;
@@ -97,10 +96,14 @@ class GameServer {
   }
 
   void broadcastState() {
-    for (final client in engine.clients.values) {
+    for (final client in sessions.peers.values) {
       final socket = client.socket;
-      if (socket == null || socket.readyState != WebSocket.open) continue;
-      socket.add(jsonEncode(engine.snapshotFor(client).toMap()));
+      if (socket.readyState != WebSocket.open) continue;
+      final session = client.session;
+      final payload = session == null
+          ? sessions.directory().toMap()
+          : session.snapshotFor(client).toMap();
+      socket.add(jsonEncode(payload));
     }
   }
 
@@ -108,7 +111,11 @@ class GameServer {
     if (request.uri.path == '/health') {
       request.response
         ..headers.contentType = ContentType.json
-        ..write(jsonEncode({'ok': true, 'players': engine.clients.length}))
+        ..write(jsonEncode({
+          'ok': true,
+          'players': sessions.peers.length,
+          'sessions': sessions.sessions.length,
+        }))
         ..close();
       return;
     }

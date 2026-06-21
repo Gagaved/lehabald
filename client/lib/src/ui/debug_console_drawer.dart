@@ -1,10 +1,10 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../net/game_network_client.dart';
 import '../net/client_log_event.dart';
+import '../platform/clipboard_service.dart';
 
 class DebugConsoleDrawer extends StatefulWidget {
   const DebugConsoleDrawer({
@@ -120,12 +120,13 @@ class _DebugConsoleDrawerState extends State<DebugConsoleDrawer> {
         ),
       );
 
-  Widget _filterBar() => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
+  Widget _filterBar() => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        child: Row(
+        child: Wrap(
+          spacing: 5,
+          runSpacing: 5,
           children: [
-            for (final category in ClientLogCategory.values) ...[
+            for (final category in ClientLogCategory.values)
               FilterChip(
                 label:
                     Text(category.label, style: const TextStyle(fontSize: 11)),
@@ -139,8 +140,6 @@ class _DebugConsoleDrawerState extends State<DebugConsoleDrawer> {
                 }),
                 visualDensity: VisualDensity.compact,
               ),
-              const SizedBox(width: 5),
-            ],
           ],
         ),
       );
@@ -174,9 +173,7 @@ class _DebugConsoleDrawerState extends State<DebugConsoleDrawer> {
             ),
             IconButton(
               tooltip: 'Скопировать',
-              onPressed: () => Clipboard.setData(
-                ClipboardData(text: widget.network.diagnosticsText),
-              ),
+              onPressed: _copyLogs,
               icon: const Icon(Icons.copy_rounded),
             ),
             IconButton(
@@ -187,4 +184,14 @@ class _DebugConsoleDrawerState extends State<DebugConsoleDrawer> {
           ],
         ),
       );
+
+  Future<void> _copyLogs() async {
+    final copied = await copyText(widget.network.diagnosticsText);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(copied
+          ? 'Логи скопированы'
+          : 'Браузер запретил копирование. Выделите текст вручную.'),
+    ));
+  }
 }

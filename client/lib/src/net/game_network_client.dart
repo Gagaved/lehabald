@@ -101,6 +101,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   GameSnapshotDto? snapshot;
+  DirectorySnapshotDto? directory;
   String status = 'Подключение к серверу...';
   bool get connected => _channel != null;
   int get snapshotVersion => _snapshotCount;
@@ -277,6 +278,25 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
     send(const ClientMessage(type: ClientMessageType.spectate));
   }
 
+  void createSession(String name) {
+    send(ClientMessage(
+      type: ClientMessageType.createSession,
+      sessionName: name,
+    ));
+  }
+
+  void joinSession(String id) {
+    send(ClientMessage(type: ClientMessageType.joinSession, sessionId: id));
+  }
+
+  void leaveSession() {
+    send(const ClientMessage(type: ClientMessageType.leaveSession));
+  }
+
+  void rematch() {
+    send(const ClientMessage(type: ClientMessageType.rematch));
+  }
+
   void placeTrap({double? targetX, double? targetY}) {
     send(ClientMessage(
         type: ClientMessageType.placeTrap, targetX: targetX, targetY: targetY));
@@ -308,10 +328,6 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
         targetY: targetY));
   }
 
-  void restart() {
-    send(const ClientMessage(type: ClientMessageType.restart));
-  }
-
   void setBiomes(List<CaveBiome> biomes) {
     send(ClientMessage(type: ClientMessageType.setBiomes, biomes: biomes));
   }
@@ -340,7 +356,16 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
         }
         return;
       }
+      if (decoded['type'] == 'directory') {
+        directory =
+            MapperContainer.globals.fromMap<DirectorySnapshotDto>(decoded);
+        snapshot = null;
+        status = '';
+        notifyListeners();
+        return;
+      }
       snapshot = MapperContainer.globals.fromMap<GameSnapshotDto>(decoded);
+      directory = null;
       decodeWatch.stop();
       _recordSnapshot(raw.length, receivedMs, decodeWatch.elapsedMicroseconds);
       status = snapshot?.status ?? '';

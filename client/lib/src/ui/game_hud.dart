@@ -218,31 +218,17 @@ class _StatusStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final me =
         snapshot.players.where((p) => p.id == snapshot.you.id).firstOrNull;
-    final score = snapshot.scores
-            .where((value) => value.id == snapshot.you.id)
-            .firstOrNull
-            ?.score ??
-        0;
-    final title = snapshot.you.role == PlayerRole.leha
-        ? switch (me?.aspect) {
-            LehaAspect.spider => 'Лёха-паук',
-            LehaAspect.wizard => 'Лёха-маг',
-            _ => 'Супер-Лёха',
-          }
-        : snapshot.you.role == PlayerRole.hunter
-            ? switch (me?.hunterKind) {
-                HunterKind.sashaYakuza => 'Саша-якудза',
-                HunterKind.sima => 'Сима',
-                _ => 'Бахиркин',
-              }
-            : 'Наблюдатель';
+    final session = snapshot.session;
+    final streakOwner = session?.players
+        .where((player) => player.id == session.streakOwnerId)
+        .firstOrNull;
     final seconds = (snapshot.game.timeLeftMs / 1000).ceil();
     final progress = me?.aspect == LehaAspect.wizard
         ? '${(snapshot.game.wizardSaturation * 100).floor()}%'
         : '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
 
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 760),
+      constraints: const BoxConstraints(maxWidth: 920),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xe60a0e17),
@@ -256,43 +242,107 @@ class _StatusStrip extends StatelessWidget {
         child: Padding(
           padding:
               EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.shield_rounded,
-                  size: 20, color: Color(0xff56d6c9)),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text('$title  •  $score',
+          child: Row(children: [
+            if (session != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xff182238),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text('R${session.round}',
+                    style: const TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            if (session != null) const SizedBox(width: 8),
+            if (session != null)
+              for (var i = 0; i < session.players.length; i++) ...[
+                if (i > 0)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 7),
+                    child:
+                        Text('—', style: TextStyle(color: Color(0xff738099))),
+                  ),
+                Flexible(
+                  child: Text(
+                    '${session.players[i].name}  ${session.players[i].roundWins}',
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-              ),
-              const SizedBox(width: 14),
-              Icon(
-                  me?.aspect == LehaAspect.wizard
-                      ? Icons.auto_awesome_rounded
-                      : Icons.timer_outlined,
-                  size: 18,
-                  color: const Color(0xffaab6c9)),
-              const SizedBox(width: 5),
-              Text(progress,
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(width: 8),
-              _UtilityButton(
-                icon: Icons.restart_alt_rounded,
-                tooltip: 'Рестарт',
-                onPressed: network.restart,
-              ),
-              _UtilityButton(
-                icon: Icons.terminal_rounded,
-                tooltip: 'Консоль',
-                onPressed: onToggleConsole,
-              ),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: session.players[i].role == PlayerRole.leha
+                          ? const Color(0xff57d6c7)
+                          : const Color(0xffff6b62),
+                    ),
+                  ),
+                ),
+              ],
+            if (session?.streakOwnerId != null) ...[
+              SizedBox(width: compact ? 5 : 10),
+              Text(
+                  compact
+                      ? '1/2'
+                      : '${streakOwner?.name ?? ''} · Серия 1/2 · ${session?.streakRole == PlayerRole.leha ? 'Жертва' : 'Охотник'}',
+                  style: const TextStyle(
+                      color: Color(0xffffce69), fontWeight: FontWeight.w800)),
             ],
-          ),
+            if (snapshot.you.role == PlayerRole.spectator) ...[
+              SizedBox(width: compact ? 5 : 10),
+              if (compact)
+                const Icon(Icons.visibility_outlined,
+                    size: 17, color: Color(0xff9aa8bc))
+              else
+                const Text('НАБЛЮДЕНИЕ',
+                    style: TextStyle(
+                        color: Color(0xff9aa8bc),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800)),
+            ],
+            const Spacer(),
+            const Icon(Icons.timer_outlined,
+                size: 18, color: Color(0xffaab6c9)),
+            const SizedBox(width: 5),
+            Text(progress, style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(width: 4),
+            _UtilityButton(
+              icon: Icons.terminal_rounded,
+              tooltip: 'Консоль',
+              onPressed: onToggleConsole,
+            ),
+            _UtilityButton(
+              icon: Icons.exit_to_app_rounded,
+              tooltip:
+                  snapshot.sandboxMode ? 'Выйти из песочницы' : 'Покинуть матч',
+              onPressed: () => _leaveGame(context),
+            ),
+          ]),
         ),
       ),
     );
+  }
+
+  Future<void> _leaveGame(BuildContext context) async {
+    if (snapshot.sandboxMode || snapshot.you.role == PlayerRole.spectator) {
+      network.leaveSession();
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Покинуть матч?'),
+        content: const Text(
+            'Выход из активного матча будет засчитан как техническое поражение.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Остаться'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) network.leaveSession();
   }
 }
 

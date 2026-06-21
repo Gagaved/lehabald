@@ -2373,12 +2373,6 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
     opt: true,
     def: false,
   );
-  static int? _$readyTimeoutMs(RoleStateDto v) => v.readyTimeoutMs;
-  static const Field<RoleStateDto, int> _f$readyTimeoutMs = Field(
-    'readyTimeoutMs',
-    _$readyTimeoutMs,
-    opt: true,
-  );
 
   @override
   final MappableFields<RoleStateDto> fields = const {
@@ -2390,7 +2384,6 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
     #aspect: _f$aspect,
     #hunterKind: _f$hunterKind,
     #bot: _f$bot,
-    #readyTimeoutMs: _f$readyTimeoutMs,
   };
 
   static RoleStateDto _instantiate(DecodingData data) {
@@ -2403,7 +2396,6 @@ class RoleStateDtoMapper extends ClassMapperBase<RoleStateDto> {
       aspect: data.dec(_f$aspect),
       hunterKind: data.dec(_f$hunterKind),
       bot: data.dec(_f$bot),
-      readyTimeoutMs: data.dec(_f$readyTimeoutMs),
     );
   }
 
@@ -2478,7 +2470,6 @@ abstract class RoleStateDtoCopyWith<$R, $In extends RoleStateDto, $Out>
     LehaAspect? aspect,
     HunterKind? hunterKind,
     bool? bot,
-    int? readyTimeoutMs,
   });
   RoleStateDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -2501,7 +2492,6 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
     Object? aspect = $none,
     Object? hunterKind = $none,
     bool? bot,
-    Object? readyTimeoutMs = $none,
   }) => $apply(
     FieldCopyWithData({
       if (role != null) #role: role,
@@ -2512,7 +2502,6 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
       if (aspect != $none) #aspect: aspect,
       if (hunterKind != $none) #hunterKind: hunterKind,
       if (bot != null) #bot: bot,
-      if (readyTimeoutMs != $none) #readyTimeoutMs: readyTimeoutMs,
     }),
   );
   @override
@@ -2525,7 +2514,6 @@ class _RoleStateDtoCopyWithImpl<$R, $Out>
     aspect: data.get(#aspect, or: $value.aspect),
     hunterKind: data.get(#hunterKind, or: $value.hunterKind),
     bot: data.get(#bot, or: $value.bot),
-    readyTimeoutMs: data.get(#readyTimeoutMs, or: $value.readyTimeoutMs),
   );
 
   @override
@@ -2542,6 +2530,7 @@ class LobbyDtoMapper extends ClassMapperBase<LobbyDto> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = LobbyDtoMapper._());
       RoleStateDtoMapper.ensureInitialized();
+      ConnectedUserDtoMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -2559,17 +2548,26 @@ class LobbyDtoMapper extends ClassMapperBase<LobbyDto> {
     'spectators',
     _$spectators,
   );
+  static List<ConnectedUserDto> _$users(LobbyDto v) => v.users;
+  static const Field<LobbyDto, List<ConnectedUserDto>> _f$users = Field(
+    'users',
+    _$users,
+    opt: true,
+    def: const [],
+  );
 
   @override
   final MappableFields<LobbyDto> fields = const {
     #roles: _f$roles,
     #spectators: _f$spectators,
+    #users: _f$users,
   };
 
   static LobbyDto _instantiate(DecodingData data) {
     return LobbyDto(
       roles: data.dec(_f$roles),
       spectators: data.dec(_f$spectators),
+      users: data.dec(_f$users),
     );
   }
 
@@ -2636,7 +2634,17 @@ abstract class LobbyDtoCopyWith<$R, $In extends LobbyDto, $Out>
     RoleStateDtoCopyWith<$R, RoleStateDto, RoleStateDto>
   >
   get roles;
-  $R call({List<RoleStateDto>? roles, int? spectators});
+  ListCopyWith<
+    $R,
+    ConnectedUserDto,
+    ConnectedUserDtoCopyWith<$R, ConnectedUserDto, ConnectedUserDto>
+  >
+  get users;
+  $R call({
+    List<RoleStateDto>? roles,
+    int? spectators,
+    List<ConnectedUserDto>? users,
+  });
   LobbyDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -2660,22 +2668,1144 @@ class _LobbyDtoCopyWithImpl<$R, $Out>
     (v) => call(roles: v),
   );
   @override
-  $R call({List<RoleStateDto>? roles, int? spectators}) => $apply(
+  ListCopyWith<
+    $R,
+    ConnectedUserDto,
+    ConnectedUserDtoCopyWith<$R, ConnectedUserDto, ConnectedUserDto>
+  >
+  get users => ListCopyWith(
+    $value.users,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(users: v),
+  );
+  @override
+  $R call({
+    List<RoleStateDto>? roles,
+    int? spectators,
+    List<ConnectedUserDto>? users,
+  }) => $apply(
     FieldCopyWithData({
       if (roles != null) #roles: roles,
       if (spectators != null) #spectators: spectators,
+      if (users != null) #users: users,
     }),
   );
   @override
   LobbyDto $make(CopyWithData data) => LobbyDto(
     roles: data.get(#roles, or: $value.roles),
     spectators: data.get(#spectators, or: $value.spectators),
+    users: data.get(#users, or: $value.users),
   );
 
   @override
   LobbyDtoCopyWith<$R2, LobbyDto, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
   ) => _LobbyDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class ConnectedUserDtoMapper extends ClassMapperBase<ConnectedUserDto> {
+  ConnectedUserDtoMapper._();
+
+  static ConnectedUserDtoMapper? _instance;
+  static ConnectedUserDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ConnectedUserDtoMapper._());
+      PlayerRoleMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'ConnectedUserDto';
+
+  static String _$id(ConnectedUserDto v) => v.id;
+  static const Field<ConnectedUserDto, String> _f$id = Field('id', _$id);
+  static String _$name(ConnectedUserDto v) => v.name;
+  static const Field<ConnectedUserDto, String> _f$name = Field('name', _$name);
+  static PlayerRole _$role(ConnectedUserDto v) => v.role;
+  static const Field<ConnectedUserDto, PlayerRole> _f$role = Field(
+    'role',
+    _$role,
+  );
+  static bool _$bot(ConnectedUserDto v) => v.bot;
+  static const Field<ConnectedUserDto, bool> _f$bot = Field('bot', _$bot);
+
+  @override
+  final MappableFields<ConnectedUserDto> fields = const {
+    #id: _f$id,
+    #name: _f$name,
+    #role: _f$role,
+    #bot: _f$bot,
+  };
+
+  static ConnectedUserDto _instantiate(DecodingData data) {
+    return ConnectedUserDto(
+      id: data.dec(_f$id),
+      name: data.dec(_f$name),
+      role: data.dec(_f$role),
+      bot: data.dec(_f$bot),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static ConnectedUserDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<ConnectedUserDto>(map);
+  }
+
+  static ConnectedUserDto fromJson(String json) {
+    return ensureInitialized().decodeJson<ConnectedUserDto>(json);
+  }
+}
+
+mixin ConnectedUserDtoMappable {
+  String toJson() {
+    return ConnectedUserDtoMapper.ensureInitialized()
+        .encodeJson<ConnectedUserDto>(this as ConnectedUserDto);
+  }
+
+  Map<String, dynamic> toMap() {
+    return ConnectedUserDtoMapper.ensureInitialized()
+        .encodeMap<ConnectedUserDto>(this as ConnectedUserDto);
+  }
+
+  ConnectedUserDtoCopyWith<ConnectedUserDto, ConnectedUserDto, ConnectedUserDto>
+  get copyWith =>
+      _ConnectedUserDtoCopyWithImpl<ConnectedUserDto, ConnectedUserDto>(
+        this as ConnectedUserDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return ConnectedUserDtoMapper.ensureInitialized().stringifyValue(
+      this as ConnectedUserDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return ConnectedUserDtoMapper.ensureInitialized().equalsValue(
+      this as ConnectedUserDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return ConnectedUserDtoMapper.ensureInitialized().hashValue(
+      this as ConnectedUserDto,
+    );
+  }
+}
+
+extension ConnectedUserDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, ConnectedUserDto, $Out> {
+  ConnectedUserDtoCopyWith<$R, ConnectedUserDto, $Out>
+  get $asConnectedUserDto =>
+      $base.as((v, t, t2) => _ConnectedUserDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class ConnectedUserDtoCopyWith<$R, $In extends ConnectedUserDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({String? id, String? name, PlayerRole? role, bool? bot});
+  ConnectedUserDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _ConnectedUserDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, ConnectedUserDto, $Out>
+    implements ConnectedUserDtoCopyWith<$R, ConnectedUserDto, $Out> {
+  _ConnectedUserDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<ConnectedUserDto> $mapper =
+      ConnectedUserDtoMapper.ensureInitialized();
+  @override
+  $R call({String? id, String? name, PlayerRole? role, bool? bot}) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (name != null) #name: name,
+      if (role != null) #role: role,
+      if (bot != null) #bot: bot,
+    }),
+  );
+  @override
+  ConnectedUserDto $make(CopyWithData data) => ConnectedUserDto(
+    id: data.get(#id, or: $value.id),
+    name: data.get(#name, or: $value.name),
+    role: data.get(#role, or: $value.role),
+    bot: data.get(#bot, or: $value.bot),
+  );
+
+  @override
+  ConnectedUserDtoCopyWith<$R2, ConnectedUserDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _ConnectedUserDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class MatchPlayerDtoMapper extends ClassMapperBase<MatchPlayerDto> {
+  MatchPlayerDtoMapper._();
+
+  static MatchPlayerDtoMapper? _instance;
+  static MatchPlayerDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = MatchPlayerDtoMapper._());
+      PlayerRoleMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'MatchPlayerDto';
+
+  static String _$id(MatchPlayerDto v) => v.id;
+  static const Field<MatchPlayerDto, String> _f$id = Field('id', _$id);
+  static String _$name(MatchPlayerDto v) => v.name;
+  static const Field<MatchPlayerDto, String> _f$name = Field('name', _$name);
+  static PlayerRole _$role(MatchPlayerDto v) => v.role;
+  static const Field<MatchPlayerDto, PlayerRole> _f$role = Field(
+    'role',
+    _$role,
+  );
+  static int _$roundWins(MatchPlayerDto v) => v.roundWins;
+  static const Field<MatchPlayerDto, int> _f$roundWins = Field(
+    'roundWins',
+    _$roundWins,
+  );
+  static bool _$pickLocked(MatchPlayerDto v) => v.pickLocked;
+  static const Field<MatchPlayerDto, bool> _f$pickLocked = Field(
+    'pickLocked',
+    _$pickLocked,
+  );
+  static bool _$rematch(MatchPlayerDto v) => v.rematch;
+  static const Field<MatchPlayerDto, bool> _f$rematch = Field(
+    'rematch',
+    _$rematch,
+  );
+
+  @override
+  final MappableFields<MatchPlayerDto> fields = const {
+    #id: _f$id,
+    #name: _f$name,
+    #role: _f$role,
+    #roundWins: _f$roundWins,
+    #pickLocked: _f$pickLocked,
+    #rematch: _f$rematch,
+  };
+
+  static MatchPlayerDto _instantiate(DecodingData data) {
+    return MatchPlayerDto(
+      id: data.dec(_f$id),
+      name: data.dec(_f$name),
+      role: data.dec(_f$role),
+      roundWins: data.dec(_f$roundWins),
+      pickLocked: data.dec(_f$pickLocked),
+      rematch: data.dec(_f$rematch),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static MatchPlayerDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<MatchPlayerDto>(map);
+  }
+
+  static MatchPlayerDto fromJson(String json) {
+    return ensureInitialized().decodeJson<MatchPlayerDto>(json);
+  }
+}
+
+mixin MatchPlayerDtoMappable {
+  String toJson() {
+    return MatchPlayerDtoMapper.ensureInitialized().encodeJson<MatchPlayerDto>(
+      this as MatchPlayerDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return MatchPlayerDtoMapper.ensureInitialized().encodeMap<MatchPlayerDto>(
+      this as MatchPlayerDto,
+    );
+  }
+
+  MatchPlayerDtoCopyWith<MatchPlayerDto, MatchPlayerDto, MatchPlayerDto>
+  get copyWith => _MatchPlayerDtoCopyWithImpl<MatchPlayerDto, MatchPlayerDto>(
+    this as MatchPlayerDto,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return MatchPlayerDtoMapper.ensureInitialized().stringifyValue(
+      this as MatchPlayerDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return MatchPlayerDtoMapper.ensureInitialized().equalsValue(
+      this as MatchPlayerDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return MatchPlayerDtoMapper.ensureInitialized().hashValue(
+      this as MatchPlayerDto,
+    );
+  }
+}
+
+extension MatchPlayerDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, MatchPlayerDto, $Out> {
+  MatchPlayerDtoCopyWith<$R, MatchPlayerDto, $Out> get $asMatchPlayerDto =>
+      $base.as((v, t, t2) => _MatchPlayerDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class MatchPlayerDtoCopyWith<$R, $In extends MatchPlayerDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({
+    String? id,
+    String? name,
+    PlayerRole? role,
+    int? roundWins,
+    bool? pickLocked,
+    bool? rematch,
+  });
+  MatchPlayerDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _MatchPlayerDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, MatchPlayerDto, $Out>
+    implements MatchPlayerDtoCopyWith<$R, MatchPlayerDto, $Out> {
+  _MatchPlayerDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<MatchPlayerDto> $mapper =
+      MatchPlayerDtoMapper.ensureInitialized();
+  @override
+  $R call({
+    String? id,
+    String? name,
+    PlayerRole? role,
+    int? roundWins,
+    bool? pickLocked,
+    bool? rematch,
+  }) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (name != null) #name: name,
+      if (role != null) #role: role,
+      if (roundWins != null) #roundWins: roundWins,
+      if (pickLocked != null) #pickLocked: pickLocked,
+      if (rematch != null) #rematch: rematch,
+    }),
+  );
+  @override
+  MatchPlayerDto $make(CopyWithData data) => MatchPlayerDto(
+    id: data.get(#id, or: $value.id),
+    name: data.get(#name, or: $value.name),
+    role: data.get(#role, or: $value.role),
+    roundWins: data.get(#roundWins, or: $value.roundWins),
+    pickLocked: data.get(#pickLocked, or: $value.pickLocked),
+    rematch: data.get(#rematch, or: $value.rematch),
+  );
+
+  @override
+  MatchPlayerDtoCopyWith<$R2, MatchPlayerDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _MatchPlayerDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class RoundResultDtoMapper extends ClassMapperBase<RoundResultDto> {
+  RoundResultDtoMapper._();
+
+  static RoundResultDtoMapper? _instance;
+  static RoundResultDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = RoundResultDtoMapper._());
+      PlayerRoleMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'RoundResultDto';
+
+  static int _$round(RoundResultDto v) => v.round;
+  static const Field<RoundResultDto, int> _f$round = Field('round', _$round);
+  static String _$winnerId(RoundResultDto v) => v.winnerId;
+  static const Field<RoundResultDto, String> _f$winnerId = Field(
+    'winnerId',
+    _$winnerId,
+  );
+  static String _$winnerName(RoundResultDto v) => v.winnerName;
+  static const Field<RoundResultDto, String> _f$winnerName = Field(
+    'winnerName',
+    _$winnerName,
+  );
+  static PlayerRole _$role(RoundResultDto v) => v.role;
+  static const Field<RoundResultDto, PlayerRole> _f$role = Field(
+    'role',
+    _$role,
+  );
+  static String _$reason(RoundResultDto v) => v.reason;
+  static const Field<RoundResultDto, String> _f$reason = Field(
+    'reason',
+    _$reason,
+  );
+
+  @override
+  final MappableFields<RoundResultDto> fields = const {
+    #round: _f$round,
+    #winnerId: _f$winnerId,
+    #winnerName: _f$winnerName,
+    #role: _f$role,
+    #reason: _f$reason,
+  };
+
+  static RoundResultDto _instantiate(DecodingData data) {
+    return RoundResultDto(
+      round: data.dec(_f$round),
+      winnerId: data.dec(_f$winnerId),
+      winnerName: data.dec(_f$winnerName),
+      role: data.dec(_f$role),
+      reason: data.dec(_f$reason),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static RoundResultDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<RoundResultDto>(map);
+  }
+
+  static RoundResultDto fromJson(String json) {
+    return ensureInitialized().decodeJson<RoundResultDto>(json);
+  }
+}
+
+mixin RoundResultDtoMappable {
+  String toJson() {
+    return RoundResultDtoMapper.ensureInitialized().encodeJson<RoundResultDto>(
+      this as RoundResultDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return RoundResultDtoMapper.ensureInitialized().encodeMap<RoundResultDto>(
+      this as RoundResultDto,
+    );
+  }
+
+  RoundResultDtoCopyWith<RoundResultDto, RoundResultDto, RoundResultDto>
+  get copyWith => _RoundResultDtoCopyWithImpl<RoundResultDto, RoundResultDto>(
+    this as RoundResultDto,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return RoundResultDtoMapper.ensureInitialized().stringifyValue(
+      this as RoundResultDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return RoundResultDtoMapper.ensureInitialized().equalsValue(
+      this as RoundResultDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return RoundResultDtoMapper.ensureInitialized().hashValue(
+      this as RoundResultDto,
+    );
+  }
+}
+
+extension RoundResultDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, RoundResultDto, $Out> {
+  RoundResultDtoCopyWith<$R, RoundResultDto, $Out> get $asRoundResultDto =>
+      $base.as((v, t, t2) => _RoundResultDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class RoundResultDtoCopyWith<$R, $In extends RoundResultDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({
+    int? round,
+    String? winnerId,
+    String? winnerName,
+    PlayerRole? role,
+    String? reason,
+  });
+  RoundResultDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _RoundResultDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, RoundResultDto, $Out>
+    implements RoundResultDtoCopyWith<$R, RoundResultDto, $Out> {
+  _RoundResultDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<RoundResultDto> $mapper =
+      RoundResultDtoMapper.ensureInitialized();
+  @override
+  $R call({
+    int? round,
+    String? winnerId,
+    String? winnerName,
+    PlayerRole? role,
+    String? reason,
+  }) => $apply(
+    FieldCopyWithData({
+      if (round != null) #round: round,
+      if (winnerId != null) #winnerId: winnerId,
+      if (winnerName != null) #winnerName: winnerName,
+      if (role != null) #role: role,
+      if (reason != null) #reason: reason,
+    }),
+  );
+  @override
+  RoundResultDto $make(CopyWithData data) => RoundResultDto(
+    round: data.get(#round, or: $value.round),
+    winnerId: data.get(#winnerId, or: $value.winnerId),
+    winnerName: data.get(#winnerName, or: $value.winnerName),
+    role: data.get(#role, or: $value.role),
+    reason: data.get(#reason, or: $value.reason),
+  );
+
+  @override
+  RoundResultDtoCopyWith<$R2, RoundResultDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _RoundResultDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class SessionStateDtoMapper extends ClassMapperBase<SessionStateDto> {
+  SessionStateDtoMapper._();
+
+  static SessionStateDtoMapper? _instance;
+  static SessionStateDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SessionStateDtoMapper._());
+      SessionPhaseMapper.ensureInitialized();
+      MatchPlayerDtoMapper.ensureInitialized();
+      PlayerRoleMapper.ensureInitialized();
+      RoundResultDtoMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'SessionStateDto';
+
+  static String _$id(SessionStateDto v) => v.id;
+  static const Field<SessionStateDto, String> _f$id = Field('id', _$id);
+  static String _$name(SessionStateDto v) => v.name;
+  static const Field<SessionStateDto, String> _f$name = Field('name', _$name);
+  static SessionPhase _$phase(SessionStateDto v) => v.phase;
+  static const Field<SessionStateDto, SessionPhase> _f$phase = Field(
+    'phase',
+    _$phase,
+  );
+  static int _$round(SessionStateDto v) => v.round;
+  static const Field<SessionStateDto, int> _f$round = Field('round', _$round);
+  static List<MatchPlayerDto> _$players(SessionStateDto v) => v.players;
+  static const Field<SessionStateDto, List<MatchPlayerDto>> _f$players = Field(
+    'players',
+    _$players,
+  );
+  static String? _$streakOwnerId(SessionStateDto v) => v.streakOwnerId;
+  static const Field<SessionStateDto, String> _f$streakOwnerId = Field(
+    'streakOwnerId',
+    _$streakOwnerId,
+  );
+  static PlayerRole? _$streakRole(SessionStateDto v) => v.streakRole;
+  static const Field<SessionStateDto, PlayerRole> _f$streakRole = Field(
+    'streakRole',
+    _$streakRole,
+  );
+  static List<RoundResultDto> _$history(SessionStateDto v) => v.history;
+  static const Field<SessionStateDto, List<RoundResultDto>> _f$history = Field(
+    'history',
+    _$history,
+  );
+  static String? _$matchWinnerId(SessionStateDto v) => v.matchWinnerId;
+  static const Field<SessionStateDto, String> _f$matchWinnerId = Field(
+    'matchWinnerId',
+    _$matchWinnerId,
+  );
+  static bool _$technical(SessionStateDto v) => v.technical;
+  static const Field<SessionStateDto, bool> _f$technical = Field(
+    'technical',
+    _$technical,
+  );
+
+  @override
+  final MappableFields<SessionStateDto> fields = const {
+    #id: _f$id,
+    #name: _f$name,
+    #phase: _f$phase,
+    #round: _f$round,
+    #players: _f$players,
+    #streakOwnerId: _f$streakOwnerId,
+    #streakRole: _f$streakRole,
+    #history: _f$history,
+    #matchWinnerId: _f$matchWinnerId,
+    #technical: _f$technical,
+  };
+
+  static SessionStateDto _instantiate(DecodingData data) {
+    return SessionStateDto(
+      id: data.dec(_f$id),
+      name: data.dec(_f$name),
+      phase: data.dec(_f$phase),
+      round: data.dec(_f$round),
+      players: data.dec(_f$players),
+      streakOwnerId: data.dec(_f$streakOwnerId),
+      streakRole: data.dec(_f$streakRole),
+      history: data.dec(_f$history),
+      matchWinnerId: data.dec(_f$matchWinnerId),
+      technical: data.dec(_f$technical),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static SessionStateDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<SessionStateDto>(map);
+  }
+
+  static SessionStateDto fromJson(String json) {
+    return ensureInitialized().decodeJson<SessionStateDto>(json);
+  }
+}
+
+mixin SessionStateDtoMappable {
+  String toJson() {
+    return SessionStateDtoMapper.ensureInitialized()
+        .encodeJson<SessionStateDto>(this as SessionStateDto);
+  }
+
+  Map<String, dynamic> toMap() {
+    return SessionStateDtoMapper.ensureInitialized().encodeMap<SessionStateDto>(
+      this as SessionStateDto,
+    );
+  }
+
+  SessionStateDtoCopyWith<SessionStateDto, SessionStateDto, SessionStateDto>
+  get copyWith =>
+      _SessionStateDtoCopyWithImpl<SessionStateDto, SessionStateDto>(
+        this as SessionStateDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return SessionStateDtoMapper.ensureInitialized().stringifyValue(
+      this as SessionStateDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return SessionStateDtoMapper.ensureInitialized().equalsValue(
+      this as SessionStateDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return SessionStateDtoMapper.ensureInitialized().hashValue(
+      this as SessionStateDto,
+    );
+  }
+}
+
+extension SessionStateDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, SessionStateDto, $Out> {
+  SessionStateDtoCopyWith<$R, SessionStateDto, $Out> get $asSessionStateDto =>
+      $base.as((v, t, t2) => _SessionStateDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class SessionStateDtoCopyWith<$R, $In extends SessionStateDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<
+    $R,
+    MatchPlayerDto,
+    MatchPlayerDtoCopyWith<$R, MatchPlayerDto, MatchPlayerDto>
+  >
+  get players;
+  ListCopyWith<
+    $R,
+    RoundResultDto,
+    RoundResultDtoCopyWith<$R, RoundResultDto, RoundResultDto>
+  >
+  get history;
+  $R call({
+    String? id,
+    String? name,
+    SessionPhase? phase,
+    int? round,
+    List<MatchPlayerDto>? players,
+    String? streakOwnerId,
+    PlayerRole? streakRole,
+    List<RoundResultDto>? history,
+    String? matchWinnerId,
+    bool? technical,
+  });
+  SessionStateDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _SessionStateDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, SessionStateDto, $Out>
+    implements SessionStateDtoCopyWith<$R, SessionStateDto, $Out> {
+  _SessionStateDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<SessionStateDto> $mapper =
+      SessionStateDtoMapper.ensureInitialized();
+  @override
+  ListCopyWith<
+    $R,
+    MatchPlayerDto,
+    MatchPlayerDtoCopyWith<$R, MatchPlayerDto, MatchPlayerDto>
+  >
+  get players => ListCopyWith(
+    $value.players,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(players: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    RoundResultDto,
+    RoundResultDtoCopyWith<$R, RoundResultDto, RoundResultDto>
+  >
+  get history => ListCopyWith(
+    $value.history,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(history: v),
+  );
+  @override
+  $R call({
+    String? id,
+    String? name,
+    SessionPhase? phase,
+    int? round,
+    List<MatchPlayerDto>? players,
+    Object? streakOwnerId = $none,
+    Object? streakRole = $none,
+    List<RoundResultDto>? history,
+    Object? matchWinnerId = $none,
+    bool? technical,
+  }) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (name != null) #name: name,
+      if (phase != null) #phase: phase,
+      if (round != null) #round: round,
+      if (players != null) #players: players,
+      if (streakOwnerId != $none) #streakOwnerId: streakOwnerId,
+      if (streakRole != $none) #streakRole: streakRole,
+      if (history != null) #history: history,
+      if (matchWinnerId != $none) #matchWinnerId: matchWinnerId,
+      if (technical != null) #technical: technical,
+    }),
+  );
+  @override
+  SessionStateDto $make(CopyWithData data) => SessionStateDto(
+    id: data.get(#id, or: $value.id),
+    name: data.get(#name, or: $value.name),
+    phase: data.get(#phase, or: $value.phase),
+    round: data.get(#round, or: $value.round),
+    players: data.get(#players, or: $value.players),
+    streakOwnerId: data.get(#streakOwnerId, or: $value.streakOwnerId),
+    streakRole: data.get(#streakRole, or: $value.streakRole),
+    history: data.get(#history, or: $value.history),
+    matchWinnerId: data.get(#matchWinnerId, or: $value.matchWinnerId),
+    technical: data.get(#technical, or: $value.technical),
+  );
+
+  @override
+  SessionStateDtoCopyWith<$R2, SessionStateDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _SessionStateDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class SessionSummaryDtoMapper extends ClassMapperBase<SessionSummaryDto> {
+  SessionSummaryDtoMapper._();
+
+  static SessionSummaryDtoMapper? _instance;
+  static SessionSummaryDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SessionSummaryDtoMapper._());
+      SessionPhaseMapper.ensureInitialized();
+      MatchPlayerDtoMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'SessionSummaryDto';
+
+  static String _$id(SessionSummaryDto v) => v.id;
+  static const Field<SessionSummaryDto, String> _f$id = Field('id', _$id);
+  static String _$name(SessionSummaryDto v) => v.name;
+  static const Field<SessionSummaryDto, String> _f$name = Field('name', _$name);
+  static SessionPhase _$phase(SessionSummaryDto v) => v.phase;
+  static const Field<SessionSummaryDto, SessionPhase> _f$phase = Field(
+    'phase',
+    _$phase,
+  );
+  static int _$round(SessionSummaryDto v) => v.round;
+  static const Field<SessionSummaryDto, int> _f$round = Field('round', _$round);
+  static List<MatchPlayerDto> _$players(SessionSummaryDto v) => v.players;
+  static const Field<SessionSummaryDto, List<MatchPlayerDto>> _f$players =
+      Field('players', _$players);
+  static int _$spectators(SessionSummaryDto v) => v.spectators;
+  static const Field<SessionSummaryDto, int> _f$spectators = Field(
+    'spectators',
+    _$spectators,
+  );
+
+  @override
+  final MappableFields<SessionSummaryDto> fields = const {
+    #id: _f$id,
+    #name: _f$name,
+    #phase: _f$phase,
+    #round: _f$round,
+    #players: _f$players,
+    #spectators: _f$spectators,
+  };
+
+  static SessionSummaryDto _instantiate(DecodingData data) {
+    return SessionSummaryDto(
+      id: data.dec(_f$id),
+      name: data.dec(_f$name),
+      phase: data.dec(_f$phase),
+      round: data.dec(_f$round),
+      players: data.dec(_f$players),
+      spectators: data.dec(_f$spectators),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static SessionSummaryDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<SessionSummaryDto>(map);
+  }
+
+  static SessionSummaryDto fromJson(String json) {
+    return ensureInitialized().decodeJson<SessionSummaryDto>(json);
+  }
+}
+
+mixin SessionSummaryDtoMappable {
+  String toJson() {
+    return SessionSummaryDtoMapper.ensureInitialized()
+        .encodeJson<SessionSummaryDto>(this as SessionSummaryDto);
+  }
+
+  Map<String, dynamic> toMap() {
+    return SessionSummaryDtoMapper.ensureInitialized()
+        .encodeMap<SessionSummaryDto>(this as SessionSummaryDto);
+  }
+
+  SessionSummaryDtoCopyWith<
+    SessionSummaryDto,
+    SessionSummaryDto,
+    SessionSummaryDto
+  >
+  get copyWith =>
+      _SessionSummaryDtoCopyWithImpl<SessionSummaryDto, SessionSummaryDto>(
+        this as SessionSummaryDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return SessionSummaryDtoMapper.ensureInitialized().stringifyValue(
+      this as SessionSummaryDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return SessionSummaryDtoMapper.ensureInitialized().equalsValue(
+      this as SessionSummaryDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return SessionSummaryDtoMapper.ensureInitialized().hashValue(
+      this as SessionSummaryDto,
+    );
+  }
+}
+
+extension SessionSummaryDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, SessionSummaryDto, $Out> {
+  SessionSummaryDtoCopyWith<$R, SessionSummaryDto, $Out>
+  get $asSessionSummaryDto => $base.as(
+    (v, t, t2) => _SessionSummaryDtoCopyWithImpl<$R, $Out>(v, t, t2),
+  );
+}
+
+abstract class SessionSummaryDtoCopyWith<
+  $R,
+  $In extends SessionSummaryDto,
+  $Out
+>
+    implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<
+    $R,
+    MatchPlayerDto,
+    MatchPlayerDtoCopyWith<$R, MatchPlayerDto, MatchPlayerDto>
+  >
+  get players;
+  $R call({
+    String? id,
+    String? name,
+    SessionPhase? phase,
+    int? round,
+    List<MatchPlayerDto>? players,
+    int? spectators,
+  });
+  SessionSummaryDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _SessionSummaryDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, SessionSummaryDto, $Out>
+    implements SessionSummaryDtoCopyWith<$R, SessionSummaryDto, $Out> {
+  _SessionSummaryDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<SessionSummaryDto> $mapper =
+      SessionSummaryDtoMapper.ensureInitialized();
+  @override
+  ListCopyWith<
+    $R,
+    MatchPlayerDto,
+    MatchPlayerDtoCopyWith<$R, MatchPlayerDto, MatchPlayerDto>
+  >
+  get players => ListCopyWith(
+    $value.players,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(players: v),
+  );
+  @override
+  $R call({
+    String? id,
+    String? name,
+    SessionPhase? phase,
+    int? round,
+    List<MatchPlayerDto>? players,
+    int? spectators,
+  }) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (name != null) #name: name,
+      if (phase != null) #phase: phase,
+      if (round != null) #round: round,
+      if (players != null) #players: players,
+      if (spectators != null) #spectators: spectators,
+    }),
+  );
+  @override
+  SessionSummaryDto $make(CopyWithData data) => SessionSummaryDto(
+    id: data.get(#id, or: $value.id),
+    name: data.get(#name, or: $value.name),
+    phase: data.get(#phase, or: $value.phase),
+    round: data.get(#round, or: $value.round),
+    players: data.get(#players, or: $value.players),
+    spectators: data.get(#spectators, or: $value.spectators),
+  );
+
+  @override
+  SessionSummaryDtoCopyWith<$R2, SessionSummaryDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _SessionSummaryDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class DirectorySnapshotDtoMapper extends ClassMapperBase<DirectorySnapshotDto> {
+  DirectorySnapshotDtoMapper._();
+
+  static DirectorySnapshotDtoMapper? _instance;
+  static DirectorySnapshotDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = DirectorySnapshotDtoMapper._());
+      SessionSummaryDtoMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'DirectorySnapshotDto';
+
+  static String _$type(DirectorySnapshotDto v) => v.type;
+  static const Field<DirectorySnapshotDto, String> _f$type = Field(
+    'type',
+    _$type,
+  );
+  static List<SessionSummaryDto> _$sessions(DirectorySnapshotDto v) =>
+      v.sessions;
+  static const Field<DirectorySnapshotDto, List<SessionSummaryDto>>
+  _f$sessions = Field('sessions', _$sessions);
+
+  @override
+  final MappableFields<DirectorySnapshotDto> fields = const {
+    #type: _f$type,
+    #sessions: _f$sessions,
+  };
+
+  static DirectorySnapshotDto _instantiate(DecodingData data) {
+    return DirectorySnapshotDto(
+      type: data.dec(_f$type),
+      sessions: data.dec(_f$sessions),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static DirectorySnapshotDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<DirectorySnapshotDto>(map);
+  }
+
+  static DirectorySnapshotDto fromJson(String json) {
+    return ensureInitialized().decodeJson<DirectorySnapshotDto>(json);
+  }
+}
+
+mixin DirectorySnapshotDtoMappable {
+  String toJson() {
+    return DirectorySnapshotDtoMapper.ensureInitialized()
+        .encodeJson<DirectorySnapshotDto>(this as DirectorySnapshotDto);
+  }
+
+  Map<String, dynamic> toMap() {
+    return DirectorySnapshotDtoMapper.ensureInitialized()
+        .encodeMap<DirectorySnapshotDto>(this as DirectorySnapshotDto);
+  }
+
+  DirectorySnapshotDtoCopyWith<
+    DirectorySnapshotDto,
+    DirectorySnapshotDto,
+    DirectorySnapshotDto
+  >
+  get copyWith =>
+      _DirectorySnapshotDtoCopyWithImpl<
+        DirectorySnapshotDto,
+        DirectorySnapshotDto
+      >(this as DirectorySnapshotDto, $identity, $identity);
+  @override
+  String toString() {
+    return DirectorySnapshotDtoMapper.ensureInitialized().stringifyValue(
+      this as DirectorySnapshotDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return DirectorySnapshotDtoMapper.ensureInitialized().equalsValue(
+      this as DirectorySnapshotDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return DirectorySnapshotDtoMapper.ensureInitialized().hashValue(
+      this as DirectorySnapshotDto,
+    );
+  }
+}
+
+extension DirectorySnapshotDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, DirectorySnapshotDto, $Out> {
+  DirectorySnapshotDtoCopyWith<$R, DirectorySnapshotDto, $Out>
+  get $asDirectorySnapshotDto => $base.as(
+    (v, t, t2) => _DirectorySnapshotDtoCopyWithImpl<$R, $Out>(v, t, t2),
+  );
+}
+
+abstract class DirectorySnapshotDtoCopyWith<
+  $R,
+  $In extends DirectorySnapshotDto,
+  $Out
+>
+    implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<
+    $R,
+    SessionSummaryDto,
+    SessionSummaryDtoCopyWith<$R, SessionSummaryDto, SessionSummaryDto>
+  >
+  get sessions;
+  $R call({String? type, List<SessionSummaryDto>? sessions});
+  DirectorySnapshotDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _DirectorySnapshotDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, DirectorySnapshotDto, $Out>
+    implements DirectorySnapshotDtoCopyWith<$R, DirectorySnapshotDto, $Out> {
+  _DirectorySnapshotDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<DirectorySnapshotDto> $mapper =
+      DirectorySnapshotDtoMapper.ensureInitialized();
+  @override
+  ListCopyWith<
+    $R,
+    SessionSummaryDto,
+    SessionSummaryDtoCopyWith<$R, SessionSummaryDto, SessionSummaryDto>
+  >
+  get sessions => ListCopyWith(
+    $value.sessions,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(sessions: v),
+  );
+  @override
+  $R call({String? type, List<SessionSummaryDto>? sessions}) => $apply(
+    FieldCopyWithData({
+      if (type != null) #type: type,
+      if (sessions != null) #sessions: sessions,
+    }),
+  );
+  @override
+  DirectorySnapshotDto $make(CopyWithData data) => DirectorySnapshotDto(
+    type: data.get(#type, or: $value.type),
+    sessions: data.get(#sessions, or: $value.sessions),
+  );
+
+  @override
+  DirectorySnapshotDtoCopyWith<$R2, DirectorySnapshotDto, $Out2>
+  $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
+      _DirectorySnapshotDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
@@ -3411,6 +4541,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       LobbyDtoMapper.ensureInitialized();
       GameInfoDtoMapper.ensureInitialized();
       UserStatsDtoMapper.ensureInitialized();
+      SessionStateDtoMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -3621,6 +4752,12 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     _$yourStats,
     opt: true,
   );
+  static SessionStateDto? _$session(GameSnapshotDto v) => v.session;
+  static const Field<GameSnapshotDto, SessionStateDto> _f$session = Field(
+    'session',
+    _$session,
+    opt: true,
+  );
 
   @override
   final MappableFields<GameSnapshotDto> fields = const {
@@ -3662,6 +4799,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #status: _f$status,
     #leaderboard: _f$leaderboard,
     #yourStats: _f$yourStats,
+    #session: _f$session,
   };
 
   static GameSnapshotDto _instantiate(DecodingData data) {
@@ -3704,6 +4842,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       status: data.dec(_f$status),
       leaderboard: data.dec(_f$leaderboard),
       yourStats: data.dec(_f$yourStats),
+      session: data.dec(_f$session),
     );
   }
 
@@ -3841,6 +4980,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   >
   get leaderboard;
   UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>? get yourStats;
+  SessionStateDtoCopyWith<$R, SessionStateDto, SessionStateDto>? get session;
   $R call({
     String? type,
     YouDto? you,
@@ -3880,6 +5020,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     String? status,
     List<UserStatsDto>? leaderboard,
     UserStatsDto? yourStats,
+    SessionStateDto? session,
   });
   GameSnapshotDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
@@ -4113,6 +5254,9 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
   UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>? get yourStats =>
       $value.yourStats?.copyWith.$chain((v) => call(yourStats: v));
   @override
+  SessionStateDtoCopyWith<$R, SessionStateDto, SessionStateDto>? get session =>
+      $value.session?.copyWith.$chain((v) => call(session: v));
+  @override
   $R call({
     String? type,
     YouDto? you,
@@ -4152,6 +5296,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     String? status,
     List<UserStatsDto>? leaderboard,
     Object? yourStats = $none,
+    Object? session = $none,
   }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
@@ -4192,6 +5337,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (status != null) #status: status,
       if (leaderboard != null) #leaderboard: leaderboard,
       if (yourStats != $none) #yourStats: yourStats,
+      if (session != $none) #session: session,
     }),
   );
   @override
@@ -4234,6 +5380,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     status: data.get(#status, or: $value.status),
     leaderboard: data.get(#leaderboard, or: $value.leaderboard),
     yourStats: data.get(#yourStats, or: $value.yourStats),
+    session: data.get(#session, or: $value.session),
   );
 
   @override

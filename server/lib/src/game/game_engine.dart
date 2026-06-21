@@ -77,7 +77,6 @@ class GameEngine {
       case ClientMessageType.ready:
         if (client.slot == null) return;
         client.ready = message.ready ?? false;
-        client.readyTimeoutStartedAt = null;
         ensureRoundState();
       case ClientMessageType.spectate:
         becomeSpectator(client);
@@ -106,10 +105,6 @@ class GameEngine {
       case ClientMessageType.removeBot:
         final role = message.role;
         if (role != null) removeBot(role);
-      case ClientMessageType.restart:
-        // A spectator (e.g. watching two bots) returns everyone to the lobby;
-        // an actual player triggers a rematch.
-        reset(keepBotsReady: client.slot != null);
       case ClientMessageType.setBiomes:
         final biomes = message.biomes;
         if (biomes != null && biomes.isNotEmpty) {
@@ -122,6 +117,11 @@ class GameEngine {
         }
       case ClientMessageType.aim:
         updateAim(client, message.targetX, message.targetY);
+      case ClientMessageType.createSession:
+      case ClientMessageType.joinSession:
+      case ClientMessageType.leaveSession:
+      case ClientMessageType.rematch:
+        return;
     }
   }
 
@@ -167,7 +167,6 @@ class GameEngine {
       client
         ..score = 0
         ..ready = keepBotsReady && client.isBot
-        ..readyTimeoutStartedAt = null
         ..x = start.x + 0.5
         ..y = start.y + 0.5
         ..direction = null
@@ -215,7 +214,6 @@ class GameEngine {
       ..slot = slot
       ..role = role
       ..ready = false
-      ..readyTimeoutStartedAt = null
       ..score = 0
       ..x = start.x + 0.5
       ..y = start.y + 0.5
@@ -280,7 +278,6 @@ class GameEngine {
       ..slot = slot
       ..role = role
       ..ready = true
-      ..readyTimeoutStartedAt = null
       ..name = ''
       ..aspect = LehaAspect.superLeha
       ..hunterKind = HunterKind.bakhirkin
@@ -324,7 +321,6 @@ class GameEngine {
       ..slot = null
       ..role = PlayerRole.spectator
       ..ready = false
-      ..readyTimeoutStartedAt = null
       ..score = 0
       ..direction = null
       ..nextDirection = null
@@ -442,12 +438,26 @@ class GameEngine {
     final bx = target?.x ?? (cell.x + dir.dx).round();
     final by = target?.y ?? (cell.y + dir.dy).round();
     if (bx < 0 || bx >= maze.cols || by < 0 || by >= maze.rows) return;
-    // Webs may only go on the map's scarce cracked walls.
-    if (!maze.isCrackedWall(bx, by)) return;
+    if (!canPlaceWebAt(bx, by)) return;
     if (round.webs.any((web) => web.x == bx && web.y == by)) return;
     client.webCharges -= 1;
     round.webs.add(WebState(x: bx, y: by, createdAt: now));
     scheduleWebRecharge(client, now);
+  }
+
+  /// Spider webs may bridge a cracked wall or cover ordinary floor. Biome
+  /// hazards keep their cell readable and mechanically unobstructed.
+  bool canPlaceWebAt(int x, int y) {
+    if (maze.isCrackedWall(x, y)) return true;
+    if (maze.isWall(x, y)) return false;
+    final key = '$x,$y';
+    if (maze.quicksand.contains(key) ||
+        maze.amethystWalls.contains(key) ||
+        round.shardsIntact.contains(key)) {
+      return false;
+    }
+    return !round.mushrooms
+        .any((mushroom) => mushroom.x == x && mushroom.y == y);
   }
 
   void placePortal(PlayerConnection client,
@@ -1594,36 +1604,11 @@ class GameEngine {
     return true;
   }
 
-  void enforceReadyTimeout(int now) {
-    if (round.phase != GamePhase.waiting) return;
-
-    final leha = findPlayer(0);
-    final hunter = findPlayer(1);
-    if (leha == null || hunter == null) {
-      leha?.readyTimeoutStartedAt = null;
-      hunter?.readyTimeoutStartedAt = null;
-      return;
-    }
-
-    for (final player in [leha, hunter]) {
-      if (player.ready || player.isBot) {
-        player.readyTimeoutStartedAt = null;
-        continue;
-      }
-      final startedAt = player.readyTimeoutStartedAt ?? now;
-      player.readyTimeoutStartedAt = startedAt;
-      if (now - startedAt >= GameConstants.readyTimeoutMs) {
-        releaseSlot(player);
-      }
-    }
-  }
-
   void releaseSlot(PlayerConnection client) {
     client
       ..slot = null
       ..role = PlayerRole.spectator
       ..ready = false
-      ..readyTimeoutStartedAt = null
       ..score = 0
       ..direction = null
       ..nextDirection = null
@@ -1643,7 +1628,6 @@ class GameEngine {
   void tick() {
     ensureRoundState();
     final now = nowMs();
-    enforceReadyTimeout(now);
     if (round.phase != GamePhase.playing) return;
 
     expireTraps(now);
@@ -2546,9 +2530,6 @@ class GameEngine {
       ..endedAt = nowMs()
       ..winnerSlot = winnerSlot
       ..reason = reason;
-    final winner = findPlayer(winnerSlot);
-    final loser = findPlayer(winnerSlot == 0 ? 1 : 0);
-    stats.recordResult(winner: winner?.name.trim(), loser: loser?.name.trim());
     final startedAt = round.startedAt;
     logger.log({
       'event': 'end',
@@ -2683,13 +2664,22 @@ class GameEngine {
           _roleState(slot),
       ],
       spectators: clients.values.where((client) => client.slot == null).length,
+      users: clients.values
+          .map((client) => ConnectedUserDto(
+                id: client.id,
+                name: client.name.trim().isEmpty
+                    ? (client.isBot ? 'Бот' : 'Игрок ${client.id}')
+                    : client.name.trim(),
+                role: client.role,
+                bot: client.isBot,
+              ))
+          .toList(),
     );
   }
 
   RoleStateDto _roleState(int slot) {
     final player =
         clients.values.where((client) => client.slot == slot).firstOrNull;
-    final readyTimeoutMs = _readyTimeoutMs(player);
     return RoleStateDto(
       role: GameConstants.roles[slot],
       slot: slot,
@@ -2699,16 +2689,7 @@ class GameEngine {
       aspect: slot == 0 ? player?.aspect ?? LehaAspect.superLeha : null,
       hunterKind: slot == 1 ? player?.hunterKind ?? HunterKind.bakhirkin : null,
       bot: player?.isBot ?? false,
-      readyTimeoutMs: readyTimeoutMs,
     );
-  }
-
-  int? _readyTimeoutMs(PlayerConnection? player) {
-    final startedAt = player?.readyTimeoutStartedAt;
-    if (player == null || player.ready || player.isBot || startedAt == null) {
-      return null;
-    }
-    return max(0, GameConstants.readyTimeoutMs - (nowMs() - startedAt));
   }
 
   Iterable<String> visibleLogosFor(PlayerConnection viewer) {

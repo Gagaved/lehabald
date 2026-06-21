@@ -18,7 +18,6 @@ class PlayerConnection {
   int? slot;
   PlayerRole role = PlayerRole.spectator;
   bool ready = false;
-  int? readyTimeoutStartedAt;
   int score = 0;
   double x;
   double y;
