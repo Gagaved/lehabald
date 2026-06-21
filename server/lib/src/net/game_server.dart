@@ -107,7 +107,7 @@ class GameServer {
       if (socket.readyState != WebSocket.open) continue;
       final session = client.session;
       final payload = session == null
-          ? sessions.directory().toMap()
+          ? sessions.directoryFor(client).toMap()
           : session.snapshotFor(client).toMap();
       socket.add(jsonEncode(payload));
     }

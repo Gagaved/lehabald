@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:ui';
 
+import 'package:flame/camera.dart';
 import 'package:flame/components.dart';
 import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
@@ -29,6 +30,12 @@ class LehaBaldGame extends FlameGame
   LehaBaldGame({required this.network});
 
   static const tile = 32.0;
+
+  /// How many blocks of the cave are visible at once, on both axes. The camera
+  /// shows exactly this window with the player pinned to its centre; everything
+  /// outside is off-screen (the map no longer fits-to-screen as a whole).
+  static const viewTiles = 20.0;
+
   final GameNetworkClient network;
 
   /// The active cave palette, rebuilt only when the biome or stone seed changes.
@@ -36,6 +43,8 @@ class LehaBaldGame extends FlameGame
   CaveBiome? _paletteBiome;
   int? _paletteSeed;
   final Map<String, PlayerInterpolator> _renderPlayers = {};
+  // Per-rock surface/sink animation state, keyed by ember-rock id.
+  final Map<int, _EmberRockAnim> _emberRockAnims = {};
   late final _GameSceneComponent _scene;
   int _renderFrameCount = 0;
   double _visualTime = 0;
@@ -59,6 +68,11 @@ class LehaBaldGame extends FlameGame
   Image? rafaelkaImage;
   Image? clutchImage;
 
+  // The slate backdrop fills the camera letterbox bars too, so off-square
+  // screens don't frame the game in harsh black.
+  @override
+  Color backgroundColor() => backdropColor;
+
   @override
   Future<void> onLoad() async {
     playerHead = await images.load('player-head.png');
@@ -76,7 +90,17 @@ class LehaBaldGame extends FlameGame
     rafaelkaImage = await _tryLoad('rafaelka.png');
     clutchImage = await _tryLoad('clutch.png');
     _scene = _GameSceneComponent();
-    addAll([_scene, _GameInputController()]);
+    // Show a fixed 20×20-block window, letterboxed on non-square screens so the
+    // view stays exactly that many blocks wide and high regardless of aspect.
+    camera.viewport = FixedResolutionViewport(
+      resolution: Vector2.all(viewTiles * tile),
+    );
+    camera.viewfinder.anchor = Anchor.center;
+    // The board lives in the world so the camera transform (not a manual
+    // fit-scale) drives what is on screen; the input controller stays on the
+    // game so it keeps receiving keyboard events.
+    world.add(_scene);
+    add(_GameInputController());
   }
 
   Future<Image?> _tryLoad(String name) async {
@@ -93,6 +117,20 @@ class LehaBaldGame extends FlameGame
     _visualTime += dt;
     _recordPerformanceSample();
     _updatePlayerSmoothing(dt);
+    _followLocalPlayer();
+  }
+
+  /// Keep the camera centred on our own player, using the same interpolated
+  /// position the renderer draws so the view never jitters against the sprite.
+  void _followLocalPlayer() {
+    final snapshot = network.snapshot;
+    if (snapshot == null) return;
+    final me = snapshot.players
+        .where((player) => player.id == snapshot.you.id)
+        .firstOrNull;
+    if (me == null) return;
+    final pos = _renderPlayers[me.id]?.position ?? Offset(me.x, me.y);
+    camera.viewfinder.position = Vector2(pos.dx * tile, pos.dy * tile);
   }
 
   void _recordPerformanceSample() {
@@ -214,8 +252,57 @@ class LehaBaldGame extends FlameGame
   }
 
   void _drawEmpty(Canvas canvas) {
-    canvas.drawColor(const Color(0xff05070d), BlendMode.src);
+    canvas.drawColor(backdropColor, BlendMode.src);
   }
+
+  /// Everything outside the cave (but still inside the view) is the same muted
+  /// slate backdrop as the area around the view square — not black. The camera
+  /// shows only a 20-block window and pans past the map edge, so without this
+  /// the off-map area would read identically to in-map floor. We flood a
+  /// generous ring around the board, out past the view window so a corner pan
+  /// never reveals an unpainted gap. The map's own edge is marked by
+  /// [_drawMapEdge]. The view square itself is raised by the Flutter Material
+  /// that hosts the GameWidget, outside Flame's camera transform.
+  void _drawVoidBeyondMap(Canvas canvas, GameSnapshotDto snapshot) {
+    final board =
+        Rect.fromLTWH(0, 0, snapshot.cols * tile, snapshot.rows * tile);
+    final outer = board.inflate(viewTiles * tile);
+    final ring = Path()
+      ..addRect(outer)
+      ..addRect(board)
+      ..fillType = PathFillType.evenOdd;
+    canvas.drawPath(ring, Paint()..color = backdropColor);
+  }
+
+  /// A lit ledge framing the cave: a biome-tinted glow hugging the perimeter
+  /// plus a crisp bright edge line. This marks the world boundary independently
+  /// from the elevated view surface. Drawn on top of perimeter walls.
+  void _drawMapEdge(Canvas canvas, GameSnapshotDto snapshot) {
+    final board =
+        Rect.fromLTWH(0, 0, snapshot.cols * tile, snapshot.rows * tile);
+    final accent = _palette.accent;
+    // Soft outer glow in the biome accent, bleeding onto the backdrop.
+    canvas.drawRect(
+      board.inflate(tile * 0.08),
+      Paint()
+        ..color = accent.withValues(alpha: 0.30)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = tile * 0.5
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, tile * 0.4),
+    );
+    // Crisp bright line right on the cave edge.
+    canvas.drawRect(
+      board,
+      Paint()
+        ..color = accent.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5,
+    );
+  }
+
+  /// Muted slate behind/around the playfield. Also fills the camera letterbox
+  /// (see [backgroundColor]) so the view never hard-cuts to black.
+  static const backdropColor = Color(0xff171b26);
 
   void _drawBoard(Canvas canvas, GameSnapshotDto snapshot) {
     final bg = Paint()..color = _palette.background;
@@ -236,6 +323,246 @@ class LehaBaldGame extends FlameGame
         );
         canvas.drawRRect(rect, wallPaint);
         canvas.drawRRect(rect, stroke);
+      }
+    }
+  }
+
+  void _drawLava(Canvas canvas, List<LavaCellDto> lava) {
+    for (final cell in lava) {
+      final rect = Rect.fromLTWH(cell.x * tile, cell.y * tile, tile, tile);
+      canvas.drawRect(rect, Paint()..color = const Color(0xff5b160b));
+      final phase = _visualTime * 1.8 + cell.x * 0.73 + cell.y * 0.41;
+      final glow = Paint()
+        ..color = const Color(0xffff6a18).withValues(alpha: 0.72)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round;
+      final y = (cell.y + 0.5) * tile + sin(phase) * tile * 0.12;
+      canvas.drawLine(
+        Offset(cell.x * tile + 3, y),
+        Offset((cell.x + 1) * tile - 3, y + cos(phase) * 3),
+        glow,
+      );
+    }
+  }
+
+  // How long the surfacing / submerging animations take, in seconds.
+  static const _rockRiseDur = 0.5;
+  static const _rockSinkDur = 0.55;
+
+  void _drawEmberRocks(Canvas canvas, List<EmberRockDto> rocks) {
+    final t = _visualTime;
+    final present = <int>{};
+    for (final rock in rocks) {
+      present.add(rock.id);
+      var anim = _emberRockAnims[rock.id];
+      // A brand-new rock, or an id reused after its ghost finished sinking,
+      // restarts the rise animation from scratch.
+      if (anim == null || anim.removedAt != null) {
+        anim = _EmberRockAnim(t, rock.x.toDouble(), rock.y.toDouble());
+        _emberRockAnims[rock.id] = anim;
+      }
+      anim
+        ..x = rock.x.toDouble()
+        ..y = rock.y.toDouble()
+        ..sinking = rock.sinking;
+      final rise =
+          Curves.easeOutBack.transform(((t - anim.appearAt) / _rockRiseDur)
+              .clamp(0.0, 1.0));
+      _paintEmberRock(canvas, anim.x, anim.y, rock.id,
+          emerge: rise, submerge: 0, warning: rock.sinking, t: t);
+    }
+    // Rocks that left the snapshot sink back under the lava before we drop them.
+    _emberRockAnims.removeWhere((id, anim) {
+      if (present.contains(id)) return false;
+      anim.removedAt ??= t;
+      final sink = ((t - anim.removedAt!) / _rockSinkDur).clamp(0.0, 1.0);
+      if (sink >= 1.0) return true;
+      _paintEmberRock(canvas, anim.x, anim.y, id,
+          emerge: 1, submerge: Curves.easeIn.transform(sink), warning: true, t: t);
+      return false;
+    });
+  }
+
+  /// Draws one animated stepping-stone. [emerge]/[submerge] (0..1) scale the
+  /// rock up out of the lava and back down into it; [warning] flares the molten
+  /// rim when the rock is about to sink.
+  void _paintEmberRock(Canvas canvas, double gx, double gy, int id,
+      {required double emerge,
+      required double submerge,
+      required bool warning,
+      required double t}) {
+    final scale = (emerge * (1 - submerge)).clamp(0.0, 1.2);
+    if (scale <= 0.01) return;
+    final center = Offset((gx + 0.5) * tile, (gy + 0.5) * tile);
+    final flicker = 0.72 + 0.28 * sin(t * 6 + id * 1.7);
+    // Bright molten splash while breaking the surface or sliding back under.
+    final flare =
+        ((1 - emerge) + submerge + (warning ? 0.35 : 0.0)).clamp(0.0, 1.0);
+
+    final bodyR = tile * 0.42 * scale;
+
+    // Soft outer lava glow that breathes with the lava — follows the rock's
+    // jagged outline (same seed → same polygon, just larger) so it never reads
+    // as a circle.
+    canvas.drawPath(
+      _rockBlob(center, bodyR * 1.24 * (1 + flare * 0.35), id),
+      Paint()
+        ..color = const Color(0xffff5a12)
+            .withValues(alpha: (0.20 + flare * 0.45) * flicker)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+
+    // Irregular dark rock body with a top-down volcanic gradient.
+    final blob = _rockBlob(center, bodyR, id);
+    canvas.drawPath(
+      blob,
+      Paint()
+        ..shader = Gradient.radial(
+          center.translate(-bodyR * 0.25, -bodyR * 0.3),
+          bodyR * 1.4,
+          [const Color(0xff423d49), const Color(0xff16131a)],
+          [0.0, 1.0],
+        ),
+    );
+
+    // Glowing cracks of lava across the rock, pulsing brightly.
+    canvas.save();
+    canvas.clipPath(blob);
+    final rnd = Random(id);
+    final crackColor = Color.lerp(const Color(0xffffd34a),
+        const Color(0xffff3a0a), 0.4 + 0.4 * flicker)!;
+    for (var i = 0; i < 3; i++) {
+      final a0 = rnd.nextDouble() * pi * 2;
+      final glow = (0.55 + 0.45 * sin(t * 5 + i * 2.1 + id)) * (0.7 + flare);
+      final crack = Path()..moveTo(center.dx, center.dy);
+      var p = center;
+      var angle = a0;
+      final steps = 3 + rnd.nextInt(2);
+      for (var s = 0; s < steps; s++) {
+        angle += (rnd.nextDouble() - 0.5) * 1.1;
+        p = p +
+            Offset(cos(angle), sin(angle)) * bodyR * (0.45 + rnd.nextDouble() * 0.4);
+        crack.lineTo(p.dx, p.dy);
+      }
+      canvas.drawPath(
+        crack,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (2.4 * scale).clamp(0.6, 3.0)
+          ..strokeCap = StrokeCap.round
+          ..color = crackColor.withValues(alpha: glow.clamp(0.0, 1.0))
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4),
+      );
+    }
+    canvas.restore();
+
+    // Cool slate cap highlight so the top reads as solid stone above the glow.
+    canvas.drawPath(
+      _rockBlob(center.translate(-bodyR * 0.12, -bodyR * 0.16), bodyR * 0.52, id ^ 7),
+      Paint()
+        ..color = const Color(0xff6b6573).withValues(alpha: 0.35 * (1 - flare)),
+    );
+
+    // Molten rim hugging the jagged rock edge — the lava lapping at its base.
+    canvas.drawPath(
+      _rockBlob(center, bodyR * 1.05, id),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeWidth = (3.2 * scale).clamp(0.8, 4.0)
+        ..color = Color.lerp(const Color(0xffffb02a), const Color(0xffff3b0a),
+                0.5 - 0.4 * flicker)!
+            .withValues(alpha: 0.85 + flare * 0.15),
+    );
+
+    // Bursting flare outline while emerging or sinking.
+    if (flare > 0.05) {
+      canvas.drawPath(
+        _rockBlob(center, bodyR * (1.22 + flare * 0.7), id),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeJoin = StrokeJoin.round
+          ..strokeWidth = 2.5
+          ..color = const Color(0xffffd06a)
+              .withValues(alpha: (flare * 0.7 * flicker).clamp(0.0, 0.8)),
+      );
+    }
+  }
+
+  /// Builds a small irregular polygon resembling a chunk of rock, deterministic
+  /// per [seed] so it stays stable frame-to-frame.
+  Path _rockBlob(Offset center, double radius, int seed) {
+    final rnd = Random(seed);
+    final points = 9 + rnd.nextInt(3);
+    final path = Path();
+    for (var i = 0; i <= points; i++) {
+      final angle = i / points * pi * 2;
+      final r = radius * (0.82 + rnd.nextDouble() * 0.3);
+      final p = center + Offset(cos(angle), sin(angle)) * r;
+      if (i == 0) {
+        path.moveTo(p.dx, p.dy);
+      } else {
+        path.lineTo(p.dx, p.dy);
+      }
+    }
+    return path..close();
+  }
+
+  /// A sulfur geyser building up to erupt: a glowing vent in the floor with a
+  /// rising plume of gas that grows taller and brighter as it nears eruption.
+  void _drawGeysers(Canvas canvas, List<EmberGeyserDto> geysers) {
+    for (final geyser in geysers) {
+      final center = Offset((geyser.x + 0.5) * tile, (geyser.y + 0.5) * tile);
+      final pulse = 0.7 + sin(_visualTime * 14) * 0.2;
+      // Glowing vent on the ground.
+      canvas.drawCircle(
+        center,
+        tile * (0.16 + geyser.progress * 0.16),
+        Paint()
+          ..color = const Color(0xffd9c23a).withValues(alpha: 0.5 * pulse),
+      );
+      canvas.drawCircle(
+        center,
+        tile * (0.34 + geyser.progress * 0.1),
+        Paint()
+          ..color = const Color(0xffe8d04a).withValues(alpha: 0.7)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+      // Rising gas spurts, taller as eruption nears.
+      for (var i = 0; i < 3; i++) {
+        final phase = geyser.x * 1.3 + geyser.y * 2.1 + i * 2.0;
+        final lift = tile * (0.4 + geyser.progress * 0.9) *
+            (0.5 + 0.5 * sin(_visualTime * 6 + phase));
+        final puff = center - Offset(tile * 0.12 * (i - 1), lift);
+        canvas.drawCircle(
+          puff,
+          tile * (0.12 + geyser.progress * 0.08),
+          Paint()
+            ..color = const Color(0xffcdd14a)
+                .withValues(alpha: 0.28 + geyser.progress * 0.22),
+        );
+      }
+    }
+  }
+
+  /// A drifting sulfur cloud — yellow-green puffs that conceal, then fade.
+  void _drawSulfur(Canvas canvas, List<SulfurDto> sulfur) {
+    for (final cloud in sulfur) {
+      final center = Offset((cloud.x + 0.5) * tile, (cloud.y + 0.5) * tile);
+      final alpha = (0.1 + cloud.life * 0.24).clamp(0.0, 0.34);
+      for (var i = 0; i < 5; i++) {
+        final phase = cloud.x * 1.7 + cloud.y * 2.3 + i * 1.31;
+        final drift = Offset(cos(phase + _visualTime * 0.18),
+                sin(phase + _visualTime * 0.13)) *
+            tile *
+            0.18;
+        canvas.drawCircle(
+          center + drift,
+          tile * (0.25 + (i % 2) * 0.07),
+          Paint()..color = const Color(0xffb9bf3e).withValues(alpha: alpha),
+        );
       }
     }
   }
@@ -1306,6 +1633,20 @@ class LehaBaldGame extends FlameGame
       paint,
     );
   }
+}
+
+/// Client-side surface/sink animation state for one ember stepping-stone.
+class _EmberRockAnim {
+  _EmberRockAnim(this.appearAt, this.x, this.y);
+
+  /// Visual-clock time (seconds) the rock first appeared — drives the rise.
+  final double appearAt;
+  double x;
+  double y;
+  bool sinking = false;
+
+  /// Visual-clock time the rock left the snapshot — drives the sink-out.
+  double? removedAt;
 }
 
 /// The cover motif drawn for a biome's bushes.

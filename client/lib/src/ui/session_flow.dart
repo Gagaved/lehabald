@@ -30,8 +30,8 @@ class _SessionDirectoryViewState extends State<SessionDirectoryView> {
 
   @override
   Widget build(BuildContext context) {
-    final sessions =
-        widget.network.directory?.sessions ?? const <SessionSummaryDto>[];
+    final directory = widget.network.directory;
+    final sessions = directory?.sessions ?? const <SessionSummaryDto>[];
     final nickname = widget.network.nickname;
     return ColoredBox(
       color: const Color(0xee05070d),
@@ -79,48 +79,95 @@ class _SessionDirectoryViewState extends State<SessionDirectoryView> {
                           style: const TextStyle(color: _leha)),
                   ],
                 )),
-                const SizedBox(height: 18),
-                Row(children: [
-                  const Expanded(
-                      child: Text('СЕССИИ',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2))),
-                  FilledButton.icon(
-                    onPressed: nickname.isEmpty ? null : _createRoom,
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Создать'),
-                  ),
-                ]),
-                const SizedBox(height: 12),
-                if (sessions.isEmpty)
-                  const _Panel(
-                      child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 36),
-                    child: Column(children: [
-                      Icon(Icons.sports_esports_outlined,
-                          size: 44, color: _muted),
-                      SizedBox(height: 12),
-                      Text('Активных сессий пока нет'),
-                      SizedBox(height: 4),
-                      Text('Создайте первую комнату',
-                          style: TextStyle(color: _muted)),
-                    ]),
-                  ))
-                else
-                  ...sessions.map((session) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _SessionCard(
-                          session: session,
-                          enabled: nickname.isNotEmpty,
-                          onJoin: () => _join(session.id),
+                const SizedBox(height: 16),
+                LayoutBuilder(builder: (context, constraints) {
+                  final sessionList = _sessionList(sessions, nickname);
+                  final overview = _DirectoryOverview(
+                    directory: directory,
+                    sessions: sessions,
+                  );
+                  final dashboard = _DirectoryDashboard(
+                    stats: directory?.yourStats,
+                    leaderboard:
+                        directory?.leaderboard ?? const <UserStatsDto>[],
+                  );
+                  if (constraints.maxWidth >= 800) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              overview,
+                              const SizedBox(height: 16),
+                              sessionList,
+                            ],
+                          ),
                         ),
-                      )),
+                        const SizedBox(width: 16),
+                        SizedBox(width: 300, child: dashboard),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      overview,
+                      const SizedBox(height: 16),
+                      sessionList,
+                      const SizedBox(height: 16),
+                      dashboard,
+                    ],
+                  );
+                }),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _sessionList(List<SessionSummaryDto> sessions, String nickname) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          const Expanded(
+              child: Text('СЕССИИ',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800, letterSpacing: 1.2))),
+          FilledButton.icon(
+            onPressed: nickname.isEmpty ? null : _createRoom,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Создать'),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        if (sessions.isEmpty)
+          const _Panel(
+              child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 36),
+            child: Column(children: [
+              Icon(Icons.sports_esports_outlined, size: 44, color: _muted),
+              SizedBox(height: 12),
+              Text('Активных сессий пока нет'),
+              SizedBox(height: 4),
+              Text('Создайте первую комнату', style: TextStyle(color: _muted)),
+            ]),
+          ))
+        else
+          for (final session in sessions)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _SessionCard(
+                session: session,
+                enabled: nickname.isNotEmpty,
+                onJoin: () => _join(session.id),
+              ),
+            ),
+      ],
     );
   }
 
@@ -176,6 +223,190 @@ class _SessionDirectoryViewState extends State<SessionDirectoryView> {
     if (value != null && _requireConnection()) {
       widget.network.createSession(value);
     }
+  }
+}
+
+class _DirectoryOverview extends StatelessWidget {
+  const _DirectoryOverview({required this.directory, required this.sessions});
+
+  final DirectorySnapshotDto? directory;
+  final List<SessionSummaryDto> sessions;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = sessions
+        .where((session) =>
+            session.phase != SessionPhase.waiting &&
+            session.phase != SessionPhase.matchResult)
+        .length;
+    final spectators =
+        sessions.fold<int>(0, (total, session) => total + session.spectators);
+    final metrics = [
+      _DirectoryMetric(
+        icon: Icons.people_alt_outlined,
+        label: 'Онлайн',
+        value: '${directory?.onlineUsers ?? 0}',
+      ),
+      _DirectoryMetric(
+        icon: Icons.meeting_room_outlined,
+        label: 'Комнаты',
+        value: '${sessions.length}',
+      ),
+      _DirectoryMetric(
+        icon: Icons.sports_esports_outlined,
+        label: 'Активные игры',
+        value: '$active',
+      ),
+      _DirectoryMetric(
+        icon: Icons.visibility_outlined,
+        label: 'Зрители',
+        value: '$spectators',
+      ),
+    ];
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 560) {
+        return Row(children: [
+          for (var index = 0; index < metrics.length; index++) ...[
+            if (index > 0) const SizedBox(width: 10),
+            Expanded(child: metrics[index]),
+          ],
+        ]);
+      }
+      final width = (constraints.maxWidth - 10) / 2;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          for (final metric in metrics) SizedBox(width: width, child: metric),
+        ],
+      );
+    });
+  }
+}
+
+class _DirectoryMetric extends StatelessWidget {
+  const _DirectoryMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surface,
+          border: Border.all(color: _line),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(children: [
+          Icon(icon, color: _muted, size: 21),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            Text(label, style: const TextStyle(color: _muted, fontSize: 11)),
+          ]),
+        ]),
+      );
+}
+
+class _DirectoryDashboard extends StatelessWidget {
+  const _DirectoryDashboard({required this.stats, required this.leaderboard});
+
+  final UserStatsDto? stats;
+  final List<UserStatsDto> leaderboard;
+
+  @override
+  Widget build(BuildContext context) => _Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('ДАШБОРД',
+                style:
+                    TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+            const SizedBox(height: 12),
+            if (stats == null)
+              const Text(
+                'Введите никнейм, чтобы видеть личную статистику.',
+                style: TextStyle(color: _muted),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xff111827),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(stats!.name,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 7),
+                    Text(
+                        'Победы ${stats!.wins}  ·  Поражения ${stats!.losses}'),
+                    Text('Винрейт ${_winrate(stats!)}',
+                        style: const TextStyle(
+                            color: _leha, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+            const Text('ЛИДЕРБОРД',
+                style: TextStyle(
+                    color: _muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1)),
+            const SizedBox(height: 8),
+            if (leaderboard.isEmpty)
+              const Text('Пока нет завершенных матчей.',
+                  style: TextStyle(color: _muted))
+            else
+              for (var index = 0; index < leaderboard.length; index++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [
+                    SizedBox(
+                      width: 24,
+                      child: Text('${index + 1}',
+                          style: const TextStyle(color: _muted)),
+                    ),
+                    Expanded(
+                      child: Text(leaderboard[index].name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: leaderboard[index].name == stats?.name
+                                ? FontWeight.w800
+                                : FontWeight.w500,
+                            color: leaderboard[index].name == stats?.name
+                                ? _leha
+                                : null,
+                          )),
+                    ),
+                    Text('${leaderboard[index].wins}W',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 8),
+                    Text('${leaderboard[index].losses}L',
+                        style: const TextStyle(color: _muted)),
+                  ]),
+                ),
+          ],
+        ),
+      );
+
+  static String _winrate(UserStatsDto stats) {
+    final total = stats.wins + stats.losses;
+    if (total == 0) return '—';
+    return '${(stats.wins / total * 100).round()}%';
   }
 }
 

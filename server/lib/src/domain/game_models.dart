@@ -43,6 +43,7 @@ class PlayerConnection {
   int webSlowedUntil = 0;
   int webPhaseUntil = 0;
   double speed = 0;
+  int rockPushCooldownUntil = 0;
 
   /// Cell key ('x,y') the player occupied last tick — used so a portal only
   /// fires when the player freshly steps onto it, never when the second portal
@@ -226,6 +227,53 @@ class SporeState {
   int expiresAt;
 }
 
+/// A solid rock that has surfaced inside a lava stream as a stepping stone.
+/// It floats indefinitely until a player first steps on it ([steppedSince]);
+/// from that moment it sinks after [GameConstants.emberBridgeSinkMs], but only
+/// once no player still stands on it.
+class EmberRockState {
+  EmberRockState({
+    required this.id,
+    required this.x,
+    required this.y,
+    this.stream = -1,
+    this.steppedSince,
+    this.sinking = false,
+  });
+
+  final int id;
+  int x;
+  int y;
+  int stream;
+  int? steppedSince;
+  bool sinking;
+}
+
+/// A sulfur geyser building up under the floor; on eruption it releases a
+/// drifting sulfur cloud around itself.
+class EmberGeyserState {
+  EmberGeyserState({
+    required this.id,
+    required this.x,
+    required this.y,
+    required this.eruptAt,
+  });
+
+  final int id;
+  final int x;
+  final int y;
+  final int eruptAt;
+}
+
+/// A drifting sulfur cloud cell — conceals like a bush, then fades.
+class SulfurCloudState {
+  SulfurCloudState({required this.x, required this.y, required this.expiresAt});
+
+  final int x;
+  final int y;
+  final int expiresAt;
+}
+
 class GameRound {
   GamePhase phase = GamePhase.waiting;
   int? startedAt;
@@ -254,6 +302,11 @@ class GameRound {
   List<MushroomState> mushrooms = [];
   List<SporeState> spores = [];
   int nextAmethystGrowAt = 0;
+  List<EmberRockState> emberRocks = [];
+  List<EmberGeyserState> geysers = [];
+  List<SulfurCloudState> sulfur = [];
+  int nextEmberEntityId = 1;
+  int nextGeyserAt = 0;
   int rafaelkiEaten = 0;
   Map<int, List<TrailPoint>> trails = {0: [], 1: []};
 }

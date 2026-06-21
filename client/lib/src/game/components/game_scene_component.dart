@@ -14,10 +14,6 @@ class _GameSceneComponent extends PositionComponent
         TapCallbacks {
   _GameSceneComponent() : super(priority: 10);
 
-  // The HUD is an overlay. Reserving a permanent strip made the square map
-  // float inside a large black letterbox, especially when a console was open.
-  static const _hudInset = 0.0;
-
   late final _PortalLayerComponent portalLayer;
   late final _TrapLayerComponent trapLayer;
   late final _WebLayerComponent webLayer;
@@ -75,19 +71,12 @@ class _GameSceneComponent extends PositionComponent
   }
 
   void _layout(GameSnapshotDto snapshot) {
+    // The camera owns the view transform now (a fixed 20×20-block window that
+    // follows the player); the scene sits at the world origin at 1:1 scale.
+    // We still track the board size so taps land in the right cells.
     size.setValues(
       snapshot.cols * LehaBaldGame.tile,
       snapshot.rows * LehaBaldGame.tile,
-    );
-    final availableHeight = (game.size.y - _hudInset).clamp(1.0, game.size.y);
-    final fit = min(
-      game.size.x / size.x,
-      availableHeight / size.y,
-    );
-    scale.setAll(fit);
-    position.setValues(
-      (game.size.x - size.x * fit) / 2,
-      _hudInset + (availableHeight - size.y * fit) / 2,
     );
   }
 
@@ -204,21 +193,27 @@ class _TargetingPreviewComponent extends Component
     }
     final x = aim.dx.floor(), y = aim.dy.floor();
     final wall = _wall(s, x, y);
+    final emberBlocked = s.lava.any((cell) => cell.x == x && cell.y == y) ||
+        s.emberRocks.any((rock) => rock.x == x && rock.y == y);
     return switch (skill) {
-      TargetingSkill.trap =>
-        !wall && !s.bushes.any((cell) => cell.x == x && cell.y == y),
+      TargetingSkill.trap => !wall &&
+          !emberBlocked &&
+          !s.bushes.any((cell) => cell.x == x && cell.y == y),
       TargetingSkill.web => (s.crackedWalls
                   .any((cell) => cell.x == x && cell.y == y) ||
               (!wall &&
+                  !emberBlocked &&
                   !s.quicksand.any((cell) => cell.x == x && cell.y == y) &&
                   !s.amethystWalls.any((cell) => cell.x == x && cell.y == y) &&
                   !s.amethystShards.any((cell) => cell.x == x && cell.y == y) &&
                   !s.mushrooms.any(
                       (mushroom) => mushroom.x == x && mushroom.y == y))) &&
           !s.webs.any((web) => web.x == x && web.y == y),
-      TargetingSkill.portal =>
-        !wall && !s.bushes.any((cell) => cell.x == x && cell.y == y),
+      TargetingSkill.portal => !wall &&
+          !emberBlocked &&
+          !s.bushes.any((cell) => cell.x == x && cell.y == y),
       TargetingSkill.crystal => !wall &&
+          !emberBlocked &&
           (!s.magicCrystals
                   .any((crystal) => crystal.x == x && crystal.y == y) ||
               s.magicCrystals.any((crystal) =>
@@ -227,8 +222,9 @@ class _TargetingPreviewComponent extends Component
       TargetingSkill.chain => s.magicCrystals.any((crystal) =>
           !crystal.fallen &&
           (Offset(crystal.x + 0.5, crystal.y + 0.5) - aim).distance <= 0.85),
-      TargetingSkill.clutch =>
-        !wall && !s.webs.any((web) => web.x == x && web.y == y),
+      TargetingSkill.clutch => !wall &&
+          !emberBlocked &&
+          !s.webs.any((web) => web.x == x && web.y == y),
       _ => false,
     };
   }
@@ -370,6 +366,7 @@ class _TargetingPreviewComponent extends Component
       s.maze[y][s.cols - 1] != '#';
 
   bool _isTunnelColumn(GameSnapshotDto s, int x) =>
+      s.biome != CaveBiome.ember &&
       x >= 0 &&
       x < s.cols &&
       s.maze[0][x] != '#' &&
@@ -386,7 +383,12 @@ class _LegacyTerrainComponent extends Component
   void render(Canvas canvas) {
     final snapshot = game.network.snapshot;
     if (snapshot == null) return;
+    game._drawVoidBeyondMap(canvas, snapshot);
     game._drawBoard(canvas, snapshot);
+    game._drawLava(canvas, snapshot.lava);
+    game._drawGeysers(canvas, snapshot.geysers);
+    game._drawEmberRocks(canvas, snapshot.emberRocks);
+    game._drawSulfur(canvas, snapshot.sulfur);
     game._drawAmethystWalls(canvas, snapshot.amethystWalls);
     game._drawQuicksand(canvas, snapshot.quicksand);
     game._drawSpores(canvas, snapshot.spores);
@@ -406,6 +408,9 @@ class _LegacyTerrainComponent extends Component
     game._drawTrail(canvas, snapshot.trail);
     game._drawLogos(canvas, snapshot.logos, snapshot.game.spiderMode);
     game._drawClutch(canvas, snapshot.clutch);
+    // Rim the cave on top of the perimeter walls so the world's edge reads as a
+    // lit ledge above the surrounding abyss.
+    game._drawMapEdge(canvas, snapshot);
   }
 }
 

@@ -1928,6 +1928,564 @@ class _MushroomDtoCopyWithImpl<$R, $Out>
   ) => _MushroomDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class LavaCellDtoMapper extends ClassMapperBase<LavaCellDto> {
+  LavaCellDtoMapper._();
+
+  static LavaCellDtoMapper? _instance;
+  static LavaCellDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = LavaCellDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'LavaCellDto';
+
+  static int _$x(LavaCellDto v) => v.x;
+  static const Field<LavaCellDto, int> _f$x = Field('x', _$x);
+  static int _$y(LavaCellDto v) => v.y;
+  static const Field<LavaCellDto, int> _f$y = Field('y', _$y);
+  static int _$stream(LavaCellDto v) => v.stream;
+  static const Field<LavaCellDto, int> _f$stream = Field('stream', _$stream);
+
+  @override
+  final MappableFields<LavaCellDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #stream: _f$stream,
+  };
+
+  static LavaCellDto _instantiate(DecodingData data) {
+    return LavaCellDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      stream: data.dec(_f$stream),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static LavaCellDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<LavaCellDto>(map);
+  }
+
+  static LavaCellDto fromJson(String json) {
+    return ensureInitialized().decodeJson<LavaCellDto>(json);
+  }
+}
+
+mixin LavaCellDtoMappable {
+  String toJson() {
+    return LavaCellDtoMapper.ensureInitialized().encodeJson<LavaCellDto>(
+      this as LavaCellDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return LavaCellDtoMapper.ensureInitialized().encodeMap<LavaCellDto>(
+      this as LavaCellDto,
+    );
+  }
+
+  LavaCellDtoCopyWith<LavaCellDto, LavaCellDto, LavaCellDto> get copyWith =>
+      _LavaCellDtoCopyWithImpl<LavaCellDto, LavaCellDto>(
+        this as LavaCellDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return LavaCellDtoMapper.ensureInitialized().stringifyValue(
+      this as LavaCellDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return LavaCellDtoMapper.ensureInitialized().equalsValue(
+      this as LavaCellDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return LavaCellDtoMapper.ensureInitialized().hashValue(this as LavaCellDto);
+  }
+}
+
+extension LavaCellDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, LavaCellDto, $Out> {
+  LavaCellDtoCopyWith<$R, LavaCellDto, $Out> get $asLavaCellDto =>
+      $base.as((v, t, t2) => _LavaCellDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class LavaCellDtoCopyWith<$R, $In extends LavaCellDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? x, int? y, int? stream});
+  LavaCellDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _LavaCellDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, LavaCellDto, $Out>
+    implements LavaCellDtoCopyWith<$R, LavaCellDto, $Out> {
+  _LavaCellDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<LavaCellDto> $mapper =
+      LavaCellDtoMapper.ensureInitialized();
+  @override
+  $R call({int? x, int? y, int? stream}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (stream != null) #stream: stream,
+    }),
+  );
+  @override
+  LavaCellDto $make(CopyWithData data) => LavaCellDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    stream: data.get(#stream, or: $value.stream),
+  );
+
+  @override
+  LavaCellDtoCopyWith<$R2, LavaCellDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _LavaCellDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class EmberRockDtoMapper extends ClassMapperBase<EmberRockDto> {
+  EmberRockDtoMapper._();
+
+  static EmberRockDtoMapper? _instance;
+  static EmberRockDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = EmberRockDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'EmberRockDto';
+
+  static int _$id(EmberRockDto v) => v.id;
+  static const Field<EmberRockDto, int> _f$id = Field('id', _$id);
+  static int _$x(EmberRockDto v) => v.x;
+  static const Field<EmberRockDto, int> _f$x = Field('x', _$x);
+  static int _$y(EmberRockDto v) => v.y;
+  static const Field<EmberRockDto, int> _f$y = Field('y', _$y);
+  static int _$stream(EmberRockDto v) => v.stream;
+  static const Field<EmberRockDto, int> _f$stream = Field('stream', _$stream);
+  static bool _$bridge(EmberRockDto v) => v.bridge;
+  static const Field<EmberRockDto, bool> _f$bridge = Field('bridge', _$bridge);
+  static bool _$sinking(EmberRockDto v) => v.sinking;
+  static const Field<EmberRockDto, bool> _f$sinking = Field(
+    'sinking',
+    _$sinking,
+  );
+
+  @override
+  final MappableFields<EmberRockDto> fields = const {
+    #id: _f$id,
+    #x: _f$x,
+    #y: _f$y,
+    #stream: _f$stream,
+    #bridge: _f$bridge,
+    #sinking: _f$sinking,
+  };
+
+  static EmberRockDto _instantiate(DecodingData data) {
+    return EmberRockDto(
+      id: data.dec(_f$id),
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      stream: data.dec(_f$stream),
+      bridge: data.dec(_f$bridge),
+      sinking: data.dec(_f$sinking),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static EmberRockDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<EmberRockDto>(map);
+  }
+
+  static EmberRockDto fromJson(String json) {
+    return ensureInitialized().decodeJson<EmberRockDto>(json);
+  }
+}
+
+mixin EmberRockDtoMappable {
+  String toJson() {
+    return EmberRockDtoMapper.ensureInitialized().encodeJson<EmberRockDto>(
+      this as EmberRockDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return EmberRockDtoMapper.ensureInitialized().encodeMap<EmberRockDto>(
+      this as EmberRockDto,
+    );
+  }
+
+  EmberRockDtoCopyWith<EmberRockDto, EmberRockDto, EmberRockDto> get copyWith =>
+      _EmberRockDtoCopyWithImpl<EmberRockDto, EmberRockDto>(
+        this as EmberRockDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return EmberRockDtoMapper.ensureInitialized().stringifyValue(
+      this as EmberRockDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return EmberRockDtoMapper.ensureInitialized().equalsValue(
+      this as EmberRockDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return EmberRockDtoMapper.ensureInitialized().hashValue(
+      this as EmberRockDto,
+    );
+  }
+}
+
+extension EmberRockDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, EmberRockDto, $Out> {
+  EmberRockDtoCopyWith<$R, EmberRockDto, $Out> get $asEmberRockDto =>
+      $base.as((v, t, t2) => _EmberRockDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class EmberRockDtoCopyWith<$R, $In extends EmberRockDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? id, int? x, int? y, int? stream, bool? bridge, bool? sinking});
+  EmberRockDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _EmberRockDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, EmberRockDto, $Out>
+    implements EmberRockDtoCopyWith<$R, EmberRockDto, $Out> {
+  _EmberRockDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<EmberRockDto> $mapper =
+      EmberRockDtoMapper.ensureInitialized();
+  @override
+  $R call({
+    int? id,
+    int? x,
+    int? y,
+    int? stream,
+    bool? bridge,
+    bool? sinking,
+  }) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (stream != null) #stream: stream,
+      if (bridge != null) #bridge: bridge,
+      if (sinking != null) #sinking: sinking,
+    }),
+  );
+  @override
+  EmberRockDto $make(CopyWithData data) => EmberRockDto(
+    id: data.get(#id, or: $value.id),
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    stream: data.get(#stream, or: $value.stream),
+    bridge: data.get(#bridge, or: $value.bridge),
+    sinking: data.get(#sinking, or: $value.sinking),
+  );
+
+  @override
+  EmberRockDtoCopyWith<$R2, EmberRockDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _EmberRockDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class EmberGeyserDtoMapper extends ClassMapperBase<EmberGeyserDto> {
+  EmberGeyserDtoMapper._();
+
+  static EmberGeyserDtoMapper? _instance;
+  static EmberGeyserDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = EmberGeyserDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'EmberGeyserDto';
+
+  static int _$id(EmberGeyserDto v) => v.id;
+  static const Field<EmberGeyserDto, int> _f$id = Field('id', _$id);
+  static int _$x(EmberGeyserDto v) => v.x;
+  static const Field<EmberGeyserDto, int> _f$x = Field('x', _$x);
+  static int _$y(EmberGeyserDto v) => v.y;
+  static const Field<EmberGeyserDto, int> _f$y = Field('y', _$y);
+  static double _$progress(EmberGeyserDto v) => v.progress;
+  static const Field<EmberGeyserDto, double> _f$progress = Field(
+    'progress',
+    _$progress,
+  );
+
+  @override
+  final MappableFields<EmberGeyserDto> fields = const {
+    #id: _f$id,
+    #x: _f$x,
+    #y: _f$y,
+    #progress: _f$progress,
+  };
+
+  static EmberGeyserDto _instantiate(DecodingData data) {
+    return EmberGeyserDto(
+      id: data.dec(_f$id),
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      progress: data.dec(_f$progress),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static EmberGeyserDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<EmberGeyserDto>(map);
+  }
+
+  static EmberGeyserDto fromJson(String json) {
+    return ensureInitialized().decodeJson<EmberGeyserDto>(json);
+  }
+}
+
+mixin EmberGeyserDtoMappable {
+  String toJson() {
+    return EmberGeyserDtoMapper.ensureInitialized().encodeJson<EmberGeyserDto>(
+      this as EmberGeyserDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return EmberGeyserDtoMapper.ensureInitialized().encodeMap<EmberGeyserDto>(
+      this as EmberGeyserDto,
+    );
+  }
+
+  EmberGeyserDtoCopyWith<EmberGeyserDto, EmberGeyserDto, EmberGeyserDto>
+  get copyWith => _EmberGeyserDtoCopyWithImpl<EmberGeyserDto, EmberGeyserDto>(
+    this as EmberGeyserDto,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return EmberGeyserDtoMapper.ensureInitialized().stringifyValue(
+      this as EmberGeyserDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return EmberGeyserDtoMapper.ensureInitialized().equalsValue(
+      this as EmberGeyserDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return EmberGeyserDtoMapper.ensureInitialized().hashValue(
+      this as EmberGeyserDto,
+    );
+  }
+}
+
+extension EmberGeyserDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, EmberGeyserDto, $Out> {
+  EmberGeyserDtoCopyWith<$R, EmberGeyserDto, $Out> get $asEmberGeyserDto =>
+      $base.as((v, t, t2) => _EmberGeyserDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class EmberGeyserDtoCopyWith<$R, $In extends EmberGeyserDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? id, int? x, int? y, double? progress});
+  EmberGeyserDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _EmberGeyserDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, EmberGeyserDto, $Out>
+    implements EmberGeyserDtoCopyWith<$R, EmberGeyserDto, $Out> {
+  _EmberGeyserDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<EmberGeyserDto> $mapper =
+      EmberGeyserDtoMapper.ensureInitialized();
+  @override
+  $R call({int? id, int? x, int? y, double? progress}) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (progress != null) #progress: progress,
+    }),
+  );
+  @override
+  EmberGeyserDto $make(CopyWithData data) => EmberGeyserDto(
+    id: data.get(#id, or: $value.id),
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    progress: data.get(#progress, or: $value.progress),
+  );
+
+  @override
+  EmberGeyserDtoCopyWith<$R2, EmberGeyserDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _EmberGeyserDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class SulfurDtoMapper extends ClassMapperBase<SulfurDto> {
+  SulfurDtoMapper._();
+
+  static SulfurDtoMapper? _instance;
+  static SulfurDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SulfurDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'SulfurDto';
+
+  static int _$x(SulfurDto v) => v.x;
+  static const Field<SulfurDto, int> _f$x = Field('x', _$x);
+  static int _$y(SulfurDto v) => v.y;
+  static const Field<SulfurDto, int> _f$y = Field('y', _$y);
+  static double _$life(SulfurDto v) => v.life;
+  static const Field<SulfurDto, double> _f$life = Field('life', _$life);
+
+  @override
+  final MappableFields<SulfurDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #life: _f$life,
+  };
+
+  static SulfurDto _instantiate(DecodingData data) {
+    return SulfurDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      life: data.dec(_f$life),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static SulfurDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<SulfurDto>(map);
+  }
+
+  static SulfurDto fromJson(String json) {
+    return ensureInitialized().decodeJson<SulfurDto>(json);
+  }
+}
+
+mixin SulfurDtoMappable {
+  String toJson() {
+    return SulfurDtoMapper.ensureInitialized().encodeJson<SulfurDto>(
+      this as SulfurDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return SulfurDtoMapper.ensureInitialized().encodeMap<SulfurDto>(
+      this as SulfurDto,
+    );
+  }
+
+  SulfurDtoCopyWith<SulfurDto, SulfurDto, SulfurDto> get copyWith =>
+      _SulfurDtoCopyWithImpl<SulfurDto, SulfurDto>(
+        this as SulfurDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return SulfurDtoMapper.ensureInitialized().stringifyValue(
+      this as SulfurDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return SulfurDtoMapper.ensureInitialized().equalsValue(
+      this as SulfurDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return SulfurDtoMapper.ensureInitialized().hashValue(this as SulfurDto);
+  }
+}
+
+extension SulfurDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, SulfurDto, $Out> {
+  SulfurDtoCopyWith<$R, SulfurDto, $Out> get $asSulfurDto =>
+      $base.as((v, t, t2) => _SulfurDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class SulfurDtoCopyWith<$R, $In extends SulfurDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({int? x, int? y, double? life});
+  SulfurDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _SulfurDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, SulfurDto, $Out>
+    implements SulfurDtoCopyWith<$R, SulfurDto, $Out> {
+  _SulfurDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<SulfurDto> $mapper =
+      SulfurDtoMapper.ensureInitialized();
+  @override
+  $R call({int? x, int? y, double? life}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (life != null) #life: life,
+    }),
+  );
+  @override
+  SulfurDto $make(CopyWithData data) => SulfurDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    life: data.get(#life, or: $value.life),
+  );
+
+  @override
+  SulfurDtoCopyWith<$R2, SulfurDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _SulfurDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
 class ClutchDtoMapper extends ClassMapperBase<ClutchDto> {
   ClutchDtoMapper._();
 
@@ -3658,6 +4216,7 @@ class DirectorySnapshotDtoMapper extends ClassMapperBase<DirectorySnapshotDto> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = DirectorySnapshotDtoMapper._());
       SessionSummaryDtoMapper.ensureInitialized();
+      UserStatsDtoMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -3674,17 +4233,40 @@ class DirectorySnapshotDtoMapper extends ClassMapperBase<DirectorySnapshotDto> {
       v.sessions;
   static const Field<DirectorySnapshotDto, List<SessionSummaryDto>>
   _f$sessions = Field('sessions', _$sessions);
+  static int _$onlineUsers(DirectorySnapshotDto v) => v.onlineUsers;
+  static const Field<DirectorySnapshotDto, int> _f$onlineUsers = Field(
+    'onlineUsers',
+    _$onlineUsers,
+    opt: true,
+    def: 0,
+  );
+  static List<UserStatsDto> _$leaderboard(DirectorySnapshotDto v) =>
+      v.leaderboard;
+  static const Field<DirectorySnapshotDto, List<UserStatsDto>> _f$leaderboard =
+      Field('leaderboard', _$leaderboard, opt: true, def: const []);
+  static UserStatsDto? _$yourStats(DirectorySnapshotDto v) => v.yourStats;
+  static const Field<DirectorySnapshotDto, UserStatsDto> _f$yourStats = Field(
+    'yourStats',
+    _$yourStats,
+    opt: true,
+  );
 
   @override
   final MappableFields<DirectorySnapshotDto> fields = const {
     #type: _f$type,
     #sessions: _f$sessions,
+    #onlineUsers: _f$onlineUsers,
+    #leaderboard: _f$leaderboard,
+    #yourStats: _f$yourStats,
   };
 
   static DirectorySnapshotDto _instantiate(DecodingData data) {
     return DirectorySnapshotDto(
       type: data.dec(_f$type),
       sessions: data.dec(_f$sessions),
+      onlineUsers: data.dec(_f$onlineUsers),
+      leaderboard: data.dec(_f$leaderboard),
+      yourStats: data.dec(_f$yourStats),
     );
   }
 
@@ -3764,7 +4346,20 @@ abstract class DirectorySnapshotDtoCopyWith<
     SessionSummaryDtoCopyWith<$R, SessionSummaryDto, SessionSummaryDto>
   >
   get sessions;
-  $R call({String? type, List<SessionSummaryDto>? sessions});
+  ListCopyWith<
+    $R,
+    UserStatsDto,
+    UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>
+  >
+  get leaderboard;
+  UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>? get yourStats;
+  $R call({
+    String? type,
+    List<SessionSummaryDto>? sessions,
+    int? onlineUsers,
+    List<UserStatsDto>? leaderboard,
+    UserStatsDto? yourStats,
+  });
   DirectorySnapshotDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
   );
@@ -3790,22 +4385,179 @@ class _DirectorySnapshotDtoCopyWithImpl<$R, $Out>
     (v) => call(sessions: v),
   );
   @override
-  $R call({String? type, List<SessionSummaryDto>? sessions}) => $apply(
+  ListCopyWith<
+    $R,
+    UserStatsDto,
+    UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>
+  >
+  get leaderboard => ListCopyWith(
+    $value.leaderboard,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(leaderboard: v),
+  );
+  @override
+  UserStatsDtoCopyWith<$R, UserStatsDto, UserStatsDto>? get yourStats =>
+      $value.yourStats?.copyWith.$chain((v) => call(yourStats: v));
+  @override
+  $R call({
+    String? type,
+    List<SessionSummaryDto>? sessions,
+    int? onlineUsers,
+    List<UserStatsDto>? leaderboard,
+    Object? yourStats = $none,
+  }) => $apply(
     FieldCopyWithData({
       if (type != null) #type: type,
       if (sessions != null) #sessions: sessions,
+      if (onlineUsers != null) #onlineUsers: onlineUsers,
+      if (leaderboard != null) #leaderboard: leaderboard,
+      if (yourStats != $none) #yourStats: yourStats,
     }),
   );
   @override
   DirectorySnapshotDto $make(CopyWithData data) => DirectorySnapshotDto(
     type: data.get(#type, or: $value.type),
     sessions: data.get(#sessions, or: $value.sessions),
+    onlineUsers: data.get(#onlineUsers, or: $value.onlineUsers),
+    leaderboard: data.get(#leaderboard, or: $value.leaderboard),
+    yourStats: data.get(#yourStats, or: $value.yourStats),
   );
 
   @override
   DirectorySnapshotDtoCopyWith<$R2, DirectorySnapshotDto, $Out2>
   $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
       _DirectorySnapshotDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class UserStatsDtoMapper extends ClassMapperBase<UserStatsDto> {
+  UserStatsDtoMapper._();
+
+  static UserStatsDtoMapper? _instance;
+  static UserStatsDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = UserStatsDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'UserStatsDto';
+
+  static String _$name(UserStatsDto v) => v.name;
+  static const Field<UserStatsDto, String> _f$name = Field('name', _$name);
+  static int _$wins(UserStatsDto v) => v.wins;
+  static const Field<UserStatsDto, int> _f$wins = Field('wins', _$wins);
+  static int _$losses(UserStatsDto v) => v.losses;
+  static const Field<UserStatsDto, int> _f$losses = Field('losses', _$losses);
+
+  @override
+  final MappableFields<UserStatsDto> fields = const {
+    #name: _f$name,
+    #wins: _f$wins,
+    #losses: _f$losses,
+  };
+
+  static UserStatsDto _instantiate(DecodingData data) {
+    return UserStatsDto(
+      name: data.dec(_f$name),
+      wins: data.dec(_f$wins),
+      losses: data.dec(_f$losses),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static UserStatsDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<UserStatsDto>(map);
+  }
+
+  static UserStatsDto fromJson(String json) {
+    return ensureInitialized().decodeJson<UserStatsDto>(json);
+  }
+}
+
+mixin UserStatsDtoMappable {
+  String toJson() {
+    return UserStatsDtoMapper.ensureInitialized().encodeJson<UserStatsDto>(
+      this as UserStatsDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return UserStatsDtoMapper.ensureInitialized().encodeMap<UserStatsDto>(
+      this as UserStatsDto,
+    );
+  }
+
+  UserStatsDtoCopyWith<UserStatsDto, UserStatsDto, UserStatsDto> get copyWith =>
+      _UserStatsDtoCopyWithImpl<UserStatsDto, UserStatsDto>(
+        this as UserStatsDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return UserStatsDtoMapper.ensureInitialized().stringifyValue(
+      this as UserStatsDto,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return UserStatsDtoMapper.ensureInitialized().equalsValue(
+      this as UserStatsDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return UserStatsDtoMapper.ensureInitialized().hashValue(
+      this as UserStatsDto,
+    );
+  }
+}
+
+extension UserStatsDtoValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, UserStatsDto, $Out> {
+  UserStatsDtoCopyWith<$R, UserStatsDto, $Out> get $asUserStatsDto =>
+      $base.as((v, t, t2) => _UserStatsDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class UserStatsDtoCopyWith<$R, $In extends UserStatsDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({String? name, int? wins, int? losses});
+  UserStatsDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _UserStatsDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, UserStatsDto, $Out>
+    implements UserStatsDtoCopyWith<$R, UserStatsDto, $Out> {
+  _UserStatsDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<UserStatsDto> $mapper =
+      UserStatsDtoMapper.ensureInitialized();
+  @override
+  $R call({String? name, int? wins, int? losses}) => $apply(
+    FieldCopyWithData({
+      if (name != null) #name: name,
+      if (wins != null) #wins: wins,
+      if (losses != null) #losses: losses,
+    }),
+  );
+  @override
+  UserStatsDto $make(CopyWithData data) => UserStatsDto(
+    name: data.get(#name, or: $value.name),
+    wins: data.get(#wins, or: $value.wins),
+    losses: data.get(#losses, or: $value.losses),
+  );
+
+  @override
+  UserStatsDtoCopyWith<$R2, UserStatsDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _UserStatsDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
@@ -4381,137 +5133,6 @@ class _YouDtoCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, YouDto, $Out>
       _YouDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
-class UserStatsDtoMapper extends ClassMapperBase<UserStatsDto> {
-  UserStatsDtoMapper._();
-
-  static UserStatsDtoMapper? _instance;
-  static UserStatsDtoMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = UserStatsDtoMapper._());
-    }
-    return _instance!;
-  }
-
-  @override
-  final String id = 'UserStatsDto';
-
-  static String _$name(UserStatsDto v) => v.name;
-  static const Field<UserStatsDto, String> _f$name = Field('name', _$name);
-  static int _$wins(UserStatsDto v) => v.wins;
-  static const Field<UserStatsDto, int> _f$wins = Field('wins', _$wins);
-  static int _$losses(UserStatsDto v) => v.losses;
-  static const Field<UserStatsDto, int> _f$losses = Field('losses', _$losses);
-
-  @override
-  final MappableFields<UserStatsDto> fields = const {
-    #name: _f$name,
-    #wins: _f$wins,
-    #losses: _f$losses,
-  };
-
-  static UserStatsDto _instantiate(DecodingData data) {
-    return UserStatsDto(
-      name: data.dec(_f$name),
-      wins: data.dec(_f$wins),
-      losses: data.dec(_f$losses),
-    );
-  }
-
-  @override
-  final Function instantiate = _instantiate;
-
-  static UserStatsDto fromMap(Map<String, dynamic> map) {
-    return ensureInitialized().decodeMap<UserStatsDto>(map);
-  }
-
-  static UserStatsDto fromJson(String json) {
-    return ensureInitialized().decodeJson<UserStatsDto>(json);
-  }
-}
-
-mixin UserStatsDtoMappable {
-  String toJson() {
-    return UserStatsDtoMapper.ensureInitialized().encodeJson<UserStatsDto>(
-      this as UserStatsDto,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return UserStatsDtoMapper.ensureInitialized().encodeMap<UserStatsDto>(
-      this as UserStatsDto,
-    );
-  }
-
-  UserStatsDtoCopyWith<UserStatsDto, UserStatsDto, UserStatsDto> get copyWith =>
-      _UserStatsDtoCopyWithImpl<UserStatsDto, UserStatsDto>(
-        this as UserStatsDto,
-        $identity,
-        $identity,
-      );
-  @override
-  String toString() {
-    return UserStatsDtoMapper.ensureInitialized().stringifyValue(
-      this as UserStatsDto,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return UserStatsDtoMapper.ensureInitialized().equalsValue(
-      this as UserStatsDto,
-      other,
-    );
-  }
-
-  @override
-  int get hashCode {
-    return UserStatsDtoMapper.ensureInitialized().hashValue(
-      this as UserStatsDto,
-    );
-  }
-}
-
-extension UserStatsDtoValueCopy<$R, $Out>
-    on ObjectCopyWith<$R, UserStatsDto, $Out> {
-  UserStatsDtoCopyWith<$R, UserStatsDto, $Out> get $asUserStatsDto =>
-      $base.as((v, t, t2) => _UserStatsDtoCopyWithImpl<$R, $Out>(v, t, t2));
-}
-
-abstract class UserStatsDtoCopyWith<$R, $In extends UserStatsDto, $Out>
-    implements ClassCopyWith<$R, $In, $Out> {
-  $R call({String? name, int? wins, int? losses});
-  UserStatsDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
-}
-
-class _UserStatsDtoCopyWithImpl<$R, $Out>
-    extends ClassCopyWithBase<$R, UserStatsDto, $Out>
-    implements UserStatsDtoCopyWith<$R, UserStatsDto, $Out> {
-  _UserStatsDtoCopyWithImpl(super.value, super.then, super.then2);
-
-  @override
-  late final ClassMapperBase<UserStatsDto> $mapper =
-      UserStatsDtoMapper.ensureInitialized();
-  @override
-  $R call({String? name, int? wins, int? losses}) => $apply(
-    FieldCopyWithData({
-      if (name != null) #name: name,
-      if (wins != null) #wins: wins,
-      if (losses != null) #losses: losses,
-    }),
-  );
-  @override
-  UserStatsDto $make(CopyWithData data) => UserStatsDto(
-    name: data.get(#name, or: $value.name),
-    wins: data.get(#wins, or: $value.wins),
-    losses: data.get(#losses, or: $value.losses),
-  );
-
-  @override
-  UserStatsDtoCopyWith<$R2, UserStatsDto, $Out2> $chain<$R2, $Out2>(
-    Then<$Out2, $R2> t,
-  ) => _UserStatsDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
-}
-
 class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
   GameSnapshotDtoMapper._();
 
@@ -4524,6 +5145,10 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       CaveBiomeMapper.ensureInitialized();
       ChimeDtoMapper.ensureInitialized();
       MushroomDtoMapper.ensureInitialized();
+      LavaCellDtoMapper.ensureInitialized();
+      EmberRockDtoMapper.ensureInitialized();
+      EmberGeyserDtoMapper.ensureInitialized();
+      SulfurDtoMapper.ensureInitialized();
       IllusionDtoMapper.ensureInitialized();
       SarcophagusDtoMapper.ensureInitialized();
       MummyDtoMapper.ensureInitialized();
@@ -4636,6 +5261,34 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
   static const Field<GameSnapshotDto, List<Vec2i>> _f$spores = Field(
     'spores',
     _$spores,
+    opt: true,
+    def: const [],
+  );
+  static List<LavaCellDto> _$lava(GameSnapshotDto v) => v.lava;
+  static const Field<GameSnapshotDto, List<LavaCellDto>> _f$lava = Field(
+    'lava',
+    _$lava,
+    opt: true,
+    def: const [],
+  );
+  static List<EmberRockDto> _$emberRocks(GameSnapshotDto v) => v.emberRocks;
+  static const Field<GameSnapshotDto, List<EmberRockDto>> _f$emberRocks = Field(
+    'emberRocks',
+    _$emberRocks,
+    opt: true,
+    def: const [],
+  );
+  static List<EmberGeyserDto> _$geysers(GameSnapshotDto v) => v.geysers;
+  static const Field<GameSnapshotDto, List<EmberGeyserDto>> _f$geysers = Field(
+    'geysers',
+    _$geysers,
+    opt: true,
+    def: const [],
+  );
+  static List<SulfurDto> _$sulfur(GameSnapshotDto v) => v.sulfur;
+  static const Field<GameSnapshotDto, List<SulfurDto>> _f$sulfur = Field(
+    'sulfur',
+    _$sulfur,
     opt: true,
     def: const [],
   );
@@ -4777,6 +5430,10 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #chimes: _f$chimes,
     #mushrooms: _f$mushrooms,
     #spores: _f$spores,
+    #lava: _f$lava,
+    #emberRocks: _f$emberRocks,
+    #geysers: _f$geysers,
+    #sulfur: _f$sulfur,
     #illusions: _f$illusions,
     #sarcophagi: _f$sarcophagi,
     #mummies: _f$mummies,
@@ -4820,6 +5477,10 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       chimes: data.dec(_f$chimes),
       mushrooms: data.dec(_f$mushrooms),
       spores: data.dec(_f$spores),
+      lava: data.dec(_f$lava),
+      emberRocks: data.dec(_f$emberRocks),
+      geysers: data.dec(_f$geysers),
+      sulfur: data.dec(_f$sulfur),
       illusions: data.dec(_f$illusions),
       sarcophagi: data.dec(_f$sarcophagi),
       mummies: data.dec(_f$mummies),
@@ -4927,6 +5588,26 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get spores;
   ListCopyWith<
     $R,
+    LavaCellDto,
+    LavaCellDtoCopyWith<$R, LavaCellDto, LavaCellDto>
+  >
+  get lava;
+  ListCopyWith<
+    $R,
+    EmberRockDto,
+    EmberRockDtoCopyWith<$R, EmberRockDto, EmberRockDto>
+  >
+  get emberRocks;
+  ListCopyWith<
+    $R,
+    EmberGeyserDto,
+    EmberGeyserDtoCopyWith<$R, EmberGeyserDto, EmberGeyserDto>
+  >
+  get geysers;
+  ListCopyWith<$R, SulfurDto, SulfurDtoCopyWith<$R, SulfurDto, SulfurDto>>
+  get sulfur;
+  ListCopyWith<
+    $R,
     IllusionDto,
     IllusionDtoCopyWith<$R, IllusionDto, IllusionDto>
   >
@@ -4998,6 +5679,10 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     List<ChimeDto>? chimes,
     List<MushroomDto>? mushrooms,
     List<Vec2i>? spores,
+    List<LavaCellDto>? lava,
+    List<EmberRockDto>? emberRocks,
+    List<EmberGeyserDto>? geysers,
+    List<SulfurDto>? sulfur,
     List<IllusionDto>? illusions,
     List<SarcophagusDto>? sarcophagi,
     List<MummyDto>? mummies,
@@ -5112,6 +5797,46 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         (v, t) => v.copyWith.$chain(t),
         (v) => call(spores: v),
       );
+  @override
+  ListCopyWith<
+    $R,
+    LavaCellDto,
+    LavaCellDtoCopyWith<$R, LavaCellDto, LavaCellDto>
+  >
+  get lava => ListCopyWith(
+    $value.lava,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(lava: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    EmberRockDto,
+    EmberRockDtoCopyWith<$R, EmberRockDto, EmberRockDto>
+  >
+  get emberRocks => ListCopyWith(
+    $value.emberRocks,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(emberRocks: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    EmberGeyserDto,
+    EmberGeyserDtoCopyWith<$R, EmberGeyserDto, EmberGeyserDto>
+  >
+  get geysers => ListCopyWith(
+    $value.geysers,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(geysers: v),
+  );
+  @override
+  ListCopyWith<$R, SulfurDto, SulfurDtoCopyWith<$R, SulfurDto, SulfurDto>>
+  get sulfur => ListCopyWith(
+    $value.sulfur,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(sulfur: v),
+  );
   @override
   ListCopyWith<
     $R,
@@ -5274,6 +5999,10 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     List<ChimeDto>? chimes,
     List<MushroomDto>? mushrooms,
     List<Vec2i>? spores,
+    List<LavaCellDto>? lava,
+    List<EmberRockDto>? emberRocks,
+    List<EmberGeyserDto>? geysers,
+    List<SulfurDto>? sulfur,
     List<IllusionDto>? illusions,
     List<SarcophagusDto>? sarcophagi,
     List<MummyDto>? mummies,
@@ -5315,6 +6044,10 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (chimes != null) #chimes: chimes,
       if (mushrooms != null) #mushrooms: mushrooms,
       if (spores != null) #spores: spores,
+      if (lava != null) #lava: lava,
+      if (emberRocks != null) #emberRocks: emberRocks,
+      if (geysers != null) #geysers: geysers,
+      if (sulfur != null) #sulfur: sulfur,
       if (illusions != null) #illusions: illusions,
       if (sarcophagi != null) #sarcophagi: sarcophagi,
       if (mummies != null) #mummies: mummies,
@@ -5358,6 +6091,10 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     chimes: data.get(#chimes, or: $value.chimes),
     mushrooms: data.get(#mushrooms, or: $value.mushrooms),
     spores: data.get(#spores, or: $value.spores),
+    lava: data.get(#lava, or: $value.lava),
+    emberRocks: data.get(#emberRocks, or: $value.emberRocks),
+    geysers: data.get(#geysers, or: $value.geysers),
+    sulfur: data.get(#sulfur, or: $value.sulfur),
     illusions: data.get(#illusions, or: $value.illusions),
     sarcophagi: data.get(#sarcophagi, or: $value.sarcophagi),
     mummies: data.get(#mummies, or: $value.mummies),

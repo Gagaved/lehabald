@@ -17,6 +17,10 @@ class MazeService {
     stoneSeed = random.nextInt(1 << 31);
     blockedVoidSpaces = _computeBlockedVoidSpaces(maze);
     superLogoKeys = _pickSuperLogoKeys(maze, random);
+    lavaStreams = biome == CaveBiome.ember
+        ? _computeLavaStreams(random)
+        : const <Set<String>>[];
+    if (biome == CaveBiome.ember) _connectEmberComponents();
     crackedWalls = _computeCrackedWalls(random);
     amethystWallGroups = biome == CaveBiome.amethyst
         ? _computeAmethystWallGroups(random)
@@ -44,6 +48,12 @@ class MazeService {
       crystals = const {};
       sarcophagi = const {};
       quicksand = const {};
+    } else if (biome == CaveBiome.ember) {
+      bushes = const {};
+      crystals = const {};
+      sarcophagi = const {};
+      quicksand = const {};
+      amethystShards = const {};
     } else {
       bushes = _computeBushes(random);
       crystals = const {};
@@ -73,6 +83,11 @@ class MazeService {
   /// Permanent amethyst wall-nodes. These remain solid and regrow floor shards.
   late final Set<String> amethystWalls;
 
+  /// Ember lava is a complete horizontal separator. Wall cells remain walls;
+  /// every open cell on the separator belongs to one stream.
+  late final List<Set<String>> lavaStreams;
+  Set<String> get lava => lavaStreams.expand((stream) => stream).toSet();
+
   /// Wall-node groups, one group per independently balanced shard colony.
   late final List<Set<String>> amethystWallGroups;
 
@@ -93,6 +108,11 @@ class MazeService {
   bool isQuicksand(int x, int y) => quicksand.contains('$x,$y');
 
   bool isAmethystShard(int x, int y) => amethystShards.contains('$x,$y');
+
+  bool isLava(int x, int y) => lavaStreams.any((s) => s.contains('$x,$y'));
+
+  int lavaStreamAt(int x, int y) =>
+      lavaStreams.indexWhere((stream) => stream.contains('$x,$y'));
 
   /// A dynamic spore/fog cell (amethyst). Slows movement; conceals via [conceals].
   bool isSpore(int x, int y) => dynamicCover.contains('$x,$y');
@@ -137,8 +157,121 @@ class MazeService {
   /// [biomes], when given, restricts the cosmetic biome to that set.
   static MazeService generate({int? seed, Set<CaveBiome>? biomes}) {
     final rng = seed != null ? Random(seed) : Random();
-    final data = MazeGenerator(rng: rng).generate();
-    return MazeService(mazeData: data, rng: rng, biomes: biomes);
+    MazeService? candidate;
+    for (var attempt = 0; attempt < 40; attempt++) {
+      final data = MazeGenerator(rng: rng).generate();
+      candidate = MazeService(mazeData: data, rng: rng, biomes: biomes);
+      if (candidate.biome != CaveBiome.ember || candidate.hasValidEmberZones) {
+        return candidate;
+      }
+    }
+    return candidate!;
+  }
+
+  bool get hasValidEmberZones {
+    if (biome != CaveBiome.ember) return true;
+    return emberZoneCount == lavaStreams.length + 1;
+  }
+
+  int get emberZoneCount {
+    if (biome != CaveBiome.ember) return 1;
+    return _emberComponents().length;
+  }
+
+  List<Set<Point<int>>> _emberComponents() {
+    final unseen = <String>{
+      for (var y = 0; y < rows; y++)
+        for (var x = 0; x < cols; x++)
+          if (!isWall(x, y) && !isLava(x, y)) '$x,$y',
+    };
+    final components = <Set<Point<int>>>[];
+    while (unseen.isNotEmpty) {
+      final component = <Point<int>>{};
+      final first = unseen.first.split(',').map(int.parse).toList();
+      final queue = Queue<Point<int>>()..add(Point(first[0], first[1]));
+      while (queue.isNotEmpty) {
+        final p = queue.removeFirst();
+        final key = '${p.x},${p.y}';
+        if (!unseen.remove(key)) continue;
+        component.add(p);
+        for (final d in const [
+          Point(1, 0),
+          Point(-1, 0),
+          Point(0, 1),
+          Point(0, -1)
+        ]) {
+          var nx = p.x + d.x, ny = p.y + d.y;
+          if (GameConstants.tunnelRows.contains(p.y)) {
+            nx = (nx + cols) % cols;
+          }
+          if (nx < 0 || nx >= cols || ny < 0 || ny >= rows) continue;
+          if (unseen.contains('$nx,$ny')) queue.add(Point(nx, ny));
+        }
+      }
+      components.add(component);
+    }
+    return components;
+  }
+
+  void _connectEmberComponents() {
+    final streamRows = lavaStreams
+        .map((stream) => int.parse(stream.first.split(',')[1]))
+        .toList()
+      ..sort();
+    int bandFor(int y) => streamRows.where((row) => y > row).length;
+    for (var pass = 0; pass < 20; pass++) {
+      final components = _emberComponents();
+      if (components.length <= lavaStreams.length + 1) return;
+      var connected = false;
+      for (var band = 0; band <= streamRows.length; band++) {
+        final inBand = components
+            .where((component) => bandFor(component.first.y) == band)
+            .toList();
+        if (inBand.length < 2) continue;
+        final a = inBand[0];
+        final b = inBand[1];
+        Point<int>? bestA, bestB;
+        var bestDistance = 1 << 30;
+        for (final pa in a) {
+          for (final pb in b) {
+            final distance = (pa.x - pb.x).abs() + (pa.y - pb.y).abs();
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestA = pa;
+              bestB = pb;
+            }
+          }
+        }
+        if (bestA == null || bestB == null) continue;
+        var x = bestA.x, y = bestA.y;
+        while (x != bestB.x) {
+          x += bestB.x > x ? 1 : -1;
+          destroyWall(x, y);
+        }
+        while (y != bestB.y) {
+          y += bestB.y > y ? 1 : -1;
+          destroyWall(x, y);
+        }
+        connected = true;
+        break;
+      }
+      if (!connected) return;
+    }
+  }
+
+  List<Set<String>> _computeLavaStreams(Random rng) {
+    // Fixed bands are deliberately kept between the two spawn regions. The
+    // maze remains varied because only its existing openings turn into lava.
+    final streamYs = rng.nextBool()
+        ? [rows ~/ 2]
+        : [(rows / 3).round(), (rows * 2 / 3).round()];
+    return streamYs.map((y) {
+      final stream = <String>{};
+      for (var x = 1; x < cols - 1; x++) {
+        if (!isWall(x, y)) stream.add('$x,$y');
+      }
+      return stream;
+    }).toList();
   }
 
   /// Scatters [GameConstants.crystalSpots] clusters of 1-2 crystals on open
@@ -432,7 +565,10 @@ class MazeService {
     final inCol = GameConstants.tunnelCols.contains(x);
     // Stepping out of a tunnel's far edge is open ground (the player wraps).
     if (inRow && (x < 0 || x >= cols)) return false;
-    if (inCol && (y < 0 || y >= rows)) return false;
+    // Ember disables the vertical wrap tunnels (lava must stay a real
+    // separator), so their top/bottom map edges are solid walls there. Every
+    // other biome wraps, so the edge is open ground.
+    if (inCol && (y < 0 || y >= rows)) return biome == CaveBiome.ember;
     final wrappedX = inRow ? (x + cols) % cols : x;
     final wrappedY = inCol ? (y + rows) % rows : y;
     if (wrappedX < 0 || wrappedX >= cols) return true;

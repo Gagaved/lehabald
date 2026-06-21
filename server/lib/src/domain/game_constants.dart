@@ -100,6 +100,17 @@ class GameConstants {
   static const mushroomSporeSlowFactor = 0.7;
   static const mushroomSpreadRadius = 3;
 
+  // Ember biome: rocks surface inside the lava as temporary stepping stones,
+  // and sulfur geysers erupt on the floor into drifting clouds.
+  // A surfaced rock sinks this long after a player first steps on it.
+  static const emberBridgeSinkMs = 1000;
+  // A geyser telegraphs this long before it erupts.
+  static const geyserWarningMs = 1000;
+  static const geyserMinIntervalMs = 4000;
+  static const geyserMaxIntervalMs = 7000;
+  // How long an erupted sulfur cloud lingers before fading.
+  static const sulfurDurationMs = 10000;
+
   // Spider "Raffaello" mode.
   static const rafaelkiCount = 6; // Raffaellos scattered on the map
   static const rafaelkiNeeded = 5; // how many to eat before laying a clutch

@@ -234,6 +234,55 @@ class MushroomDto with MushroomDtoMappable {
 }
 
 @MappableClass()
+class LavaCellDto with LavaCellDtoMappable {
+  const LavaCellDto({required this.x, required this.y, required this.stream});
+  final int x;
+  final int y;
+  final int stream;
+}
+
+@MappableClass()
+class EmberRockDto with EmberRockDtoMappable {
+  const EmberRockDto({
+    required this.id,
+    required this.x,
+    required this.y,
+    required this.stream,
+    required this.bridge,
+    required this.sinking,
+  });
+  final int id;
+  final int x;
+  final int y;
+  final int stream;
+  final bool bridge;
+  final bool sinking;
+}
+
+@MappableClass()
+class EmberGeyserDto with EmberGeyserDtoMappable {
+  const EmberGeyserDto({
+    required this.id,
+    required this.x,
+    required this.y,
+    required this.progress,
+  });
+  final int id;
+  final int x;
+  final int y;
+  // 0 → just started building, 1 → about to erupt.
+  final double progress;
+}
+
+@MappableClass()
+class SulfurDto with SulfurDtoMappable {
+  const SulfurDto({required this.x, required this.y, required this.life});
+  final int x;
+  final int y;
+  final double life;
+}
+
+@MappableClass()
 class ClutchDto with ClutchDtoMappable {
   const ClutchDto({
     required this.x,
@@ -413,10 +462,19 @@ class SessionSummaryDto with SessionSummaryDtoMappable {
 
 @MappableClass()
 class DirectorySnapshotDto with DirectorySnapshotDtoMappable {
-  const DirectorySnapshotDto({required this.type, required this.sessions});
+  const DirectorySnapshotDto({
+    required this.type,
+    required this.sessions,
+    this.onlineUsers = 0,
+    this.leaderboard = const [],
+    this.yourStats,
+  });
 
   final String type;
   final List<SessionSummaryDto> sessions;
+  final int onlineUsers;
+  final List<UserStatsDto> leaderboard;
+  final UserStatsDto? yourStats;
 }
 
 @MappableClass()
@@ -543,6 +601,10 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     this.chimes = const [],
     this.mushrooms = const [],
     this.spores = const [],
+    this.lava = const [],
+    this.emberRocks = const [],
+    this.geysers = const [],
+    this.sulfur = const [],
     this.illusions = const [],
     this.sarcophagi = const [],
     this.mummies = const [],
@@ -606,6 +668,18 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
 
   /// Amethyst-biome spore cells — conceal like bushes and slow movement.
   final List<Vec2i> spores;
+
+  /// Ember-only terrain and transient entities.
+  final List<LavaCellDto> lava;
+
+  /// Solid rocks that surface inside the lava as temporary stepping stones.
+  final List<EmberRockDto> emberRocks;
+
+  /// Sulfur geysers building up to erupt (progress 0→1).
+  final List<EmberGeyserDto> geysers;
+
+  /// Drifting sulfur clouds — conceal like bushes, then fade.
+  final List<SulfurDto> sulfur;
 
   /// Crystal-projected player illusions visible to this viewer.
   final List<IllusionDto> illusions;

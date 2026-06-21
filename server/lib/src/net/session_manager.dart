@@ -81,10 +81,31 @@ class SessionManager {
     _removeEmptySessions();
   }
 
-  DirectorySnapshotDto directory() => DirectorySnapshotDto(
+  DirectorySnapshotDto directoryFor(ClientPeer peer) => DirectorySnapshotDto(
         type: 'directory',
         sessions: sessions.values.map((session) => session.summary()).toList(),
+        onlineUsers: peers.length,
+        leaderboard: stats
+            .leaderboard()
+            .map((entry) => UserStatsDto(
+                  name: entry.name,
+                  wins: entry.wins,
+                  losses: entry.losses,
+                ))
+            .toList(),
+        yourStats: _statsFor(peer),
       );
+
+  UserStatsDto? _statsFor(ClientPeer peer) {
+    final name = peer.name.trim();
+    if (name.isEmpty) return null;
+    final value = stats.statsFor(name);
+    return UserStatsDto(
+      name: name,
+      wins: value?.wins ?? 0,
+      losses: value?.losses ?? 0,
+    );
+  }
 
   void _removeEmptySessions() {
     sessions.removeWhere((_, session) => session.peers.isEmpty);

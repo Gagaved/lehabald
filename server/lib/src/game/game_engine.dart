@@ -16,6 +16,7 @@ class GameEngine {
         stats = stats ?? StatsStore(),
         logger = logger ?? GameLogger() {
     logos = maze.createLogos();
+    logos.removeWhere(maze.lava.contains);
   }
 
   MazeService _maze;
@@ -143,6 +144,7 @@ class GameEngine {
       LehaAspect.wizard => <String>{},
       _ => _maze.createLogos(),
     };
+    logos.removeWhere(maze.lava.contains);
     final now = nowMs();
     round
       ..shardsIntact = Set<String>.from(_maze.amethystShards)
@@ -161,6 +163,7 @@ class GameEngine {
       LehaAspect.wizard => <String>{},
       _ => _maze.createLogos(),
     };
+    logos.removeWhere(maze.lava.contains);
     round = GameRound();
     for (final client in clients.values) {
       final start = GameConstants.starts[client.slot ?? 0];
@@ -363,7 +366,12 @@ class GameEngine {
       return;
     }
     if (client.trapCharges <= 0) return;
-    if (maze.isWall(cell.x, cell.y) || maze.isBush(cell.x, cell.y)) return;
+    if (maze.isWall(cell.x, cell.y) ||
+        maze.isBush(cell.x, cell.y) ||
+        maze.isLava(cell.x, cell.y) ||
+        round.emberRocks.any((r) => r.x == cell.x && r.y == cell.y)) {
+      return;
+    }
     client.trapCharges -= 1;
     round.traps.add(TrapState(
       x: cell.x,
@@ -452,6 +460,8 @@ class GameEngine {
     if (maze.isWall(x, y)) return false;
     final key = '$x,$y';
     if (maze.quicksand.contains(key) ||
+        maze.isLava(x, y) ||
+        round.emberRocks.any((r) => r.x == x && r.y == y) ||
         maze.amethystWalls.contains(key) ||
         round.shardsIntact.contains(key)) {
       return false;
@@ -481,7 +491,12 @@ class GameEngine {
         cell.y >= maze.rows) {
       return;
     }
-    if (maze.isWall(cell.x, cell.y) || maze.isBush(cell.x, cell.y)) return;
+    if (maze.isWall(cell.x, cell.y) ||
+        maze.isBush(cell.x, cell.y) ||
+        maze.isLava(cell.x, cell.y) ||
+        round.emberRocks.any((r) => r.x == cell.x && r.y == cell.y)) {
+      return;
+    }
     round.portals.add(PortalState(x: cell.x, y: cell.y, createdAt: now));
     if (round.portals.length > 2) {
       round.portals.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -530,6 +545,8 @@ class GameEngine {
         target.y < 0 ||
         target.y >= maze.rows ||
         maze.isWall(target.x, target.y) ||
+        maze.isLava(target.x, target.y) ||
+        round.emberRocks.any((r) => r.x == target.x && r.y == target.y) ||
         round.magicCrystals
             .any((crystal) => crystal.x == target.x && crystal.y == target.y)) {
       return;
@@ -1018,12 +1035,14 @@ class GameEngine {
       if (nx < 0) nx = maze.cols - 1;
       if (nx >= maze.cols) nx = 0;
     }
-    if (GameConstants.tunnelCols.contains(nx)) {
+    if (maze.biome != CaveBiome.ember &&
+        GameConstants.tunnelCols.contains(nx)) {
       if (ny < 0) ny = maze.rows - 1;
       if (ny >= maze.rows) ny = 0;
     }
     if (ny < 0 || ny >= maze.rows || nx < 0 || nx >= maze.cols) return null;
     if (maze.isWall(nx, ny)) return null;
+    if (!_emberCellPassable(nx, ny)) return null;
     return Point(nx, ny);
   }
 
@@ -1103,6 +1122,7 @@ class GameEngine {
       if (barrel.homing && leha != null) _steerBarrelToward(barrel, leha);
       _advanceBarrel(barrel,
           slowed ? baseDist * GameConstants.barrelWebSlowFactor : baseDist);
+      if (maze.isLava(barrel.x.floor(), barrel.y.floor())) continue;
       // Ricochets off walls indefinitely — only lifetime or a hit destroys it.
       // A barrel that reaches Leha is consumed; it only stuns a non-powered Leha
       // (Super/powered Leha shatters the barrel with no effect).
@@ -1182,7 +1202,8 @@ class GameEngine {
         (x < 0 || x >= maze.cols)) {
       return false;
     }
-    if (GameConstants.tunnelCols.contains(x.floor()) &&
+    if (maze.biome != CaveBiome.ember &&
+        GameConstants.tunnelCols.contains(x.floor()) &&
         (y < 0 || y >= maze.rows)) {
       return false;
     }
@@ -1209,7 +1230,8 @@ class GameEngine {
       if (barrel.x < -0.35) barrel.x = maze.cols + 0.35;
       if (barrel.x > maze.cols + 0.35) barrel.x = -0.35;
     }
-    if (GameConstants.tunnelCols.contains(barrel.x.floor())) {
+    if (maze.biome != CaveBiome.ember &&
+        GameConstants.tunnelCols.contains(barrel.x.floor())) {
       if (barrel.y < -0.35) barrel.y = maze.rows + 0.35;
       if (barrel.y > maze.rows + 0.35) barrel.y = -0.35;
     }
@@ -1274,6 +1296,11 @@ class GameEngine {
         ..chimes = []
         ..mushrooms = _spawnMushrooms()
         ..spores = []
+        ..emberRocks = _initialEmberRocks()
+        ..geysers = []
+        ..sulfur = []
+        ..nextEmberEntityId = 100
+        ..nextGeyserAt = nowMs() + _geyserDelay()
         ..nextAmethystGrowAt =
             nowMs() + GameConstants.amethystShardGrowIntervalMs
         ..rafaelkiEaten = 0
@@ -1284,6 +1311,7 @@ class GameEngine {
         LehaAspect.wizard => <String>{},
         _ => _maze.createLogos(),
       };
+      logos.removeWhere(maze.lava.contains);
       final hunter = findPlayer(1);
       if (hunter != null) {
         hunter
@@ -1632,6 +1660,7 @@ class GameEngine {
 
     expireTraps(now);
     expireWebs(now);
+    updateEmber(now);
     rechargeWebs(now);
     updateBots(now);
     for (final client in clients.values) {
@@ -1671,6 +1700,161 @@ class GameEngine {
       endGame(0, 'Леха продержался 3 минуты.');
     }
   }
+
+  int _geyserDelay() =>
+      GameConstants.geyserMinIntervalMs +
+      _rng.nextInt(GameConstants.geyserMaxIntervalMs -
+          GameConstants.geyserMinIntervalMs +
+          1);
+
+  List<EmberRockState> _initialEmberRocks() {
+    if (maze.biome != CaveBiome.ember) return [];
+    final rocks = <EmberRockState>[];
+    for (var stream = 0; stream < maze.lavaStreams.length; stream++) {
+      final cell = _crossingLavaCellForStream(stream, occupied: rocks);
+      if (cell != null) {
+        rocks.add(EmberRockState(
+          id: stream + 1,
+          x: cell.x,
+          y: cell.y,
+          stream: stream,
+        ));
+      }
+    }
+    return rocks;
+  }
+
+  /// Picks a lava cell in [stream] that makes a usable stepping stone: it must
+  /// have open ground on both sides across the stream so a player can step on
+  /// from one bank and off onto the other.
+  Point<int>? _crossingLavaCellForStream(int stream,
+      {Iterable<EmberRockState> occupied = const []}) {
+    if (stream < 0 || stream >= maze.lavaStreams.length) return null;
+    final candidates = <Point<int>>[];
+    for (final key in maze.lavaStreams[stream]) {
+      final xy = key.split(',').map(int.parse).toList();
+      final p = Point<int>(xy[0], xy[1]);
+      // A stream is a single row, so the two banks are directly above/below.
+      if (maze.isWall(p.x, p.y - 1) || maze.isWall(p.x, p.y + 1)) continue;
+      if (maze.isLava(p.x, p.y - 1) || maze.isLava(p.x, p.y + 1)) continue;
+      if (occupied.any((r) => r.x == p.x && r.y == p.y)) continue;
+      candidates.add(p);
+    }
+    if (candidates.isEmpty) return null;
+    return candidates[_rng.nextInt(candidates.length)];
+  }
+
+  void updateEmber(int now) {
+    if (maze.biome != CaveBiome.ember) return;
+    round.sulfur.removeWhere((cloud) => now >= cloud.expiresAt);
+    maze.dynamicCover
+      ..clear()
+      ..addAll(round.sulfur.map((cloud) => '${cloud.x},${cloud.y}'));
+
+    for (final rock in round.emberRocks) {
+      // The sink timer only starts once a player has stepped onto the rock.
+      if (rock.steppedSince == null &&
+          clients.values
+              .where((p) => p.slot != null)
+              .any((p) => _circleOverlapsCell(p.x, p.y, rock.x, rock.y))) {
+        rock.steppedSince = now;
+      }
+      final since = rock.steppedSince;
+      if (since != null && now - since >= GameConstants.emberBridgeSinkMs) {
+        rock.sinking = true;
+      }
+    }
+    round.emberRocks.removeWhere((rock) {
+      if (!rock.sinking) return false;
+      // Keep the rock until the player's collision circle fully clears the
+      // cell — not just their centre. Removing it the instant floor() flips
+      // onto the bank leaves the circle still overlapping the (now solid) lava
+      // cell, which wedges the player against the edge.
+      return !clients.values
+          .where((p) => p.slot != null)
+          .any((p) => _circleOverlapsCell(p.x, p.y, rock.x, rock.y));
+    });
+    _ensureEmberCrossings();
+
+    final erupting =
+        round.geysers.where((geyser) => now >= geyser.eruptAt).toList();
+    round.geysers.removeWhere((geyser) => now >= geyser.eruptAt);
+    for (final geyser in erupting) {
+      _eruptGeyser(geyser, now);
+    }
+
+    if (now >= round.nextGeyserAt) {
+      _scheduleGeyser(now);
+      round.nextGeyserAt = now + _geyserDelay();
+    }
+  }
+
+  void _ensureEmberCrossings() {
+    for (var stream = 0; stream < maze.lavaStreams.length; stream++) {
+      final available = round.emberRocks.any((rock) => rock.stream == stream);
+      if (available) continue;
+      final cell = _crossingLavaCellForStream(stream, occupied: round.emberRocks);
+      if (cell == null) continue;
+      round.emberRocks.add(EmberRockState(
+        id: round.nextEmberEntityId++,
+        x: cell.x,
+        y: cell.y,
+        stream: stream,
+      ));
+    }
+  }
+
+  void _scheduleGeyser(int now) {
+    final target = _randomEmberFloorCell();
+    if (target == null) return;
+    round.geysers.add(EmberGeyserState(
+      id: round.nextEmberEntityId++,
+      x: target.x,
+      y: target.y,
+      eruptAt: now + GameConstants.geyserWarningMs,
+    ));
+  }
+
+  Point<int>? _randomEmberFloorCell() {
+    final cells = <Point<int>>[];
+    for (var y = 1; y < maze.rows - 1; y++) {
+      for (var x = 1; x < maze.cols - 1; x++) {
+        if (maze.isWall(x, y) || maze.isLava(x, y)) continue;
+        if (round.emberRocks.any((r) => r.x == x && r.y == y)) continue;
+        if (_emberObjectAt(x, y)) continue;
+        cells.add(Point(x, y));
+      }
+    }
+    if (cells.isEmpty) return null;
+    return cells[_rng.nextInt(cells.length)];
+  }
+
+  void _eruptGeyser(EmberGeyserState geyser, int now) {
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -1; dx <= 1; dx++) {
+        final x = geyser.x + dx, y = geyser.y + dy;
+        if (maze.isWall(x, y) || maze.isLava(x, y)) continue;
+        round.sulfur.removeWhere((cloud) => cloud.x == x && cloud.y == y);
+        round.sulfur.add(SulfurCloudState(
+          x: x,
+          y: y,
+          expiresAt: now + GameConstants.sulfurDurationMs,
+        ));
+      }
+    }
+  }
+
+  bool _emberObjectAt(int x, int y) =>
+      clients.values
+          .where((p) => p.slot != null)
+          .any((p) => p.x.floor() == x && p.y.floor() == y) ||
+      round.traps.any((e) => e.x == x && e.y == y) ||
+      round.webs.any((e) => e.x == x && e.y == y) ||
+      round.portals.any((e) => e.x == x && e.y == y) ||
+      round.magicCrystals.any((e) => e.x == x && e.y == y) ||
+      round.mushrooms.any((e) => e.x == x && e.y == y) ||
+      round.geysers.any((e) => e.x == x && e.y == y) ||
+      (round.clutch?.x == x && round.clutch?.y == y);
 
   /// Hatches the Spider's clutch (she wins) or, if the hunter reaches it first,
   /// destroys it and respawns a fresh batch of Raffaellos to try again.
@@ -2048,6 +2232,45 @@ class GameEngine {
           .map((m) => MushroomDto(x: m.x, y: m.y, stage: m.stage))
           .toList(),
       spores: round.spores.map((s) => Vec2i(s.x, s.y)).toList(),
+      lava: [
+        for (var stream = 0; stream < maze.lavaStreams.length; stream++)
+          for (final key in maze.lavaStreams[stream])
+            LavaCellDto(
+              x: int.parse(key.split(',')[0]),
+              y: int.parse(key.split(',')[1]),
+              stream: stream,
+            ),
+      ],
+      emberRocks: round.emberRocks
+          .map((rock) => EmberRockDto(
+                id: rock.id,
+                x: rock.x,
+                y: rock.y,
+                stream: rock.stream,
+                // Every surfaced rock is a steppable platform.
+                bridge: true,
+                sinking: rock.sinking,
+              ))
+          .toList(),
+      geysers: round.geysers
+          .map((geyser) => EmberGeyserDto(
+                id: geyser.id,
+                x: geyser.x,
+                y: geyser.y,
+                progress: _round3((1 -
+                        (geyser.eruptAt - now) / GameConstants.geyserWarningMs)
+                    .clamp(0.0, 1.0)),
+              ))
+          .toList(),
+      sulfur: round.sulfur
+          .map((cloud) => SulfurDto(
+                x: cloud.x,
+                y: cloud.y,
+                life: _round3(
+                    ((cloud.expiresAt - now) / GameConstants.sulfurDurationMs)
+                        .clamp(0.0, 1.0)),
+              ))
+          .toList(),
       illusions: visibleIllusionsFor(viewer, now),
       sarcophagi: round.sarcophagi
           .map((s) => SarcophagusDto(
@@ -2303,7 +2526,8 @@ class GameEngine {
       base *= GameConstants.quicksandSlowFactor;
     }
     // Amethyst spores slow anyone wading through the fog.
-    if (maze.isSpore(player.x.floor(), player.y.floor())) {
+    if (round.spores.any((spore) =>
+        spore.x == player.x.floor() && spore.y == player.y.floor())) {
       base *= GameConstants.mushroomSporeSlowFactor;
     }
     if (player.slot == 1 && _pointOnMagicChain(player.x, player.y, 0.18)) {
@@ -2353,7 +2577,9 @@ class GameEngine {
     for (var y = 0; y < maze.rows; y += 1) {
       for (var x = 0; x < maze.cols; x += 1) {
         final key = '$x,$y';
-        if (maze.isWall(x, y) || spawns.contains(key)) continue;
+        if (maze.isWall(x, y) || maze.isLava(x, y) || spawns.contains(key)) {
+          continue;
+        }
         open.add(key);
       }
     }
@@ -2372,7 +2598,11 @@ class GameEngine {
         _targetCell(client, targetX, targetY, SkillTargetRange.clutch);
     if (targetX != null && targeted == null) return;
     final cell = targeted ?? centerCell(client);
-    if (maze.isWall(cell.x, cell.y)) return;
+    if (maze.isWall(cell.x, cell.y) ||
+        maze.isLava(cell.x, cell.y) ||
+        round.emberRocks.any((r) => r.x == cell.x && r.y == cell.y)) {
+      return;
+    }
     if (round.webs.any((w) => w.x == cell.x && w.y == cell.y)) return;
     round
       ..clutch = ClutchState(
@@ -2591,7 +2821,7 @@ class GameEngine {
         maze.isWall(nextX, nextY)) {
       return consumeWebBridge(cell, Point(nextX, nextY), preview: true);
     }
-    return !maze.isWall(nextX, nextY);
+    return !maze.isWall(nextX, nextY) && _emberCellPassable(nextX, nextY);
   }
 
   bool tryMove(PlayerConnection player, double dx, double dy, int now) {
@@ -2627,7 +2857,8 @@ class GameEngine {
         (x < 0 || x >= maze.cols)) {
       return true;
     }
-    if (GameConstants.tunnelCols.contains(x.floor()) &&
+    if (maze.biome != CaveBiome.ember &&
+        GameConstants.tunnelCols.contains(x.floor()) &&
         (y < 0 || y >= maze.rows)) {
       return true;
     }
@@ -2640,7 +2871,9 @@ class GameEngine {
 
     for (var cy = minCy; cy <= maxCy; cy++) {
       for (var cx = minCx; cx <= maxCx; cx++) {
-        if (!maze.isWall(cx, cy)) continue;
+        final terrainBlocked =
+            maze.isWall(cx, cy) || !_emberCellPassable(cx, cy);
+        if (!terrainBlocked) continue;
         // Spider Leha: web-covered wall cells are passable.
         if (player.slot == 0 &&
             player.aspect == LehaAspect.spider &&
@@ -2655,6 +2888,12 @@ class GameEngine {
       }
     }
     return true;
+  }
+
+  bool _emberCellPassable(int x, int y) {
+    if (!maze.isLava(x, y)) return true;
+    // A lava cell is only passable while a surfaced rock occupies it.
+    return round.emberRocks.any((rock) => rock.x == x && rock.y == y);
   }
 
   LobbyDto lobbyState() {
@@ -3139,7 +3378,8 @@ class GameEngine {
       if (player.x < -0.35) player.x = maze.cols + 0.35;
       if (player.x > maze.cols + 0.35) player.x = -0.35;
     }
-    if (GameConstants.tunnelCols.contains(player.x.floor())) {
+    if (maze.biome != CaveBiome.ember &&
+        GameConstants.tunnelCols.contains(player.x.floor())) {
       if (player.y < -0.35) player.y = maze.rows + 0.35;
       if (player.y > maze.rows + 0.35) player.y = -0.35;
     }

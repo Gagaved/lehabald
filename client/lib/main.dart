@@ -83,15 +83,34 @@ class _LehaBaldAppState extends State<LehaBaldApp> {
         ),
       ),
       home: Scaffold(
+        backgroundColor: const Color(0xff0d111a),
         body: Stack(
           children: [
             Positioned.fill(
-              child: Listener(
-                onPointerDown: (_) => _gameFocus.requestFocus(),
-                child: GameWidget(
-                  game: widget.game,
-                  focusNode: _gameFocus,
-                  autofocus: true,
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Material(
+                      elevation: 30,
+                      shadowColor: const Color(0xe6000000),
+                      color: LehaBaldGame.backdropColor,
+                      clipBehavior: Clip.antiAlias,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        side: BorderSide.none,
+                      ),
+                      child: Listener(
+                        onPointerDown: (_) => _gameFocus.requestFocus(),
+                        child: GameWidget(
+                          game: widget.game,
+                          focusNode: _gameFocus,
+                          autofocus: true,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
