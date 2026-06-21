@@ -48,7 +48,13 @@ class GameServer {
     await for (final request in _server!) {
       if (WebSocketTransformer.isUpgradeRequest(request) &&
           request.uri.path == '/ws') {
-        await _handleSocket(request);
+        // Do NOT await: the WS handshake is a network round-trip with the
+        // client. Awaiting here serializes the accept loop behind each upgrade,
+        // so one slow/remote client blocks everyone else from connecting —
+        // invisible on localhost (sub-ms handshakes) but ~1/3 of connects time
+        // out over WAN. Dispatch concurrently and swallow a failed upgrade so it
+        // can't tear down the accept loop.
+        unawaited(_handleSocket(request).catchError((Object _) {}));
       } else {
         _handleHttp(request);
       }
