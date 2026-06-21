@@ -113,7 +113,7 @@ class _SessionDirectoryViewState extends State<SessionDirectoryView> {
                         child: _SessionCard(
                           session: session,
                           enabled: nickname.isNotEmpty,
-                          onJoin: () => widget.network.joinSession(session.id),
+                          onJoin: () => _join(session.id),
                         ),
                       )),
               ],
@@ -131,7 +131,26 @@ class _SessionDirectoryViewState extends State<SessionDirectoryView> {
     FocusManager.instance.primaryFocus?.unfocus();
   }
 
+  /// Guards an action that needs a live socket. Returns false and shows why when
+  /// the connection is down, so create/join never silently swallow the request.
+  bool _requireConnection() {
+    if (widget.network.online) return true;
+    final reason = widget.network.lastDisconnectReason;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      backgroundColor: const Color(0xffb3322b),
+      content: Text(reason == null
+          ? 'Нет связи с сервером — подождите переподключения'
+          : 'Нет связи с сервером: $reason'),
+    ));
+    return false;
+  }
+
+  void _join(String id) {
+    if (_requireConnection()) widget.network.joinSession(id);
+  }
+
   Future<void> _createRoom() async {
+    if (!_requireConnection()) return;
     _room.clear();
     final value = await showDialog<String>(
       context: context,
@@ -154,7 +173,9 @@ class _SessionDirectoryViewState extends State<SessionDirectoryView> {
         ],
       ),
     );
-    if (value != null) widget.network.createSession(value);
+    if (value != null && _requireConnection()) {
+      widget.network.createSession(value);
+    }
   }
 }
 

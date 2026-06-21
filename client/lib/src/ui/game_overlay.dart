@@ -84,10 +84,72 @@ class _GameOverlayState extends State<GameOverlay> {
                     onClose: () => setState(() => _consoleOpen = false),
                   ),
                 ),
+              // Always on top: when the socket is down, say so instead of
+              // leaving the player staring at an empty session list.
+              _ConnectionBanner(network: network),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// Slim top banner shown whenever the socket is not actively receiving data —
+/// initial connect, a reconnect, or a silent stall (e.g. MTU black hole behind
+/// a VPN). Shows the reason so a dropped connection is never silent.
+class _ConnectionBanner extends StatelessWidget {
+  const _ConnectionBanner({required this.network});
+
+  final GameNetworkClient network;
+
+  @override
+  Widget build(BuildContext context) {
+    if (network.online) return const SizedBox.shrink();
+    final reason = network.lastDisconnectReason;
+    final lost = reason != null;
+    final headline = network.status.isEmpty
+        ? (lost ? 'Связь с сервером потеряна' : 'Подключение к серверу…')
+        : network.status;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(maxWidth: 520),
+        decoration: BoxDecoration(
+          color: lost ? const Color(0xffb3322b) : const Color(0xff1f4f86),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 12)],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(headline,
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.w700)),
+                  if (lost)
+                    Text(reason,
+                        style: const TextStyle(
+                            color: Color(0xfff2d2cf), fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

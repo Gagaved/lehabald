@@ -104,6 +104,19 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   DirectorySnapshotDto? directory;
   String status = 'Подключение к серверу...';
   bool get connected => _channel != null;
+
+  /// True only while the socket is alive AND data is actually flowing. A channel
+  /// can be non-null yet silent — e.g. behind a VPN/tunnel whose MTU is below
+  /// 1500, large frames get black-holed after the handshake and nothing arrives.
+  /// So "have a channel" isn't enough; we also require a recent message. The 1s
+  /// watchdog notifies while we're silent, so the UI flips promptly.
+  bool get online =>
+      _channel != null &&
+      DateTime.now().difference(_lastMessageAt) < _watchdogTimeout;
+
+  /// Human-readable reason for the most recent socket drop (close code/reason,
+  /// error, or watchdog timeout). Surfaced in the UI and the diagnostics dump.
+  String? lastDisconnectReason;
   int get snapshotVersion => _snapshotCount;
   int get snapshotReceivedMs => _snapshotReceivedMs;
   String get diagnosticsText => _buildDiagnosticsText();
@@ -171,18 +184,46 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       _subscription = channel.stream.listen(
         _onMessage,
-        onDone: () => _scheduleReconnect(generation),
-        onError: (_) => _scheduleReconnect(generation),
+        onDone: () {
+          _noteDisconnect(
+            'socket-closed',
+            code: channel.closeCode,
+            reason: channel.closeReason,
+          );
+          _scheduleReconnect(generation);
+        },
+        onError: (Object error) {
+          _noteDisconnect('socket-error', error: error);
+          _scheduleReconnect(generation);
+        },
       );
       _lastMessageAt = DateTime.now();
       _startWatchdog();
       _startPing();
       // Re-register our nickname: the server creates a fresh connection each time.
       _sendName();
-    } catch (_) {
-      _addLog('connect-error', {'url': serverUrl});
+    } catch (error) {
+      _noteDisconnect('connect-error', error: error);
       _scheduleReconnect(generation);
     }
+  }
+
+  /// Records why the socket went down so the UI can show a real reason instead
+  /// of silently dropping back to an empty session list. Also logs it and pokes
+  /// listeners so the disconnect banner appears immediately.
+  void _noteDisconnect(String event, {int? code, String? reason, Object? error}) {
+    final parts = <String>[
+      if (code != null) 'код $code',
+      if (reason != null && reason.isNotEmpty) reason,
+      if (error != null) '$error',
+    ];
+    lastDisconnectReason = parts.isEmpty ? event : parts.join(' · ');
+    _addLog(event, {
+      if (code != null) 'code': code,
+      if (reason != null && reason.isNotEmpty) 'reason': reason,
+      if (error != null) 'error': '$error',
+    });
+    notifyListeners();
   }
 
   void _startWatchdog() {
@@ -191,12 +232,13 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       if (_channel == null) return;
       // Don't treat a throttled background tab as a dead connection.
       if (!_appActive) return;
-      if (DateTime.now().difference(_lastMessageAt) > _watchdogTimeout) {
+      final silentMs = DateTime.now().difference(_lastMessageAt).inMilliseconds;
+      if (silentMs > _watchdogTimeout.inMilliseconds) {
         // Socket looks alive but the server went silent — tear it down and
-        // reconnect rather than keep firing input into a dead pipe.
-        _addLog('watchdog-timeout', {
-          'silentMs': DateTime.now().difference(_lastMessageAt).inMilliseconds,
-        });
+        // reconnect rather than keep firing input into a dead pipe. (Classic
+        // symptom of an MTU black hole: handshake succeeds, frames never come.)
+        _noteDisconnect('watchdog-timeout',
+            reason: 'сервер молчит $silentMs мс');
         _channel?.sink.close();
         _scheduleReconnect();
       }
@@ -439,6 +481,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       'connected=$connected',
       'pingMs=${_pingMs.toStringAsFixed(0)}',
       'status=$status',
+      'online=$online lastDisconnect=${lastDisconnectReason ?? '-'}',
       'snapshots=$_snapshotCount',
       'snapshotGapMs avg=${_gapEwmaMs.toStringAsFixed(1)} min=$minGap max=$_maxGapMs lastSilent=$silentMs',
       'lastPayloadBytes=$_lastPayloadBytes',
