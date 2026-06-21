@@ -25,13 +25,28 @@ jobs:
         id: notes
         run: |
           TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
           PREV=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
-          # 1) если тег аннотированный (git tag -a ... -m "...") — берём его текст
-          TAGMSG=$(git for-each-ref "refs/tags/$TAG" --format='%(contents)' | sed '/^-----BEGIN/,$d')
-          if [ -n "$(echo "$TAGMSG" | tr -d '[:space:]')" ]; then
+          # 1) Основной источник — секция версии из CHANGELOG.md. Это не
+          # зависит от того, как actions/checkout материализовал tag ref.
+          CHANGELOG_NOTES=$(awk -v heading="## [$VERSION]" '
+            index($0, heading " - ") == 1 { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md)
+          # 2) Явно загружаем объект тега: checkout иногда оставляет локальный
+          # lightweight ref, из-за чего %(contents) возвращает текст коммита.
+          git fetch --force --no-tags origin "refs/tags/$TAG:refs/tags/$TAG" || true
+          TAGMSG=""
+          if [ "$(git cat-file -t "$TAG" 2>/dev/null || true)" = "tag" ]; then
+            TAGMSG=$(git for-each-ref "refs/tags/$TAG" --format='%(contents)' | sed '/^-----BEGIN/,$d')
+          fi
+          if [ -n "$(echo "$CHANGELOG_NOTES" | tr -d '[:space:]')" ]; then
+            NOTES="$CHANGELOG_NOTES"
+          elif [ -n "$(echo "$TAGMSG" | tr -d '[:space:]')" ]; then
             NOTES="$TAGMSG"
           elif [ -n "$PREV" ]; then
-            # 2) иначе — список коммитов с прошлого релиза
+            # 3) Последний fallback — список коммитов с прошлого релиза.
             NOTES=$(git log --no-merges --pretty=format:'• %s' "$PREV..$TAG")
           else
             NOTES=$(git log --no-merges --pretty=format:'• %s' "$TAG")
