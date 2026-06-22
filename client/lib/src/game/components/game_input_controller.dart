@@ -81,12 +81,19 @@ class _GameInputController extends Component
       return false;
     }
 
-    final direction = _directionForKey(event.logicalKey);
-    if (direction == null) return true;
-    if (event is KeyDownEvent) {
-      _heldKeys[event.logicalKey] = direction;
-    } else if (event is KeyUpEvent) {
-      _heldKeys.remove(event.logicalKey);
+    if (_directionForKey(event.logicalKey) == null) return true;
+
+    // Rebuild the held-direction set from the authoritative pressed-key snapshot
+    // instead of tracking key-down/key-up deltas ourselves. On web, key
+    // auto-repeat can drop a key-up or inject a phantom one, which with delta
+    // tracking would strand us moving forever or — the symptom players hit —
+    // wrongly stop until the key is pressed again. Deriving from `keysPressed`
+    // every event (including repeats) keeps us in sync with what's really down
+    // and self-heals on the next repeat.
+    _heldKeys.clear();
+    for (final key in keysPressed) {
+      final dir = _directionForKey(key);
+      if (dir != null) _heldKeys[key] = dir;
     }
 
     final combined = _combinedDirection();
