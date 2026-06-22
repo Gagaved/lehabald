@@ -25,6 +25,7 @@ class PlayerConnection {
   MoveDirection? nextDirection;
   MoveDirection lastDirection = MoveDirection.right;
   bool stopRequested = false;
+  bool movementBlocked = false;
   LehaAspect aspect = LehaAspect.superLeha;
   HunterKind hunterKind = HunterKind.bakhirkin;
   int hp = 100;

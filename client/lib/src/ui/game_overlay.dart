@@ -60,6 +60,7 @@ class _GameOverlayState extends State<GameOverlay> {
                   snapshot: snapshot,
                   onToggleConsole: () =>
                       setState(() => _consoleOpen = !_consoleOpen),
+                  onRequestGameFocus: widget.onRequestGameFocus,
                 ),
                 if (sessionPhase == SessionPhase.roundResult)
                   RoundResultView(snapshot: snapshot),
@@ -120,7 +121,9 @@ class _ConnectionBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: lost ? const Color(0xffb3322b) : const Color(0xff1f4f86),
           borderRadius: BorderRadius.circular(10),
-          boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 12)],
+          boxShadow: const [
+            BoxShadow(color: Color(0x66000000), blurRadius: 12)
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

@@ -214,7 +214,8 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   /// Records why the socket went down so the UI can show a real reason instead
   /// of silently dropping back to an empty session list. Also logs it and pokes
   /// listeners so the disconnect banner appears immediately.
-  void _noteDisconnect(String event, {int? code, String? reason, Object? error}) {
+  void _noteDisconnect(String event,
+      {int? code, String? reason, Object? error}) {
     final parts = <String>[
       if (code != null) 'код $code',
       if (reason != null && reason.isNotEmpty) reason,
@@ -288,10 +289,15 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void input(MoveDirection direction) {
+    _addLog('input-send', {
+      'dir': direction.name,
+      'pingMs': _pingMs.toStringAsFixed(0),
+    });
     send(ClientMessage(type: ClientMessageType.input, direction: direction));
   }
 
   void stop() {
+    _addLog('stop-send', {'pingMs': _pingMs.toStringAsFixed(0)});
     send(const ClientMessage(type: ClientMessageType.stop));
   }
 
@@ -358,9 +364,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   /// cooldown, so the input layer can spam this each frame while the key is held.
   void comingOut({double? targetX, double? targetY}) {
     send(ClientMessage(
-        type: ClientMessageType.comingOut,
-        targetX: targetX,
-        targetY: targetY));
+        type: ClientMessageType.comingOut, targetX: targetX, targetY: targetY));
   }
 
   void placeMagicCrystal({double? targetX, double? targetY}) {

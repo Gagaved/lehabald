@@ -63,11 +63,35 @@ class LehaBaldApp extends StatefulWidget {
 
 class _LehaBaldAppState extends State<LehaBaldApp> {
   final FocusNode _gameFocus = FocusNode(debugLabel: 'game-keyboard-input');
+  bool _refocusing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _gameFocus.addListener(_handleGameFocusChange);
+  }
 
   @override
   void dispose() {
+    _gameFocus.removeListener(_handleGameFocusChange);
     _gameFocus.dispose();
     super.dispose();
+  }
+
+  void _handleGameFocusChange() {
+    if (_gameFocus.hasFocus) return;
+    final snapshot = widget.network.snapshot;
+    if (snapshot?.session?.phase != SessionPhase.playing) return;
+    if (_refocusing) return;
+    _refocusing = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refocusing = false;
+      if (!mounted || _gameFocus.hasFocus) return;
+      _gameFocus.requestFocus();
+      widget.network.addClientLog('focus-refocus', {
+        'phase': snapshot?.session?.phase.name,
+      });
+    });
   }
 
   @override

@@ -27,6 +27,9 @@ class GameEngine {
   String _playerLog(PlayerConnection? p, String character) => p == null
       ? 'none'
       : '${p.isBot ? 'BOT' : (p.name.isEmpty ? 'anon' : p.name)} ($character)';
+  String _playerName(PlayerConnection player) => player.isBot
+      ? 'BOT:${player.id}'
+      : '${player.name.isEmpty ? 'anon' : player.name}:${player.id}';
   final Map<String, PlayerConnection> clients = {};
   var round = GameRound();
   var logos = <String>{};
@@ -67,11 +70,17 @@ class GameEngine {
         client.nextDirection = direction;
         client.lastDirection = direction;
         client.stopRequested = false;
+        logger.log({
+          'event': 'movement_input',
+          'player': _playerName(client),
+          'slot': client.slot,
+          'dir': direction.name,
+          'x': client.x.toStringAsFixed(2),
+          'y': client.y.toStringAsFixed(2),
+        });
       case ClientMessageType.stop:
         if (client.slot == null) return;
-        client.direction = null;
-        client.nextDirection = null;
-        client.stopRequested = false;
+        _clearMovement(client, 'client_stop');
       case ClientMessageType.selectRole:
         final role = message.role;
         if (role != null) selectRole(client, role);
@@ -189,10 +198,10 @@ class GameEngine {
         ..webCooldownUntil = 0
         ..portalCooldownUntil = 0
         ..magicChainCooldownUntil = 0
-        ..crystalCharges = client.slot == 0 &&
-                client.aspect == LehaAspect.wizard
-            ? GameConstants.wizardMaxCrystals
-            : 0
+        ..crystalCharges =
+            client.slot == 0 && client.aspect == LehaAspect.wizard
+                ? GameConstants.wizardMaxCrystals
+                : 0
         ..chainStunImmuneUntil = 0
         ..stunnedUntil = 0
         ..invulnerableUntil = 0
@@ -431,8 +440,7 @@ class GameEngine {
   /// and a short shot cooldown. The client holds the button and re-sends, so a
   /// held key sprays a heart every [simaHeartShotCooldownMs] until charges run
   /// out. Hearts are aimed at [targetX]/[targetY] if given, else Sima's facing.
-  void throwHeart(PlayerConnection client,
-      [double? targetX, double? targetY]) {
+  void throwHeart(PlayerConnection client, [double? targetX, double? targetY]) {
     final now = nowMs();
     if (round.phase != GamePhase.playing ||
         client.slot != 1 ||
@@ -656,8 +664,7 @@ class GameEngine {
   }
 
   void autoActivateMagicChains(int now) {
-    final crystals =
-        round.magicCrystals.where((c) => !c.fallen).toList();
+    final crystals = round.magicCrystals.where((c) => !c.fallen).toList();
     if (crystals.length < 3) return;
     for (final crystal in crystals) {
       final cycle = _bestMagicCycle(crystal.id);
@@ -908,13 +915,12 @@ class GameEngine {
       if (_pointOnMagicChain(hunter.x, hunter.y) &&
           now >= hunter.chainStunImmuneUntil) {
         hunter
-          ..stunnedUntil = max(hunter.stunnedUntil,
-              now + GameConstants.wizardChainStunMs)
+          ..stunnedUntil =
+              max(hunter.stunnedUntil, now + GameConstants.wizardChainStunMs)
           ..chainStunImmuneUntil = now +
               GameConstants.wizardChainStunMs +
-              GameConstants.wizardChainStunImmuneMs
-          ..direction = null
-          ..nextDirection = null;
+              GameConstants.wizardChainStunImmuneMs;
+        _clearMovement(hunter, 'wizard_chain');
       }
     }
     if (round.magicChains.isEmpty) return;
@@ -944,8 +950,7 @@ class GameEngine {
   }
 
   Iterable<(Point<double>, Point<double>)> _magicChainEdges() sync* {
-    final active =
-        round.magicCrystals.where((c) => !c.fallen).toList();
+    final active = round.magicCrystals.where((c) => !c.fallen).toList();
     final emitted = <String>{};
     for (var i = 0; i < active.length; i++) {
       for (var j = i + 1; j < active.length; j++) {
@@ -1303,9 +1308,8 @@ class GameEngine {
 
   void updateHearts(PlayerConnection? leha, int now, double dt) {
     if (round.hearts.isEmpty) return;
-    final step = GameConstants.baseSpeed *
-        GameConstants.simaHeartSpeedMultiplier *
-        dt;
+    final step =
+        GameConstants.baseSpeed * GameConstants.simaHeartSpeedMultiplier * dt;
     final survivors = <HeartState>[];
     for (final heart in round.hearts) {
       if (heart.impactUntil != 0) {
@@ -1321,11 +1325,9 @@ class GameEngine {
       // close and medium-range shots substantially easier to land.
       final ramp =
           (heart.traveled / GameConstants.simaHeartRangeBlocks).clamp(0.0, 1.0);
-      final sway = sin(heart.traveled /
-                  GameConstants.simaHeartSineWavelength *
-                  2 *
-                  pi +
-              heart.phase) *
+      final sway = sin(
+              heart.traveled / GameConstants.simaHeartSineWavelength * 2 * pi +
+                  heart.phase) *
           heart.amplitude *
           ramp;
       heart
@@ -1371,10 +1373,8 @@ class GameEngine {
     leha
       ..stunnedUntil = now + GameConstants.barrelStunMs
       ..blindUntil = now + GameConstants.barrelBlindMs
-      ..webPhaseUntil = 0
-      ..direction = null
-      ..nextDirection = null
-      ..stopRequested = false;
+      ..webPhaseUntil = 0;
+    _clearMovement(leha, 'barrel_hit');
   }
 
   void ensureRoundState() {
@@ -1941,7 +1941,8 @@ class GameEngine {
     for (var stream = 0; stream < maze.lavaStreams.length; stream++) {
       final available = round.emberRocks.any((rock) => rock.stream == stream);
       if (available) continue;
-      final cell = _crossingLavaCellForStream(stream, occupied: round.emberRocks);
+      final cell =
+          _crossingLavaCellForStream(stream, occupied: round.emberRocks);
       if (cell == null) continue;
       round.emberRocks.add(EmberRockState(
         id: round.nextEmberEntityId++,
@@ -2110,10 +2111,8 @@ class GameEngine {
       if ((mummy.hitCooldownUntil[player.id] ?? 0) > now) continue;
       player
         ..stunnedUntil =
-            max(player.stunnedUntil, now + GameConstants.mummyStunMs)
-        ..direction = null
-        ..nextDirection = null
-        ..stopRequested = false;
+            max(player.stunnedUntil, now + GameConstants.mummyStunMs);
+      _clearMovement(player, 'mummy_hit');
       mummy.hitCooldownUntil[player.id] = now + GameConstants.mummyStunMs;
       if (!mummy.fleeing) {
         mummy.fleeing = true;
@@ -2409,9 +2408,9 @@ class GameEngine {
                 id: geyser.id,
                 x: geyser.x,
                 y: geyser.y,
-                progress: _round3((1 -
-                        (geyser.eruptAt - now) / GameConstants.geyserWarningMs)
-                    .clamp(0.0, 1.0)),
+                progress: _round3(
+                    (1 - (geyser.eruptAt - now) / GameConstants.geyserWarningMs)
+                        .clamp(0.0, 1.0)),
               ))
           .toList(),
       sulfur: round.sulfur
@@ -2580,9 +2579,7 @@ class GameEngine {
   void movePlayer(PlayerConnection player, double dt) {
     final now = nowMs();
     if (now < player.stunnedUntil) {
-      player.direction = null;
-      player.nextDirection = null;
-      player.stopRequested = false;
+      _clearMovement(player, 'stunned');
       return;
     }
 
@@ -2592,7 +2589,9 @@ class GameEngine {
 
     // Heart charm (Камингаут hit): a non-powered Leha is dragged straight
     // toward Sima at half speed, overriding his input, for a brief moment.
-    if (player.slot == 0 && now >= round.lehaPowerUntil && now < player.charmPullUntil) {
+    if (player.slot == 0 &&
+        now >= round.lehaPowerUntil &&
+        now < player.charmPullUntil) {
       final sima = findPlayer(1);
       if (sima != null && sima.hunterKind == HunterKind.sima) {
         _charmMove(player, sima, dt, now);
@@ -2607,6 +2606,7 @@ class GameEngine {
     final requested = player.nextDirection;
     if (requested == null) {
       player.direction = null;
+      player.movementBlocked = false;
       return;
     }
 
@@ -2628,7 +2628,21 @@ class GameEngine {
       ..direction = requested
       ..lastDirection = requested;
     if (!_moveWithCornering(player, requested, distance, now)) {
+      if (!player.movementBlocked) {
+        logger.log({
+          'event': 'movement_blocked',
+          'player': _playerName(player),
+          'slot': player.slot,
+          'dir': requested.name,
+          'x': player.x.toStringAsFixed(2),
+          'y': player.y.toStringAsFixed(2),
+          'cell': '${centerCell(player).x},${centerCell(player).y}',
+        });
+      }
+      player.movementBlocked = true;
       player.direction = null;
+    } else {
+      player.movementBlocked = false;
     }
 
     _wrapTunnel(player);
@@ -2821,8 +2835,9 @@ class GameEngine {
     final loud = maze.isLeafLitter(player.x.floor(), player.y.floor());
     trail.add(TrailPoint(
         x: _round3(player.x), y: _round3(player.y), at: now, loud: loud));
-    round.trails[slot] =
-        trail.where((point) => now - point.at <= _trailLifetime(point)).toList();
+    round.trails[slot] = trail
+        .where((point) => now - point.at <= _trailLifetime(point))
+        .toList();
   }
 
   int _trailLifetime(TrailPoint point) => point.loud
@@ -2892,10 +2907,8 @@ class GameEngine {
     if (trapIndex != -1) {
       leha
         ..stunnedUntil = now + GameConstants.trapStunMs
-        ..webPhaseUntil = 0
-        ..direction = null
-        ..nextDirection = null
-        ..stopRequested = false;
+        ..webPhaseUntil = 0;
+      _clearMovement(leha, 'trap_hit');
       // Mark as triggered and keep briefly so Hunter sees the notification.
       // A sprung trap is spent — its charge is not refunded.
       round.traps[trapIndex]
@@ -2927,8 +2940,7 @@ class GameEngine {
   void _scheduleCrystalRecharge(PlayerConnection wizard, int now) {
     round.pendingCrystalRechargeAt
         .add(now + GameConstants.wizardCrystalCooldownMs);
-    wizard.magicChainCooldownUntil =
-        round.pendingCrystalRechargeAt.reduce(min);
+    wizard.magicChainCooldownUntil = round.pendingCrystalRechargeAt.reduce(min);
   }
 
   void rechargeCrystals(int now) {
@@ -2951,10 +2963,8 @@ class GameEngine {
       ..hp = max(0, hunter.hp - 50)
       ..stunnedUntil = now + GameConstants.hunterStunMs
       ..invulnerableUntil = now + GameConstants.hunterStunMs
-      ..webPhaseUntil = 0
-      ..direction = null
-      ..nextDirection = null
-      ..stopRequested = false;
+      ..webPhaseUntil = 0;
+    _clearMovement(hunter, 'leha_hit');
     round.lehaPowerUntil = 0;
     if (hunter.hp <= 0) {
       endGame(0, 'Супер-Леха съел Охотника второй раз.');
@@ -3506,6 +3516,26 @@ class GameEngine {
 
   Point<double> playerPos(PlayerConnection p) => Point(p.x, p.y);
 
+  void _clearMovement(PlayerConnection player, String reason) {
+    final hadIntent = player.nextDirection != null || player.direction != null;
+    final previousDir = player.nextDirection ?? player.direction;
+    player
+      ..direction = null
+      ..nextDirection = null
+      ..stopRequested = false
+      ..movementBlocked = false;
+    if (!hadIntent) return;
+    logger.log({
+      'event': 'movement_cleared',
+      'player': _playerName(player),
+      'slot': player.slot,
+      'reason': reason,
+      'dir': previousDir?.name,
+      'x': player.x.toStringAsFixed(2),
+      'y': player.y.toStringAsFixed(2),
+    });
+  }
+
   void resolvePortal(PlayerConnection player, int now) {
     final cell = centerCell(player);
     final cellKey = '${cell.x},${cell.y}';
@@ -3519,12 +3549,19 @@ class GameEngine {
         .indexWhere((portal) => portal.x == cell.x && portal.y == cell.y);
     if (portalIndex == -1) return;
     final target = round.portals[portalIndex == 0 ? 1 : 0];
+    final previousDir = player.nextDirection ?? player.direction;
     player
       ..x = target.x + 0.5
       ..y = target.y + 0.5
-      ..direction = null
-      ..nextDirection = null
       ..lastCellKey = '${target.x},${target.y}';
+    _clearMovement(player, 'portal');
+    logger.log({
+      'event': 'movement_portal',
+      'player': _playerName(player),
+      'slot': player.slot,
+      'dir': previousDir?.name,
+      'to': '${target.x},${target.y}',
+    });
     // Portals are consumed on use.
     round.portals = [];
   }
@@ -3601,9 +3638,8 @@ class GameEngine {
     final target = nearestOpenCell(centerCell(player));
     player
       ..x = target.x + 0.5
-      ..y = target.y + 0.5
-      ..direction = null
-      ..nextDirection = null;
+      ..y = target.y + 0.5;
+    _clearMovement(player, 'web_phase_end');
   }
 
   Point<int> nearestOpenCell(Point<int> origin) {

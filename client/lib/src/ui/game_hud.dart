@@ -10,12 +10,14 @@ class GameHud extends StatelessWidget {
     required this.network,
     required this.snapshot,
     required this.onToggleConsole,
+    required this.onRequestGameFocus,
     super.key,
   });
 
   final GameNetworkClient network;
   final GameSnapshotDto? snapshot;
   final VoidCallback onToggleConsole;
+  final VoidCallback onRequestGameFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +30,10 @@ class GameHud extends StatelessWidget {
           child: _UtilityButton(
             icon: Icons.terminal_rounded,
             tooltip: 'Открыть консоль',
-            onPressed: onToggleConsole,
+            onPressed: () {
+              onToggleConsole();
+              onRequestGameFocus();
+            },
           ),
         ),
       );
@@ -46,6 +51,7 @@ class GameHud extends StatelessWidget {
               snapshot: s,
               network: network,
               onToggleConsole: onToggleConsole,
+              onRequestGameFocus: onRequestGameFocus,
               compact: compact,
             ),
           ),
@@ -63,6 +69,7 @@ class GameHud extends StatelessWidget {
                 compact: compact,
                 selected: network.targetingSkill,
                 onPressed: _activate,
+                onRequestGameFocus: onRequestGameFocus,
               ),
             ),
           ),
@@ -216,12 +223,14 @@ class _StatusStrip extends StatelessWidget {
     required this.snapshot,
     required this.network,
     required this.onToggleConsole,
+    required this.onRequestGameFocus,
     required this.compact,
   });
 
   final GameSnapshotDto snapshot;
   final GameNetworkClient network;
   final VoidCallback onToggleConsole;
+  final VoidCallback onRequestGameFocus;
   final bool compact;
 
   @override
@@ -315,13 +324,19 @@ class _StatusStrip extends StatelessWidget {
             _UtilityButton(
               icon: Icons.terminal_rounded,
               tooltip: 'Консоль',
-              onPressed: onToggleConsole,
+              onPressed: () {
+                onToggleConsole();
+                onRequestGameFocus();
+              },
             ),
             _UtilityButton(
               icon: Icons.exit_to_app_rounded,
               tooltip:
                   snapshot.sandboxMode ? 'Выйти из песочницы' : 'Покинуть матч',
-              onPressed: () => _leaveGame(context),
+              onPressed: () {
+                _leaveGame(context);
+                onRequestGameFocus();
+              },
             ),
           ]),
         ),
@@ -361,12 +376,14 @@ class _SkillBar extends StatelessWidget {
       {required this.actions,
       required this.compact,
       required this.selected,
-      required this.onPressed});
+      required this.onPressed,
+      required this.onRequestGameFocus});
 
   final List<SkillActionModel> actions;
   final bool compact;
   final TargetingSkill? selected;
   final ValueChanged<SkillActionModel> onPressed;
+  final VoidCallback onRequestGameFocus;
 
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -388,7 +405,12 @@ class _SkillBar extends StatelessWidget {
                   action: action,
                   size: compact ? 58 : 78,
                   selected: selected == action.targetingSkill,
-                  onPressed: action.enabled ? () => onPressed(action) : null,
+                  onPressed: action.enabled
+                      ? () {
+                          onPressed(action);
+                          onRequestGameFocus();
+                        }
+                      : null,
                 ),
                 if (action != actions.last) const SizedBox(width: 6),
               ],
@@ -423,67 +445,71 @@ class _SkillButton extends StatelessWidget {
         TextSpan(
             text: '${action.description}\nДальность: ${action.range} клетки'),
       ]),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(8),
-            child: Ink(
-              decoration: BoxDecoration(
-                color: disabled
-                    ? const Color(0xff171b24)
-                    : const Color(0xff202936),
-                border: Border.all(
-                    color: disabled ? const Color(0xff343b48) : action.accent,
-                    width: selected ? 3 : 1.5),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                      child: Icon(action.icon,
-                          size: size * .42,
-                          color: disabled
-                              ? const Color(0xff626b78)
-                              : action.accent)),
-                  Positioned(left: 4, top: 4, child: _Badge(action.hotkey)),
-                  if (action.charges != null)
-                    Positioned(
-                        right: 4,
-                        top: 4,
-                        child: _Badge('${action.charges}', bright: true)),
-                  Positioned(
-                    left: 3,
-                    right: 3,
-                    bottom: 4,
-                    child: Text(action.name,
-                        textAlign: TextAlign.center,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: size < 70 ? 9 : 10,
-                            fontWeight: FontWeight.w700,
+      child: Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: false,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(8),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: disabled
+                      ? const Color(0xff171b24)
+                      : const Color(0xff202936),
+                  border: Border.all(
+                      color: disabled ? const Color(0xff343b48) : action.accent,
+                      width: selected ? 3 : 1.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                        child: Icon(action.icon,
+                            size: size * .42,
                             color: disabled
-                                ? const Color(0xff747e8e)
-                                : Colors.white)),
-                  ),
-                  if (cooldown != null)
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: const Color(0xa6000000),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Center(
-                            child: Text(cooldown,
-                                style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800))),
-                      ),
+                                ? const Color(0xff626b78)
+                                : action.accent)),
+                    Positioned(left: 4, top: 4, child: _Badge(action.hotkey)),
+                    if (action.charges != null)
+                      Positioned(
+                          right: 4,
+                          top: 4,
+                          child: _Badge('${action.charges}', bright: true)),
+                    Positioned(
+                      left: 3,
+                      right: 3,
+                      bottom: 4,
+                      child: Text(action.name,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: size < 70 ? 9 : 10,
+                              fontWeight: FontWeight.w700,
+                              color: disabled
+                                  ? const Color(0xff747e8e)
+                                  : Colors.white)),
                     ),
-                ],
+                    if (cooldown != null)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: const Color(0xa6000000),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Center(
+                              child: Text(cooldown,
+                                  style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800))),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -521,10 +547,14 @@ class _UtilityButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback onPressed;
   @override
-  Widget build(BuildContext context) => IconButton(
-        visualDensity: VisualDensity.compact,
-        tooltip: tooltip,
-        onPressed: onPressed,
-        icon: Icon(icon, size: 19),
+  Widget build(BuildContext context) => Focus(
+        canRequestFocus: false,
+        descendantsAreFocusable: false,
+        child: IconButton(
+          visualDensity: VisualDensity.compact,
+          tooltip: tooltip,
+          onPressed: onPressed,
+          icon: Icon(icon, size: 19),
+        ),
       );
 }
