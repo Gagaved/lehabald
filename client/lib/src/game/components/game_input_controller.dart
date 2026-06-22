@@ -45,7 +45,7 @@ class _GameInputController extends Component
     if (event.logicalKey == LogicalKeyboardKey.escape &&
         event is KeyDownEvent) {
       game.network.cancelTargeting();
-      return false;
+      return true;
     }
     if (event.logicalKey == LogicalKeyboardKey.space && event is KeyDownEvent) {
       final snapshot = game.network.snapshot;
@@ -68,7 +68,7 @@ class _GameInputController extends Component
           game.network.beginTargeting(TargetingSkill.portal);
         }
       }
-      return false;
+      return true;
     }
 
     // Sima's "Камингаут" — Q selects aiming; hold LMB on the board to fire.
@@ -77,7 +77,7 @@ class _GameInputController extends Component
       if (snapshot?.you.role == PlayerRole.hunter &&
           _myHunterKind(snapshot) == HunterKind.sima) {
         game.network.beginTargeting(TargetingSkill.comingOut);
-        return false;
+        return true;
       }
     }
 
@@ -93,7 +93,7 @@ class _GameInputController extends Component
       } else if (me?.aspect == LehaAspect.wizard) {
         game.network.beginTargeting(TargetingSkill.portal);
       }
-      return false;
+      return true;
     }
 
     if (event.logicalKey == LogicalKeyboardKey.keyC && event is KeyDownEvent) {
@@ -104,12 +104,12 @@ class _GameInputController extends Component
       if (me?.aspect == LehaAspect.wizard) {
         game.network.beginTargeting(TargetingSkill.crystal);
       }
-      return false;
+      return true;
     }
 
     if (event.logicalKey == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
       game.network.beginTargeting(TargetingSkill.clutch);
-      return false;
+      return true;
     }
 
     if (MovementInput.directionForKey(event.logicalKey) == null) return true;
@@ -118,7 +118,7 @@ class _GameInputController extends Component
     // moves/stops while absorbing web auto-repeat churn (see MovementInput).
     _dispatch(
         _movement.onKeys(keysPressed, DateTime.now().millisecondsSinceEpoch));
-    return false;
+    return true;
   }
 
   HunterKind? _myHunterKind(GameSnapshotDto? snapshot) {
