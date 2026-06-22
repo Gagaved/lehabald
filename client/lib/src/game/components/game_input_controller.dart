@@ -4,7 +4,25 @@ part of '../leha_bald_game.dart';
 /// this component only translates input into network commands.
 class _GameInputController extends Component
     with KeyboardHandler, HasGameReference<LehaBaldGame> {
-  final Map<LogicalKeyboardKey, MoveDirection> _heldKeys = {};
+  final MovementInput _movement = MovementInput();
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    // Drives the deferred stop and the held-direction heartbeat (see
+    // MovementInput) so a server-side intent clear or a dropped auto-repeat
+    // can't leave the player stranded.
+    _dispatch(_movement.tick(DateTime.now().millisecondsSinceEpoch));
+  }
+
+  void _dispatch(MoveCommand? command) {
+    if (command == null) return;
+    if (command.kind == MoveCommandKind.stop) {
+      game.network.stop();
+    } else {
+      game.network.input(command.direction!);
+    }
+  }
 
   @override
   bool onKeyEvent(
@@ -81,45 +99,12 @@ class _GameInputController extends Component
       return false;
     }
 
-    if (_directionForKey(event.logicalKey) == null) return true;
+    if (MovementInput.directionForKey(event.logicalKey) == null) return true;
 
-    // Rebuild the held-direction set from the authoritative pressed-key snapshot
-    // instead of tracking key-down/key-up deltas ourselves. On web, key
-    // auto-repeat can drop a key-up or inject a phantom one, which with delta
-    // tracking would strand us moving forever or — the symptom players hit —
-    // wrongly stop until the key is pressed again. Deriving from `keysPressed`
-    // every event (including repeats) keeps us in sync with what's really down
-    // and self-heals on the next repeat.
-    _heldKeys.clear();
-    for (final key in keysPressed) {
-      final dir = _directionForKey(key);
-      if (dir != null) _heldKeys[key] = dir;
-    }
-
-    final combined = _combinedDirection();
-    combined == null ? game.network.stop() : game.network.input(combined);
+    // Feed the authoritative pressed-key snapshot to the resolver, which decides
+    // moves/stops while absorbing web auto-repeat churn (see MovementInput).
+    _dispatch(_movement.onKeys(keysPressed, DateTime.now().millisecondsSinceEpoch));
     return false;
-  }
-
-  MoveDirection? _combinedDirection() {
-    final directions = _heldKeys.values.toSet();
-    final up = directions.contains(MoveDirection.up) &&
-        !directions.contains(MoveDirection.down);
-    final down = directions.contains(MoveDirection.down) &&
-        !directions.contains(MoveDirection.up);
-    final left = directions.contains(MoveDirection.left) &&
-        !directions.contains(MoveDirection.right);
-    final right = directions.contains(MoveDirection.right) &&
-        !directions.contains(MoveDirection.left);
-    if (up && left) return MoveDirection.upLeft;
-    if (up && right) return MoveDirection.upRight;
-    if (down && left) return MoveDirection.downLeft;
-    if (down && right) return MoveDirection.downRight;
-    if (up) return MoveDirection.up;
-    if (down) return MoveDirection.down;
-    if (left) return MoveDirection.left;
-    if (right) return MoveDirection.right;
-    return null;
   }
 
   HunterKind? _myHunterKind(GameSnapshotDto? snapshot) {
@@ -134,20 +119,4 @@ class _GameInputController extends Component
         ?.hunterKind;
   }
 
-  MoveDirection? _directionForKey(LogicalKeyboardKey key) {
-    if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyW) {
-      return MoveDirection.up;
-    }
-    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyS) {
-      return MoveDirection.down;
-    }
-    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.keyA) {
-      return MoveDirection.left;
-    }
-    if (key == LogicalKeyboardKey.arrowRight ||
-        key == LogicalKeyboardKey.keyD) {
-      return MoveDirection.right;
-    }
-    return null;
-  }
 }

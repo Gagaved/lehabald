@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
+import 'movement_input.dart';
 import 'player_interpolator.dart';
 import 'skill_targeting.dart';
 
