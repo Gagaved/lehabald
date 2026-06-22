@@ -43,14 +43,16 @@ class GameConstants {
   // It starts only once the second portal of a pair is placed.
   static const portalCooldownMs = 20000;
 
-  // Wizard: place reusable crystals and close wall-visible polygonal chains.
-  static const wizardMaxCrystals = 6;
-  static const wizardActivationCooldownMs = 5000;
-  static const wizardFailedActivationStunMs = 1000;
-  static const wizardChainSlowFactor = 0.3;
+  // Wizard: place crystals that auto-connect into beams; chains stun/slow the hunter.
+  static const wizardMaxCrystals = 6; // max charges / max crystals on map
+  static const wizardCrystalCooldownMs = 10000; // time per charge recharge
+  static const wizardChainStunMs = 1000; // hunter stun when hitting a beam
+  static const wizardChainStunImmuneMs = 2000; // immunity after chain stun
+  static const wizardChainSlowFactor = 0.5; // speed while under a chain beam
   static const wizardChainCollisionRadius = 0.24;
   static const wizardSaturationReferenceArea = 20.0;
   static const wizardSaturationBaseMs = 30000;
+  static const wizardSaturationSpeedMultiplier = 2.0; // saturation fills 2× faster
   static const wizardSaturationMinMultiplier = 0.05;
   static const wizardSaturationMaxMultiplier = 1.5;
   // How many cracked walls are scattered on the map — the only cells where the

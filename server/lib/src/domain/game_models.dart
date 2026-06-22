@@ -43,7 +43,9 @@ class PlayerConnection {
   int webCharges = 0;
   int webCooldownUntil = 0;
   int portalCooldownUntil = 0;
-  int magicChainCooldownUntil = 0;
+  int magicChainCooldownUntil = 0; // repurposed: next crystal charge timestamp
+  int crystalCharges = 0;
+  int chainStunImmuneUntil = 0; // hunter only: chain-beam stun immunity expiry
   int stunnedUntil = 0;
   int invulnerableUntil = 0;
   int webSlowedUntil = 0;
@@ -355,6 +357,7 @@ class GameRound {
   double wizardSaturation = 0;
   List<int> pendingTrapRechargeAt = [];
   List<int> pendingWebRechargeAt = [];
+  List<int> pendingCrystalRechargeAt = [];
   // Spider "Raffaello" mode: collect Raffaellos to lay an egg clutch.
   ClutchState? clutch;
   List<SarcophagusState> sarcophagi = [];

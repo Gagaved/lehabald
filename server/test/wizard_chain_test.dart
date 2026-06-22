@@ -25,7 +25,8 @@ const openMaze = [
   final wizard = PlayerConnection(id: 'wizard', socket: null, x: 2.5, y: 2.5)
     ..slot = 0
     ..role = PlayerRole.leha
-    ..aspect = LehaAspect.wizard;
+    ..aspect = LehaAspect.wizard
+    ..crystalCharges = GameConstants.wizardMaxCrystals;
   final hunter = PlayerConnection(id: 'hunter', socket: null, x: 7.5, y: 7.5)
     ..slot = 1
     ..role = PlayerRole.hunter;
@@ -100,124 +101,158 @@ void expectValidChainNetwork(
 }
 
 void main() {
-  test('wizard closes the largest visible simple contour', () {
-    final (engine, wizard, _) = wizardGame();
-    setCrystals(engine, [(2, 2), (6, 2), (6, 6), (2, 6)]);
-    expect(
-        engine.maze.hasLineOfSight(const Point(2.5, 2.5), const Point(6.5, 2.5),
-            ignoreCover: true),
-        isTrue);
+  test('two crystals — no polygon contour, but a beam exists for stun checks',
+      () {
+    final (engine, wizard, hunter) = wizardGame();
+    setCrystals(engine, [(1, 2), (7, 2)]);
+    // No polygon possible with 2 crystals.
+    expect(engine.round.magicChains, isEmpty);
+    // Hunter sitting on the beam should be detected as "on chain".
+    hunter
+      ..x = 4.5
+      ..y = 2.5;
+    wizard
+      ..x = 2.5
+      ..y = 2.5;
+    // One tick — hunter gets stunned (beam is active).
+    engine.updateMagicChains(1000, GameConstants.tickMs);
+    expect(hunter.stunnedUntil, greaterThan(0));
+  });
 
-    engine.activateMagicChain(wizard);
+  test('three crystals auto-close the largest visible contour', () {
+    final (engine, _, __) = wizardGame();
+    setCrystals(engine, [(2, 2), (6, 2), (6, 6)]);
+    engine.autoActivateMagicChains(0);
 
     expect(engine.round.magicChains, hasLength(1));
-    expect(
-        engine.round.magicChains.single.contours.single.toSet(), {1, 2, 3, 4});
+    expect(engine.round.magicChains.single.contours.single.toSet(), {1, 2, 3});
+  });
 
-    // Reactivating the same contour succeeds without duplicating its progress.
-    engine.activateMagicChain(wizard);
+  test('four crystals auto-close to largest quadrilateral', () {
+    final (engine, wizard, _) = wizardGame();
+    setCrystals(engine, [(2, 2), (6, 2), (6, 6), (2, 6)]);
+    wizard
+      ..x = 2.5
+      ..y = 2.5;
+    engine.autoActivateMagicChains(0);
+
     expectValidChainNetwork(engine, expectedVertices: {1, 2, 3, 4});
   });
 
-  test('incremental activation preserves old edges and adds a longer contour',
+  test('hunter touching a crystal removes it immediately (no fallen state)',
       () {
-    final (engine, wizard, _) = wizardGame();
-    setCrystals(engine, [(1, 6), (4, 6), (3, 4)]);
-    wizard
-      ..x = 1.5
-      ..y = 6.5;
-    engine.activateMagicChain(wizard);
-    final oldEdges = chainEdges(engine);
-
-    engine.round.magicCrystals.addAll([
-      MagicCrystalState(id: 4, x: 2, y: 3),
-      MagicCrystalState(id: 5, x: 3, y: 1),
-    ]);
+    final (engine, wizard, hunter) = wizardGame();
+    setCrystals(engine, [(6, 2), (4, 6)]);
     wizard
       ..x = 2.5
-      ..y = 3.5;
-    engine.activateMagicChain(wizard);
+      ..y = 2.5;
+    hunter
+      ..x = 6.5
+      ..y = 2.5;
 
-    expect(engine.round.magicChains.single.contours.length, greaterThan(1));
-    expect(chainEdges(engine), containsAll(oldEdges));
-    expect(chainEdges(engine).length, greaterThan(oldEdges.length));
-    expectValidChainNetwork(engine, expectedVertices: {1, 2, 3, 4, 5});
-  });
-
-  final convexCells = <(int, int)>[
-    (1, 3),
-    (2, 1),
-    (5, 1),
-    (7, 3),
-    (6, 6),
-    (2, 6),
-  ];
-  final insertionOrders = <List<int>>[
-    [0, 2, 4, 1, 3, 5],
-    [1, 3, 5, 0, 2, 4],
-    [0, 1, 3, 5, 4, 2],
-  ];
-  for (var caseIndex = 0; caseIndex < insertionOrders.length; caseIndex++) {
-    test('incremental six-crystal boundary order ${caseIndex + 1}', () {
-      final (engine, wizard, _) = wizardGame();
-      final order = insertionOrders[caseIndex];
-      var previousEdges = <String>{};
-      for (var step = 0; step < order.length; step++) {
-        final cell = convexCells[order[step]];
-        engine.round.magicCrystals.add(
-          MagicCrystalState(id: step + 1, x: cell.$1, y: cell.$2),
-        );
-        engine.round.nextMagicCrystalId = step + 2;
-        if (step < 2) continue;
-        wizard
-          ..x = cell.$1 + 0.5
-          ..y = cell.$2 + 0.5;
-        engine.activateMagicChain(wizard);
-        expectValidChainNetwork(
-          engine,
-          expectedVertices: {for (var id = 1; id <= step + 1; id++) id},
-        );
-        final currentEdges = chainEdges(engine);
-        expect(currentEdges, containsAll(previousEdges));
-        expect(currentEdges.length, greaterThan(previousEdges.length));
-        previousEdges = currentEdges;
-      }
-
-      final before = engine.round.magicChains.single.contours
-          .map((contour) => List<int>.from(contour))
-          .toList();
-      final beforeEdges = chainEdges(engine);
-      engine.activateMagicChain(wizard);
-      expect(engine.round.magicChains, hasLength(1));
-      expect(engine.round.magicChains.single.contours, before,
-          reason: 'reactivation must not duplicate or mutate the boundary');
-      expect(chainEdges(engine), beforeEdges);
-    });
-  }
-
-  test('invalid activation drops the seed and stuns wizard', () {
-    final (engine, wizard, _) = wizardGame();
-    setCrystals(engine, [(2, 2), (5, 2)]);
-
-    engine.activateMagicChain(wizard);
-
-    expect(engine.round.magicCrystals.first.fallen, isTrue);
-    expect(wizard.stunnedUntil, greaterThan(0));
-    expect(wizard.magicChainCooldownUntil, greaterThan(0));
-  });
-
-  test('picking one vertex keeps a valid remaining triangle active', () {
-    final (engine, wizard, _) = wizardGame();
-    setCrystals(engine, [(2, 2), (6, 2), (6, 6), (2, 6)]);
-    engine.activateMagicChain(wizard);
-
-    engine.placeOrPickMagicCrystal(wizard);
+    engine.updateMagicChains(1, GameConstants.tickMs);
 
     expect(engine.round.magicCrystals.map((c) => c.id), isNot(contains(1)));
-    expect(engine.round.magicChains.single.contours.single, hasLength(3));
+    expect(engine.round.magicCrystals.any((c) => c.fallen), isFalse);
   });
 
-  test('hunter breaks a crystal and line destroys non-wall objects', () {
+  test('hunter stunned on beam and immune for wizardChainStunImmuneMs', () {
+    final (engine, wizard, hunter) = wizardGame();
+    wizard
+      ..x = 2.5
+      ..y = 2.5;
+    setCrystals(engine, [(1, 2), (7, 2)]);
+    hunter
+      ..x = 4.5
+      ..y = 2.5;
+
+    const now = 1000;
+    engine.updateMagicChains(now, GameConstants.tickMs);
+
+    expect(hunter.stunnedUntil, now + GameConstants.wizardChainStunMs);
+    expect(
+      hunter.chainStunImmuneUntil,
+      now +
+          GameConstants.wizardChainStunMs +
+          GameConstants.wizardChainStunImmuneMs,
+    );
+  });
+
+  test('hunter immune to re-stun during immunity window', () {
+    final (engine, wizard, hunter) = wizardGame();
+    wizard
+      ..x = 2.5
+      ..y = 2.5;
+    setCrystals(engine, [(1, 2), (7, 2)]);
+    hunter
+      ..x = 4.5
+      ..y = 2.5;
+
+    engine.updateMagicChains(1000, GameConstants.tickMs);
+    final firstStunnedUntil = hunter.stunnedUntil;
+    final immune = hunter.chainStunImmuneUntil;
+
+    // Still in immunity window — no new stun.
+    engine.updateMagicChains(1500, GameConstants.tickMs);
+    expect(hunter.stunnedUntil, firstStunnedUntil);
+    expect(hunter.chainStunImmuneUntil, immune);
+  });
+
+  test('hunter can be re-stunned after immunity expires', () {
+    final (engine, wizard, hunter) = wizardGame();
+    wizard
+      ..x = 2.5
+      ..y = 2.5;
+    setCrystals(engine, [(1, 2), (7, 2)]);
+    hunter
+      ..x = 4.5
+      ..y = 2.5;
+
+    const t1 = 1000;
+    engine.updateMagicChains(t1, GameConstants.tickMs);
+
+    // Tick after immunity expires.
+    final afterImmune = hunter.chainStunImmuneUntil + 1;
+    engine.updateMagicChains(afterImmune, GameConstants.tickMs);
+    expect(hunter.stunnedUntil,
+        afterImmune + GameConstants.wizardChainStunMs);
+  });
+
+  test('crystal charges start at max and recharge after cooldown', () {
+    final (engine, wizard, _) = wizardGame();
+    expect(wizard.crystalCharges, GameConstants.wizardMaxCrystals);
+
+    // Simulate spending a charge.
+    wizard.crystalCharges -= 1;
+    round_addPendingCrystal(engine, 0);
+    wizard.magicChainCooldownUntil = GameConstants.wizardCrystalCooldownMs;
+
+    // Before cooldown expires — no recharge.
+    engine.rechargeCrystals(5000);
+    expect(wizard.crystalCharges, GameConstants.wizardMaxCrystals - 1);
+
+    // After cooldown — charge restored.
+    engine.rechargeCrystals(GameConstants.wizardCrystalCooldownMs + 1);
+    expect(wizard.crystalCharges, GameConstants.wizardMaxCrystals);
+  });
+
+  test('active polygon chain accumulates saturation', () {
+    final (engine, wizard, hunter) = wizardGame();
+    setCrystals(engine, [(1, 1), (7, 1), (7, 7), (1, 7)]);
+    engine.autoActivateMagicChains(0);
+    wizard
+      ..x = 1.5
+      ..y = 1.5;
+    hunter
+      ..x = 4.5
+      ..y = 4.5;
+
+    engine.updateMagicChains(1, 1000);
+
+    expect(engine.round.wizardSaturation, greaterThan(0));
+  });
+
+  test('line destroys non-wall objects on chain edges', () {
     final (engine, wizard, hunter) = wizardGame();
     setCrystals(engine, [(2, 2), (6, 2), (4, 6)]);
     engine.round.traps.add(TrapState(
@@ -227,32 +262,14 @@ void main() {
       expiresAt: 1 << 60,
     ));
     engine.maze.bushes.add('5,2');
-    engine.activateMagicChain(wizard);
+    engine.autoActivateMagicChains(0);
     engine.updateMagicChains(1, GameConstants.tickMs);
     expect(engine.round.traps, isEmpty);
     expect(engine.maze.bushes, isNot(contains('5,2')));
-
-    hunter
-      ..x = 6.5
-      ..y = 2.5;
-    engine.updateMagicChains(2, GameConstants.tickMs);
-    expect(engine.round.magicCrystals.singleWhere((c) => c.id == 2).fallen,
-        isTrue);
-    expect(engine.round.magicChains, isEmpty);
   });
+}
 
-  test('active chain accumulates saturation without hunter inside', () {
-    final (engine, wizard, hunter) = wizardGame();
-    setCrystals(engine, [(1, 1), (7, 1), (7, 7), (1, 7)]);
-    engine.activateMagicChain(wizard
-      ..x = 1.5
-      ..y = 1.5);
-    hunter
-      ..x = 4.5
-      ..y = 4.5;
-
-    engine.updateMagicChains(1, 1000);
-
-    expect(engine.round.wizardSaturation, greaterThan(0));
-  });
+void round_addPendingCrystal(GameEngine engine, int now) {
+  engine.round.pendingCrystalRechargeAt
+      .add(now + GameConstants.wizardCrystalCooldownMs);
 }

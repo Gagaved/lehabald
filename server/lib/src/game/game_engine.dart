@@ -92,7 +92,7 @@ class GameEngine {
       case ClientMessageType.layClutch:
         layClutch(client, message.targetX, message.targetY);
       case ClientMessageType.activateMagicChain:
-        activateMagicChain(client, message.targetX, message.targetY);
+        break; // chains auto-activate on crystal placement
       case ClientMessageType.selectAspect:
         final aspect = message.aspect;
         if (aspect != null) selectAspect(client, aspect);
@@ -189,6 +189,11 @@ class GameEngine {
         ..webCooldownUntil = 0
         ..portalCooldownUntil = 0
         ..magicChainCooldownUntil = 0
+        ..crystalCharges = client.slot == 0 &&
+                client.aspect == LehaAspect.wizard
+            ? GameConstants.wizardMaxCrystals
+            : 0
+        ..chainStunImmuneUntil = 0
         ..stunnedUntil = 0
         ..invulnerableUntil = 0
         ..webSlowedUntil = 0
@@ -313,7 +318,9 @@ class GameEngine {
           aspect == LehaAspect.spider ? GameConstants.maxWebCharges : 0
       ..webCooldownUntil = 0
       ..portalCooldownUntil = 0
-      ..magicChainCooldownUntil = 0;
+      ..magicChainCooldownUntil = 0
+      ..crystalCharges =
+          aspect == LehaAspect.wizard ? GameConstants.wizardMaxCrystals : 0;
     // Keep the lobby board's collectibles in sync with the chosen aspect:
     // Spider shows 5 Raffaellos, everyone else the TikTok logos.
     logos = switch (aspect) {
@@ -571,10 +578,11 @@ class GameEngine {
 
   void placeOrPickMagicCrystal(PlayerConnection client,
       [double? targetX, double? targetY]) {
+    final now = nowMs();
     if (round.phase != GamePhase.playing ||
         client.slot != 0 ||
         client.aspect != LehaAspect.wizard ||
-        nowMs() < client.stunnedUntil) {
+        now < client.stunnedUntil) {
       return;
     }
     final current = centerCell(client);
@@ -590,10 +598,12 @@ class GameEngine {
               SkillTargetRange.crystal * SkillTargetRange.crystal;
     }).toList();
     if (nearby.isNotEmpty) {
-      _removeMagicCrystal(nearby.first.id, nowMs());
+      _removeMagicCrystal(nearby.first.id, now);
+      client.crystalCharges =
+          min(GameConstants.wizardMaxCrystals, client.crystalCharges + 1);
       return;
     }
-    if (round.magicCrystals.length >= GameConstants.wizardMaxCrystals) return;
+    if (client.crystalCharges <= 0) return;
     final direction = client.lastDirection;
     final targeted =
         _targetCell(client, targetX, targetY, SkillTargetRange.crystal);
@@ -612,70 +622,64 @@ class GameEngine {
             .any((crystal) => crystal.x == target.x && crystal.y == target.y)) {
       return;
     }
+    client.crystalCharges -= 1;
+    _scheduleCrystalRecharge(client, now);
     round.magicCrystals.add(MagicCrystalState(
       id: round.nextMagicCrystalId++,
       x: target.x,
       y: target.y,
     ));
+    autoActivateMagicChains(now);
   }
 
-  void activateMagicChain(PlayerConnection client,
-      [double? targetX, double? targetY]) {
-    final now = nowMs();
-    if (round.phase != GamePhase.playing ||
-        client.slot != 0 ||
-        client.aspect != LehaAspect.wizard ||
-        now < client.stunnedUntil ||
-        now < client.magicChainCooldownUntil) {
-      return;
-    }
-    final target =
-        _targetCell(client, targetX, targetY, SkillTargetRange.chain);
-    if (targetX != null && target == null) return;
-    final seedX = targetX ?? client.x;
-    final seedY = targetY ?? client.y;
-    final seed = round.magicCrystals.where((crystal) {
-      if (crystal.fallen) return false;
-      final dx = crystal.x + 0.5 - seedX;
-      final dy = crystal.y + 0.5 - seedY;
-      return dx * dx + dy * dy <= (targetX == null ? 1.0 : 0.85 * 0.85);
-    }).firstOrNull;
-    if (seed == null) return;
-
-    final cycle = _bestMagicCycle(seed.id);
-    if (cycle == null) {
-      _fellMagicCrystal(seed.id, now, explode: true);
-      client
-        ..stunnedUntil = now + GameConstants.wizardFailedActivationStunMs
-        ..magicChainCooldownUntil =
-            now + GameConstants.wizardActivationCooldownMs
-        ..direction = null
-        ..nextDirection = null;
-      return;
-    }
-    if (_magicContourExists(cycle)) return;
-
-    final touching = round.magicChains
-        .where((chain) => chain.contours.any((contour) =>
-            contour.toSet().intersection(cycle.toSet()).length >= 2))
-        .toList();
-    if (touching.isEmpty) {
-      round.magicChains.add(MagicChainState(
-        id: round.nextMagicChainId++,
-        contours: [cycle],
-      ));
-    } else {
-      // Two contours sharing 2+ crystals are one logical chain, but the old
-      // closed contour remains energized. The cycle search maximizes newly
-      // added unique edge length, so incremental activation grows the network
-      // instead of repeatedly selecting near-identical nested triangles.
-      final contours = <List<int>>[cycle];
-      for (final chain in touching) {
-        contours.addAll(chain.contours);
+  List<MagicChainDto> _magicChainsForSnapshot() {
+    final active = round.magicCrystals.where((c) => !c.fallen).toList();
+    if (active.length < 2) return [];
+    final edges = <List<int>>[];
+    final emitted = <String>{};
+    for (var i = 0; i < active.length; i++) {
+      for (var j = i + 1; j < active.length; j++) {
+        final a = active[i], b = active[j];
+        final key = _magicEdgeKey(a.id, b.id);
+        if (!emitted.add(key)) continue;
+        if (maze.hasLineOfSight(
+          Point(a.x + 0.5, a.y + 0.5),
+          Point(b.x + 0.5, b.y + 0.5),
+          ignoreCover: true,
+        )) {
+          edges.add([a.id, b.id]);
+        }
       }
-      final id = touching.map((chain) => chain.id).reduce(min);
-      round.magicChains.removeWhere(touching.contains);
-      round.magicChains.add(MagicChainState(id: id, contours: contours));
+    }
+    if (edges.isEmpty) return [];
+    return [MagicChainDto(id: 1, contours: edges)];
+  }
+
+  void autoActivateMagicChains(int now) {
+    final crystals =
+        round.magicCrystals.where((c) => !c.fallen).toList();
+    if (crystals.length < 3) return;
+    for (final crystal in crystals) {
+      final cycle = _bestMagicCycle(crystal.id);
+      if (cycle == null || _magicContourExists(cycle)) continue;
+      final touching = round.magicChains
+          .where((chain) => chain.contours.any((contour) =>
+              contour.toSet().intersection(cycle.toSet()).length >= 2))
+          .toList();
+      if (touching.isEmpty) {
+        round.magicChains.add(MagicChainState(
+          id: round.nextMagicChainId++,
+          contours: [cycle],
+        ));
+      } else {
+        final contours = <List<int>>[cycle];
+        for (final chain in touching) {
+          contours.addAll(chain.contours);
+        }
+        final id = touching.map((chain) => chain.id).reduce(min);
+        round.magicChains.removeWhere(touching.contains);
+        round.magicChains.add(MagicChainState(id: id, contours: contours));
+      }
     }
     _destroyObjectsOnMagicChains();
   }
@@ -864,17 +868,7 @@ class GameEngine {
     _rebuildMagicChainsWithout(id, now);
   }
 
-  void _fellMagicCrystal(int id, int now, {bool explode = false}) {
-    final crystal = round.magicCrystals.where((c) => c.id == id).firstOrNull;
-    if (crystal == null || crystal.fallen) return;
-    crystal
-      ..fallen = true
-      ..burstAt = explode ? now : 0;
-    _rebuildMagicChainsWithout(id, now);
-  }
-
   void _rebuildMagicChainsWithout(int id, int now) {
-    var changed = false;
     final byId = {
       for (final crystal in round.magicCrystals) crystal.id: crystal
     };
@@ -886,7 +880,6 @@ class GameEngine {
           contours.add(contour);
           continue;
         }
-        changed = true;
         final remaining =
             contour.where((crystalId) => crystalId != id).toList();
         if (_validMagicContour(remaining, byId)) contours.add(remaining);
@@ -896,13 +889,6 @@ class GameEngine {
       }
     }
     round.magicChains = rebuilt;
-    if (changed) {
-      final wizard = findPlayer(0);
-      if (wizard?.aspect == LehaAspect.wizard) {
-        wizard!.magicChainCooldownUntil =
-            now + GameConstants.wizardActivationCooldownMs;
-      }
-    }
   }
 
   void updateMagicChains(int now, int dtMs) {
@@ -915,9 +901,20 @@ class GameEngine {
         final dx = crystal.x + 0.5 - hunter.x;
         final dy = crystal.y + 0.5 - hunter.y;
         if (dx * dx + dy * dy <= 0.62 * 0.62) {
-          _fellMagicCrystal(crystal.id, now);
+          _removeMagicCrystal(crystal.id, now);
           break;
         }
+      }
+      if (_pointOnMagicChain(hunter.x, hunter.y) &&
+          now >= hunter.chainStunImmuneUntil) {
+        hunter
+          ..stunnedUntil = max(hunter.stunnedUntil,
+              now + GameConstants.wizardChainStunMs)
+          ..chainStunImmuneUntil = now +
+              GameConstants.wizardChainStunMs +
+              GameConstants.wizardChainStunImmuneMs
+          ..direction = null
+          ..nextDirection = null;
       }
     }
     if (round.magicChains.isEmpty) return;
@@ -936,8 +933,10 @@ class GameEngine {
                 GameConstants.wizardSaturationMaxMultiplier);
       }
     }
-    round.wizardSaturation +=
-        dtMs / GameConstants.wizardSaturationBaseMs * multiplier;
+    round.wizardSaturation += dtMs /
+        GameConstants.wizardSaturationBaseMs *
+        multiplier *
+        GameConstants.wizardSaturationSpeedMultiplier;
     if (round.wizardSaturation >= 1) {
       round.wizardSaturation = 1;
       endGame(0, 'Леха-Маг насытил магические цепи.');
@@ -945,22 +944,24 @@ class GameEngine {
   }
 
   Iterable<(Point<double>, Point<double>)> _magicChainEdges() sync* {
-    final byId = {
-      for (final crystal in round.magicCrystals) crystal.id: crystal
-    };
+    final active =
+        round.magicCrystals.where((c) => !c.fallen).toList();
     final emitted = <String>{};
-    for (final chain in round.magicChains) {
-      for (final contour in chain.contours) {
-        for (var i = 0; i < contour.length; i++) {
-          final a = byId[contour[i]],
-              b = byId[contour[(i + 1) % contour.length]];
-          if (a == null || b == null || a.fallen || b.fallen) continue;
-          if (!emitted.add(_magicEdgeKey(a.id, b.id))) continue;
-          yield (
-            Point(a.x + 0.5, a.y + 0.5),
-            Point(b.x + 0.5, b.y + 0.5),
-          );
+    for (var i = 0; i < active.length; i++) {
+      for (var j = i + 1; j < active.length; j++) {
+        final a = active[i], b = active[j];
+        if (!emitted.add(_magicEdgeKey(a.id, b.id))) continue;
+        if (!maze.hasLineOfSight(
+          Point(a.x + 0.5, a.y + 0.5),
+          Point(b.x + 0.5, b.y + 0.5),
+          ignoreCover: true,
+        )) {
+          continue;
         }
+        yield (
+          Point(a.x + 0.5, a.y + 0.5),
+          Point(b.x + 0.5, b.y + 0.5),
+        );
       }
     }
   }
@@ -969,7 +970,9 @@ class GameEngine {
     final point = Point<double>(x, y);
     final radius = GameConstants.wizardChainCollisionRadius + extraRadius;
     for (final edge in _magicChainEdges()) {
-      if (_distanceToSegment(point, edge.$1, edge.$2) <= radius) return true;
+      if (_distanceToSegment(point, edge.$1, edge.$2) <= radius) {
+        return true;
+      }
     }
     return false;
   }
@@ -1418,6 +1421,7 @@ class GameEngine {
         ..wizardSaturation = 0
         ..pendingTrapRechargeAt = []
         ..pendingWebRechargeAt = []
+        ..pendingCrystalRechargeAt = []
         ..clutch = null
         ..sarcophagi = _spawnSarcophagi()
         ..mummies = []
@@ -1457,6 +1461,7 @@ class GameEngine {
           ..heartRechargeAt = 0
           ..invulnerableUntil = 0
           ..stunnedUntil = 0
+          ..chainStunImmuneUntil = 0
           ..webSlowedUntil = 0
           ..webPhaseUntil = 0
           ..scentMaskedUntil = 0;
@@ -1469,6 +1474,9 @@ class GameEngine {
           ..webCooldownUntil = 0
           ..portalCooldownUntil = 0
           ..magicChainCooldownUntil = 0
+          ..crystalCharges = leha.aspect == LehaAspect.wizard
+              ? GameConstants.wizardMaxCrystals
+              : 0
           ..stunnedUntil = 0
           ..invulnerableUntil = 0
           ..blindUntil = 0
@@ -1799,6 +1807,7 @@ class GameEngine {
     expireWebs(now);
     updateEmber(now);
     rechargeWebs(now);
+    rechargeCrystals(now);
     rechargeHearts(now);
     updateBots(now);
     for (final client in clients.values) {
@@ -2467,12 +2476,7 @@ class GameEngine {
                     : _round3(((now - crystal.burstAt) / 700).clamp(0.0, 1.0)),
               ))
           .toList(),
-      magicChains: round.magicChains
-          .map((chain) => MagicChainDto(
-                id: chain.id,
-                contours: chain.contours,
-              ))
-          .toList(),
+      magicChains: _magicChainsForSnapshot(),
       clutch: visibleClutchFor(viewer, now),
       trail: trailForClient(viewer, now),
       players: visiblePlayers,
@@ -2552,7 +2556,7 @@ class GameEngine {
             : 0,
         magicCrystalCharges:
             viewer.slot == 0 && viewer.aspect == LehaAspect.wizard
-                ? GameConstants.wizardMaxCrystals - round.magicCrystals.length
+                ? viewer.crystalCharges
                 : 0,
         magicCrystalAvailable: magicCrystalAvailableFor(viewer, now),
       ),
@@ -2917,6 +2921,28 @@ class GameEngine {
       spider.webCooldownUntil = round.pendingWebRechargeAt.isEmpty
           ? 0
           : round.pendingWebRechargeAt.reduce(min);
+    }
+  }
+
+  void _scheduleCrystalRecharge(PlayerConnection wizard, int now) {
+    round.pendingCrystalRechargeAt
+        .add(now + GameConstants.wizardCrystalCooldownMs);
+    wizard.magicChainCooldownUntil =
+        round.pendingCrystalRechargeAt.reduce(min);
+  }
+
+  void rechargeCrystals(int now) {
+    final ready =
+        round.pendingCrystalRechargeAt.where((time) => now >= time).length;
+    if (ready == 0) return;
+    round.pendingCrystalRechargeAt.removeWhere((time) => now >= time);
+    final wizard = findPlayer(0);
+    if (wizard != null && wizard.aspect == LehaAspect.wizard) {
+      wizard.crystalCharges =
+          min(GameConstants.wizardMaxCrystals, wizard.crystalCharges + ready);
+      wizard.magicChainCooldownUntil = round.pendingCrystalRechargeAt.isEmpty
+          ? 0
+          : round.pendingCrystalRechargeAt.reduce(min);
     }
   }
 
@@ -3343,9 +3369,7 @@ class GameEngine {
         now < viewer.stunnedUntil) {
       return false;
     }
-    if (round.magicCrystals.length < GameConstants.wizardMaxCrystals) {
-      return true;
-    }
+    if (viewer.crystalCharges > 0) return true;
     return round.magicCrystals.any((crystal) {
       final dx = crystal.x + 0.5 - viewer.x;
       final dy = crystal.y + 0.5 - viewer.y;

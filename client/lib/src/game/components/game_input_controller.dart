@@ -77,15 +77,7 @@ class _GameInputController extends Component
     }
 
     if (event.logicalKey == LogicalKeyboardKey.keyF && event is KeyDownEvent) {
-      final snapshot = game.network.snapshot;
-      final me = snapshot?.players
-          .where((player) => player.id == snapshot.you.id)
-          .firstOrNull;
-      if (me?.aspect == LehaAspect.wizard) {
-        game.network.beginTargeting(TargetingSkill.chain);
-      } else {
-        game.network.beginTargeting(TargetingSkill.clutch);
-      }
+      game.network.beginTargeting(TargetingSkill.clutch);
       return false;
     }
 
