@@ -14,6 +14,7 @@ enum ClientMessageType {
   spectate,
   placeTrap,
   useAbility,
+  comingOut,
   placeMagicCrystal,
   layClutch,
   activateMagicChain,

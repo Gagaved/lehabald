@@ -23,6 +23,7 @@ class PlayerDto with PlayerDtoMappable {
     this.hunterKind,
     this.blinded = false,
     this.femboy = false,
+    this.charmed = false,
     this.facing,
   });
 
@@ -47,6 +48,9 @@ class PlayerDto with PlayerDtoMappable {
 
   /// True while Sima is in femboy form (charm ability active).
   final bool femboy;
+
+  /// True while Leha is being pulled toward Sima by a "Камингаут" heart hit.
+  final bool charmed;
 
   /// Facing direction — only sent for Spider and Wizard Leha (direction indicator).
   final MoveDirection? facing;
@@ -80,6 +84,20 @@ class TrapDto with TrapDtoMappable {
   final int placedAt;
   final int expiresAt;
   final bool triggered;
+}
+
+/// One of Sima's "Камингаут" heart projectiles in flight.
+@MappableClass()
+class HeartDto with HeartDtoMappable {
+  const HeartDto({
+    required this.x,
+    required this.y,
+    this.impact = false,
+  });
+
+  final double x;
+  final double y;
+  final bool impact;
 }
 
 @MappableClass()
@@ -163,6 +181,7 @@ class IllusionDto with IllusionDtoMappable {
     this.hunterKind,
     this.powered = false,
     this.femboy = false,
+    this.own = false,
   });
 
   final double x;
@@ -173,6 +192,11 @@ class IllusionDto with IllusionDtoMappable {
   final HunterKind? hunterKind;
   final bool powered;
   final bool femboy;
+
+  /// Whether this is the viewer's own illusion — always shown (no line-of-sight
+  /// required) and rendered with a translucent blue tint so the player can tell
+  /// their own mirror image apart from a real opponent.
+  final bool own;
 }
 
 @MappableClass()
@@ -303,11 +327,16 @@ class TrailPointDto with TrailPointDtoMappable {
     required this.x,
     required this.y,
     required this.alpha,
+    this.loud = false,
   });
 
   final double x;
   final double y;
   final double alpha;
+
+  /// A "loud" footprint left while crossing forest leaf litter: it lasts longer
+  /// and the opponent always sees it, regardless of scent range or sight.
+  final bool loud;
 }
 
 @MappableClass()
@@ -497,6 +526,9 @@ class GameInfoDto with GameInfoDtoMappable {
     this.barrelCooldownMs = 0,
     this.femboyAvailable = false,
     this.femboyCooldownMs = 0,
+    this.comingOutAvailable = false,
+    this.comingOutCharges = 0,
+    this.comingOutCooldownMs = 0,
     this.spiderMode = false,
     this.rafaelkiEaten = 0,
     this.rafaelkiNeeded = 0,
@@ -527,9 +559,14 @@ class GameInfoDto with GameInfoDtoMappable {
   final bool barrelAvailable;
   final int barrelCooldownMs;
 
-  /// Sima femboy (charm) ability readiness (hunter slot only).
+  /// Sima femboy (form) ability readiness (hunter slot only).
   final bool femboyAvailable;
   final int femboyCooldownMs;
+
+  /// Sima "Камингаут" heart ability readiness/charges (hunter slot only).
+  final bool comingOutAvailable;
+  final int comingOutCharges;
+  final int comingOutCooldownMs;
 
   /// Spider-Leha "Raffaello" mode: collect Raffaellos to lay an egg clutch.
   final bool spiderMode;
@@ -591,6 +628,7 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     required this.cols,
     required this.maze,
     this.bushes = const [],
+    this.leaves = const [],
     this.crackedWalls = const [],
     this.biome = CaveBiome.forest,
     this.stoneSeed = 0,
@@ -613,6 +651,7 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
     required this.logos,
     required this.traps,
     required this.webs,
+    this.hearts = const [],
     required this.barrels,
     required this.portals,
     this.magicCrystals = const [],
@@ -638,6 +677,10 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
 
   /// Static bush cells (cover): hide players from scent/xray.
   final List<Vec2i> bushes;
+
+  /// Forest-biome dry leaf-litter cells: crossing them leaves a loud footprint
+  /// the opponent can read from anywhere.
+  final List<Vec2i> leaves;
 
   /// Cracked wall cells — the only places Spider-Leha may spin a web.
   final List<Vec2i> crackedWalls;
@@ -696,6 +739,9 @@ class GameSnapshotDto with GameSnapshotDtoMappable {
   final List<LogoDto> logos;
   final List<TrapDto> traps;
   final List<WebDto> webs;
+
+  /// Sima's "Камингаут" heart projectiles currently in flight.
+  final List<HeartDto> hearts;
   final List<BarrelDto> barrels;
   final List<PortalDto> portals;
   final List<MagicCrystalDto> magicCrystals;

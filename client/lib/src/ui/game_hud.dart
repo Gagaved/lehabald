@@ -70,8 +70,14 @@ class GameHud extends StatelessWidget {
     );
   }
 
-  void _activate(SkillActionModel action) =>
-      network.beginTargeting(action.targetingSkill);
+  void _activate(SkillActionModel action) {
+    final direct = action.directAction;
+    if (direct != null) {
+      direct();
+      return;
+    }
+    network.beginTargeting(action.targetingSkill);
+  }
 
   List<SkillActionModel> _actionsFor(GameSnapshotDto s) {
     final me = s.players.where((p) => p.id == s.you.id).firstOrNull;
@@ -96,7 +102,7 @@ class GameHud extends StatelessWidget {
             SkillActionModel(
               kind: SkillActionKind.primary,
               name: 'Фембой',
-              description: 'Притягивает видимого Лёху к Симе.',
+              description: 'Аура: видимый Лёха замедляется, убегая от Симы.',
               icon: Icons.favorite_rounded,
               hotkey: 'SPACE',
               enabled: s.game.femboyAvailable,
@@ -104,6 +110,21 @@ class GameHud extends StatelessWidget {
               accent: const Color(0xffff6fae),
               targetingSkill: TargetingSkill.femboy,
               range: SkillTargetRange.femboy,
+              projection: SkillProjectionKind.direction,
+              directAction: () => network.useAbility(),
+            ),
+            SkillActionModel(
+              kind: SkillActionKind.primary,
+              name: 'Камингаут',
+              description: 'Сыплет сердечки; попадание тянет Лёху к Симе.',
+              icon: Icons.volunteer_activism_rounded,
+              hotkey: 'Q',
+              enabled: s.game.comingOutAvailable,
+              cooldownMs: s.game.comingOutCooldownMs,
+              charges: s.game.comingOutCharges,
+              accent: const Color(0xffff8fcf),
+              targetingSkill: TargetingSkill.comingOut,
+              range: SkillTargetRange.comingOut,
               projection: SkillProjectionKind.direction,
             ),
           ],

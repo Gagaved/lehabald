@@ -11,6 +11,7 @@ class _GameSceneComponent extends PositionComponent
         HasGameReference<LehaBaldGame>,
         HasVisibility,
         PointerMoveCallbacks,
+        DragCallbacks,
         TapCallbacks {
   _GameSceneComponent() : super(priority: 10);
 
@@ -18,6 +19,9 @@ class _GameSceneComponent extends PositionComponent
   late final _TrapLayerComponent trapLayer;
   late final _WebLayerComponent webLayer;
   late final _TargetingPreviewComponent targetingPreview;
+  bool _comingOutPointerHeld = false;
+  double _comingOutShotTimer = 0;
+  static const _comingOutShotInterval = 0.32;
 
   @override
   void onLoad() {
@@ -49,11 +53,74 @@ class _GameSceneComponent extends PositionComponent
     final point = event.localPosition;
     final x = point.x / LehaBaldGame.tile;
     final y = point.y / LehaBaldGame.tile;
+    if (game.network.targetingSkill == TargetingSkill.comingOut) {
+      game.network.updateAim(x, y);
+      if (targetingPreview.validAt(x, y)) {
+        // A plain mobile tap must always produce one shot. Route it through the
+        // same targeting action as the other skills; applyTarget deliberately
+        // keeps Coming Out selected for subsequent taps.
+        game.network.applyTarget(x, y);
+        _comingOutPointerHeld = true;
+        _comingOutShotTimer = _comingOutShotInterval;
+      }
+      return;
+    }
     if (targetingPreview.validAt(x, y)) game.network.applyTarget(x, y);
   }
 
   @override
+  void onTapUp(TapUpEvent event) {
+    if (game.network.targetingSkill == TargetingSkill.comingOut) {
+      final point = event.localPosition;
+      final x = point.x / LehaBaldGame.tile;
+      final y = point.y / LehaBaldGame.tile;
+      game.network.updateAim(x, y);
+      if (targetingPreview.validAt(x, y)) {
+        // TapUp is the gesture arena's confirmed click/tap. Some platforms do
+        // not deliver the initial TapDown to the scene when drag recognition is
+        // also installed, so always confirm one shot here. The server cooldown
+        // safely deduplicates it if TapDown already fired.
+        game.network.applyTarget(x, y);
+      }
+    }
+    _stopComingOut();
+  }
+
+  @override
+  void onDragStart(DragStartEvent event) {
+    super.onDragStart(event);
+    final point = event.localPosition;
+    _startComingOut(
+      point.x / LehaBaldGame.tile,
+      point.y / LehaBaldGame.tile,
+    );
+  }
+
+  @override
+  void onDragUpdate(DragUpdateEvent event) {
+    if (game.network.targetingSkill != TargetingSkill.comingOut) return;
+    final point = event.localEndPosition;
+    if (point.x.isNaN || point.y.isNaN) return;
+    game.network.updateAim(
+      point.x / LehaBaldGame.tile,
+      point.y / LehaBaldGame.tile,
+    );
+  }
+
+  @override
+  void onDragEnd(DragEndEvent event) {
+    super.onDragEnd(event);
+    _stopComingOut();
+  }
+
+  @override
   void update(double dt) {
+    if (game.network.targetingSkill != TargetingSkill.comingOut) {
+      _comingOutPointerHeld = false;
+    } else if (_comingOutPointerHeld) {
+      _comingOutShotTimer -= dt;
+      if (_comingOutShotTimer <= 0) _fireComingOut();
+    }
     final snapshot = game.network.snapshot;
     isVisible = snapshot != null;
     if (snapshot != null) {
@@ -68,6 +135,29 @@ class _GameSceneComponent extends PositionComponent
       webLayer.sync(const []);
     }
     super.update(dt);
+  }
+
+  void _fireComingOut() {
+    final x = game.network.aimX;
+    final y = game.network.aimY;
+    if (x == null || y == null || !targetingPreview.validAt(x, y)) return;
+    game.network.comingOut(targetX: x, targetY: y);
+    _comingOutShotTimer = _comingOutShotInterval;
+  }
+
+  void _startComingOut(double x, double y) {
+    if (game.network.targetingSkill != TargetingSkill.comingOut) return;
+    game.network.updateAim(x, y);
+    if (!targetingPreview.validAt(x, y)) return;
+    if (_comingOutPointerHeld) return;
+    _comingOutPointerHeld = true;
+    _comingOutShotTimer = 0;
+    _fireComingOut();
+  }
+
+  void _stopComingOut() {
+    _comingOutPointerHeld = false;
+    _comingOutShotTimer = 0;
   }
 
   void _layout(GameSnapshotDto snapshot) {
@@ -126,7 +216,7 @@ class _TargetingPreviewComponent extends Component
     final color = valid ? const Color(0xff55ef9f) : const Color(0xffff5d6c);
     final tile = LehaBaldGame.tile;
 
-    if (skill != TargetingSkill.barrel) {
+    if (skill != TargetingSkill.barrel && skill != TargetingSkill.comingOut) {
       canvas.drawCircle(
         origin * tile,
         range * tile,
@@ -139,6 +229,12 @@ class _TargetingPreviewComponent extends Component
 
     if (skill == TargetingSkill.barrel) {
       _drawBarrelPath(canvas, snapshot, origin, aim);
+      return;
+    }
+
+
+    if (skill == TargetingSkill.comingOut) {
+      _drawComingOutPath(canvas, snapshot, origin, aim, valid);
       return;
     }
 
@@ -169,6 +265,7 @@ class _TargetingPreviewComponent extends Component
         TargetingSkill.trap => SkillTargetRange.trap,
         TargetingSkill.barrel => SkillTargetRange.barrelPreview,
         TargetingSkill.femboy => SkillTargetRange.femboy,
+        TargetingSkill.comingOut => SkillTargetRange.comingOut,
         TargetingSkill.web => SkillTargetRange.web,
         TargetingSkill.portal => SkillTargetRange.portal,
         TargetingSkill.crystal => SkillTargetRange.crystal,
@@ -179,6 +276,9 @@ class _TargetingPreviewComponent extends Component
   bool _valid(GameSnapshotDto s, TargetingSkill skill, Offset from, Offset aim,
       double range) {
     if (skill == TargetingSkill.barrel) {
+      return (aim - from).distance > 0.1;
+    }
+    if (skill == TargetingSkill.comingOut) {
       return (aim - from).distance > 0.1;
     }
     if ((aim - from).distance > range ||
@@ -283,6 +383,35 @@ class _TargetingPreviewComponent extends Component
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
+  }
+
+  void _drawComingOutPath(Canvas canvas, GameSnapshotDto s, Offset origin,
+      Offset aim, bool valid) {
+    var delta = aim - origin;
+    if (delta.distance < 0.01) return;
+    final direction = delta / delta.distance;
+    final distance = min(delta.distance, SkillTargetRange.comingOut);
+    var end = origin;
+    const step = 0.08;
+    for (var traveled = step; traveled <= distance; traveled += step) {
+      final next = origin + direction * traveled;
+      if (_wall(s, next.dx.floor(), next.dy.floor())) break;
+      end = next;
+    }
+    final color = valid ? const Color(0xffff8fcf) : const Color(0xffff5d6c);
+    final path = Path()
+      ..moveTo(origin.dx * LehaBaldGame.tile, origin.dy * LehaBaldGame.tile)
+      ..lineTo(end.dx * LehaBaldGame.tile, end.dy * LehaBaldGame.tile);
+    canvas.drawPath(path, Paint()
+      ..color = color.withValues(alpha: 0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..strokeCap = StrokeCap.round);
+    canvas.drawPath(path, Paint()
+      ..color = color.withValues(alpha: 0.72)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round);
   }
 
   ({Offset point, Offset direction, bool bounced, bool wrapped})
@@ -394,6 +523,7 @@ class _LegacyTerrainComponent extends Component
     game._drawSpores(canvas, snapshot.spores);
     game._drawAmethystShards(canvas, snapshot.amethystShards);
     game._drawCrackedWalls(canvas, snapshot.crackedWalls);
+    game._drawLeaves(canvas, snapshot.leaves);
     game._drawBushes(canvas, snapshot.bushes);
     game._drawMushroomColony(canvas, snapshot.mushrooms);
     game._drawMagicChains(canvas, snapshot.magicCrystals, snapshot.magicChains);
@@ -423,6 +553,7 @@ class _LegacyActorsComponent extends Component
     final snapshot = game.network.snapshot;
     if (snapshot == null) return;
     game._drawBarrels(canvas, snapshot.barrels);
+    game._drawHeartProjectiles(canvas, snapshot.hearts);
     game._drawMummies(canvas, snapshot.mummies);
     game._drawIllusions(canvas, snapshot.illusions);
     game._drawPlayers(

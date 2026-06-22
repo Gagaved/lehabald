@@ -41,6 +41,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return ClientMessageType.placeTrap;
       case r'useAbility':
         return ClientMessageType.useAbility;
+      case r'comingOut':
+        return ClientMessageType.comingOut;
       case r'placeMagicCrystal':
         return ClientMessageType.placeMagicCrystal;
       case r'layClutch':
@@ -93,6 +95,8 @@ class ClientMessageTypeMapper extends EnumMapper<ClientMessageType> {
         return r'placeTrap';
       case ClientMessageType.useAbility:
         return r'useAbility';
+      case ClientMessageType.comingOut:
+        return r'comingOut';
       case ClientMessageType.placeMagicCrystal:
         return r'placeMagicCrystal';
       case ClientMessageType.layClutch:

@@ -85,6 +85,8 @@ class GameEngine {
         placeTrap(client, message.targetX, message.targetY);
       case ClientMessageType.useAbility:
         useAbility(client, message.targetX, message.targetY);
+      case ClientMessageType.comingOut:
+        throwHeart(client, message.targetX, message.targetY);
       case ClientMessageType.placeMagicCrystal:
         placeOrPickMagicCrystal(client, message.targetX, message.targetY);
       case ClientMessageType.layClutch:
@@ -253,7 +255,11 @@ class GameEngine {
       ..trapCooldownUntil = 0
       ..barrelCooldownUntil = 0
       ..simaFemboyUntil = 0
-      ..simaCooldownUntil = 0;
+      ..simaCooldownUntil = 0
+      ..heartCharges =
+          kind == HunterKind.sima ? GameConstants.simaHeartMaxCharges : 0
+      ..heartShotCooldownUntil = 0
+      ..heartRechargeAt = 0;
     ensureRoundState();
   }
 
@@ -405,11 +411,66 @@ class GameEngine {
     }
   }
 
+  /// Sima's "Фембой" form: a self-buff aura. While it's up, a visible
+  /// non-powered Leha is slowed when fleeing (see [movePlayer]).
   void activateFemboy(PlayerConnection client) {
     final now = nowMs();
     if (now < client.simaCooldownUntil || now < client.stunnedUntil) return;
     client.simaFemboyUntil = now + GameConstants.simaFemboyMs;
     client.simaCooldownUntil = now + GameConstants.simaFemboyCooldownMs;
+  }
+
+  /// Sima's "Камингаут": fires one heart projectile per call, gated by charges
+  /// and a short shot cooldown. The client holds the button and re-sends, so a
+  /// held key sprays a heart every [simaHeartShotCooldownMs] until charges run
+  /// out. Hearts are aimed at [targetX]/[targetY] if given, else Sima's facing.
+  void throwHeart(PlayerConnection client,
+      [double? targetX, double? targetY]) {
+    final now = nowMs();
+    if (round.phase != GamePhase.playing ||
+        client.slot != 1 ||
+        client.hunterKind != HunterKind.sima ||
+        now < client.stunnedUntil ||
+        now < client.heartShotCooldownUntil ||
+        client.heartCharges <= 0) {
+      return;
+    }
+    var aimX = targetX == null ? client.lastDirection.dx : targetX - client.x;
+    var aimY = targetY == null ? client.lastDirection.dy : targetY - client.y;
+    final aimLen = sqrt(aimX * aimX + aimY * aimY);
+    if (aimLen < 1e-4) {
+      aimX = client.lastDirection.dx;
+      aimY = client.lastDirection.dy;
+    } else {
+      aimX /= aimLen;
+      aimY /= aimLen;
+    }
+    client.heartCharges -= 1;
+    client.heartShotCooldownUntil = now + GameConstants.simaHeartShotCooldownMs;
+    // Start the recharge clock when the first charge of a (re)fill is spent.
+    if (client.heartCharges == GameConstants.simaHeartMaxCharges - 1) {
+      client.heartRechargeAt = now + GameConstants.simaHeartRechargeMs;
+    }
+    // Randomise the sway so a held spray fans out unpredictably. Phase stays 0
+    // (and amplitude is ramped in flight) so the heart leaves Sima's hand at her
+    // position instead of teleporting sideways into a wall on the first tick.
+    final amplitude = GameConstants.simaHeartSineAmplitude *
+        (0.5 + _rng.nextDouble()) *
+        (_rng.nextBool() ? 1 : -1);
+    const phase = 0.0;
+    round.hearts.add(HeartState(
+      id: round.nextHeartId++,
+      cx: client.x,
+      cy: client.y,
+      dirX: aimX,
+      dirY: aimY,
+      perpX: -aimY,
+      perpY: aimX,
+      amplitude: amplitude,
+      phase: phase,
+      spawnedAt: now,
+      ownerId: client.id,
+    ));
   }
 
   void throwBarrel(PlayerConnection client,
@@ -1237,6 +1298,72 @@ class GameEngine {
     }
   }
 
+  void updateHearts(PlayerConnection? leha, int now, double dt) {
+    if (round.hearts.isEmpty) return;
+    final step = GameConstants.baseSpeed *
+        GameConstants.simaHeartSpeedMultiplier *
+        dt;
+    final survivors = <HeartState>[];
+    for (final heart in round.hearts) {
+      if (heart.impactUntil != 0) {
+        if (now < heart.impactUntil) survivors.add(heart);
+        continue;
+      }
+      heart
+        ..traveled += step
+        ..cx += heart.dirX * step
+        ..cy += heart.dirY * step;
+      // Lateral sine sway starts at zero and grows across the entire flight.
+      // The full configured amplitude is reached only at maximum range, making
+      // close and medium-range shots substantially easier to land.
+      final ramp =
+          (heart.traveled / GameConstants.simaHeartRangeBlocks).clamp(0.0, 1.0);
+      final sway = sin(heart.traveled /
+                  GameConstants.simaHeartSineWavelength *
+                  2 *
+                  pi +
+              heart.phase) *
+          heart.amplitude *
+          ramp;
+      heart
+        ..x = heart.cx + heart.perpX * sway
+        ..y = heart.cy + heart.perpY * sway;
+      // No ricochet — a wall or the max range simply ends it.
+      if (heart.traveled >= GameConstants.simaHeartRangeBlocks) continue;
+      if (barrelBlocked(heart.x, heart.y)) {
+        heart.impactUntil = now + GameConstants.simaHeartWallImpactMs;
+        survivors.add(heart);
+        continue;
+      }
+      // A non-powered Leha it touches is charmed: pulled toward Sima briefly.
+      if (leha != null && now >= round.lehaPowerUntil) {
+        final ddx = leha.x - heart.x;
+        final ddy = leha.y - heart.y;
+        if (ddx * ddx + ddy * ddy <=
+            GameConstants.simaHeartHitRadius *
+                GameConstants.simaHeartHitRadius) {
+          leha.charmPullUntil = now + GameConstants.simaHeartPullMs;
+          continue;
+        }
+      }
+      survivors.add(heart);
+    }
+    round.hearts = survivors;
+  }
+
+  /// Refills Sima's spent heart charges one at a time.
+  void rechargeHearts(int now) {
+    final hunter = findPlayer(1);
+    if (hunter == null || hunter.hunterKind != HunterKind.sima) return;
+    if (hunter.heartCharges >= GameConstants.simaHeartMaxCharges) return;
+    if (hunter.heartRechargeAt == 0 || now < hunter.heartRechargeAt) return;
+    hunter.heartCharges += 1;
+    hunter.heartRechargeAt =
+        hunter.heartCharges >= GameConstants.simaHeartMaxCharges
+            ? 0
+            : now + GameConstants.simaHeartRechargeMs;
+  }
+
   void hitLehaWithBarrel(PlayerConnection leha, int now) {
     leha
       ..stunnedUntil = now + GameConstants.barrelStunMs
@@ -1281,6 +1408,8 @@ class GameEngine {
         ..traps = []
         ..webs = []
         ..barrels = []
+        ..hearts = []
+        ..nextHeartId = 1
         ..portals = []
         ..magicCrystals = []
         ..magicChains = []
@@ -1321,6 +1450,11 @@ class GameEngine {
           ..barrelCooldownUntil = 0
           ..simaFemboyUntil = 0
           ..simaCooldownUntil = 0
+          ..heartCharges = hunter.hunterKind == HunterKind.sima
+              ? GameConstants.simaHeartMaxCharges
+              : 0
+          ..heartShotCooldownUntil = 0
+          ..heartRechargeAt = 0
           ..invulnerableUntil = 0
           ..stunnedUntil = 0
           ..webSlowedUntil = 0
@@ -1338,6 +1472,7 @@ class GameEngine {
           ..stunnedUntil = 0
           ..invulnerableUntil = 0
           ..blindUntil = 0
+          ..charmPullUntil = 0
           ..webSlowedUntil = 0
           ..webPhaseUntil = 0
           ..scentMaskedUntil = 0;
@@ -1664,6 +1799,7 @@ class GameEngine {
     expireWebs(now);
     updateEmber(now);
     rechargeWebs(now);
+    rechargeHearts(now);
     updateBots(now);
     for (final client in clients.values) {
       if (client.slot == null) continue;
@@ -1682,6 +1818,7 @@ class GameEngine {
     if (leha != null) updateTrail(leha, now);
     if (hunter != null) updateTrail(hunter, now);
     updateBarrels(leha, now, GameConstants.tickMs / 1000);
+    updateHearts(leha, now, GameConstants.tickMs / 1000);
     updateSarcophagi(now);
     updateMummies(now, GameConstants.tickMs / 1000);
     updateMushrooms(now);
@@ -2199,6 +2336,10 @@ class GameEngine {
         final parts = key.split(',').map(int.parse).toList();
         return Vec2i(parts[0], parts[1]);
       }).toList(),
+      leaves: maze.leafLitter.map((key) {
+        final parts = key.split(',').map(int.parse).toList();
+        return Vec2i(parts[0], parts[1]);
+      }).toList(),
       crackedWalls: maze.crackedWalls.map((key) {
         final parts = key.split(',').map(int.parse).toList();
         return Vec2i(parts[0], parts[1]);
@@ -2307,6 +2448,13 @@ class GameEngine {
       traps: visibleTrapsFor(viewer, now),
       webs: visibleWebsFor(viewer),
       barrels: visibleBarrelsFor(viewer, now),
+      hearts: round.hearts
+          .map((h) => HeartDto(
+                x: _round3(h.x),
+                y: _round3(h.y),
+                impact: h.impactUntil != 0,
+              ))
+          .toList(),
       portals: visiblePortalsFor(viewer),
       magicCrystals: round.magicCrystals
           .map((crystal) => MagicCrystalDto(
@@ -2373,6 +2521,20 @@ class GameEngine {
             viewer.slot == 1 && viewer.hunterKind == HunterKind.sima
                 ? max(0, viewer.simaCooldownUntil - now)
                 : 0,
+        comingOutAvailable: viewer.slot == 1 &&
+            viewer.hunterKind == HunterKind.sima &&
+            round.phase == GamePhase.playing &&
+            now >= viewer.stunnedUntil &&
+            now >= viewer.heartShotCooldownUntil &&
+            viewer.heartCharges > 0,
+        comingOutCharges:
+            viewer.slot == 1 && viewer.hunterKind == HunterKind.sima
+                ? viewer.heartCharges
+                : 0,
+        comingOutCooldownMs:
+            viewer.slot == 1 && viewer.hunterKind == HunterKind.sima
+                ? max(0, viewer.heartShotCooldownUntil - now)
+                : 0,
         spiderMode: _isSpiderRound(),
         rafaelkiEaten: round.rafaelkiEaten,
         rafaelkiNeeded: GameConstants.rafaelkiNeeded,
@@ -2424,12 +2586,11 @@ class GameEngine {
       endWebPhase(player);
     }
 
-    // Sima's femboy charm: a non-powered Leha with line of sight is dragged
-    // straight toward Sima at half speed, overriding his input.
-    if (player.slot == 0 && now >= round.lehaPowerUntil) {
-      final sima = _activeSima(now);
-      if (sima != null &&
-          maze.hasLineOfSight(playerPos(player), playerPos(sima))) {
+    // Heart charm (Камингаут hit): a non-powered Leha is dragged straight
+    // toward Sima at half speed, overriding his input, for a brief moment.
+    if (player.slot == 0 && now >= round.lehaPowerUntil && now < player.charmPullUntil) {
+      final sima = findPlayer(1);
+      if (sima != null && sima.hunterKind == HunterKind.sima) {
         _charmMove(player, sima, dt, now);
         _wrapTunnel(player);
         resolveWebContact(player, now);
@@ -2438,11 +2599,25 @@ class GameEngine {
       }
     }
 
-    final distance = player.speed * dt;
+    var distance = player.speed * dt;
     final requested = player.nextDirection;
     if (requested == null) {
       player.direction = null;
       return;
+    }
+
+    // Sima's "Фембой" form: while it's up and she can see a non-powered Leha,
+    // any movement that carries him away from her is slowed by half.
+    if (player.slot == 0 && now >= round.lehaPowerUntil) {
+      final sima = _activeSima(now);
+      if (sima != null &&
+          maze.hasLineOfSight(playerPos(player), playerPos(sima))) {
+        final awayX = player.x - sima.x;
+        final awayY = player.y - sima.y;
+        if (requested.dx * awayX + requested.dy * awayY > 0) {
+          distance *= GameConstants.simaSlowFactor;
+        }
+      }
     }
 
     player
@@ -2637,11 +2812,18 @@ class GameEngine {
         sqrt(pow(last.x - player.x, 2) + pow(last.y - player.y, 2)) < 0.35) {
       return;
     }
-    trail.add(TrailPoint(x: _round3(player.x), y: _round3(player.y), at: now));
-    round.trails[slot] = trail
-        .where((point) => now - point.at <= GameConstants.trailLifetimeMs)
-        .toList();
+    // Crossing dry leaf litter leaves a "loud" footprint: it lasts longer and
+    // the opponent reads it from anywhere on the map.
+    final loud = maze.isLeafLitter(player.x.floor(), player.y.floor());
+    trail.add(TrailPoint(
+        x: _round3(player.x), y: _round3(player.y), at: now, loud: loud));
+    round.trails[slot] =
+        trail.where((point) => now - point.at <= _trailLifetime(point)).toList();
   }
+
+  int _trailLifetime(TrailPoint point) => point.loud
+      ? GameConstants.loudTrailLifetimeMs
+      : GameConstants.trailLifetimeMs;
 
   void resolveCollision(
       PlayerConnection? leha, PlayerConnection? hunter, int now) {
@@ -3096,8 +3278,12 @@ class GameEngine {
           final tp = Point(ix, iy);
           // A wall between the crystal and the projection hides it.
           if (!maze.hasLineOfSight(cc, tp)) continue;
-          // Seen like any character: the viewer needs a clear line on it.
+          // The viewer always sees their own illusions (so they can recognise
+          // their mirror image); for everyone else it's seen like any character
+          // — the viewer needs a clear line on it.
+          final own = viewerSees && p.slot == viewer.slot;
           if (viewerSees &&
+              !own &&
               !(maze.hasLineOfSight(vp, tp) ||
                   maze.hasXrayVisibility(vp, tp))) {
             continue;
@@ -3113,6 +3299,7 @@ class GameEngine {
             femboy: p.slot == 1 &&
                 p.hunterKind == HunterKind.sima &&
                 now < p.simaFemboyUntil,
+            own: own,
           ));
         }
       }
@@ -3186,6 +3373,9 @@ class GameEngine {
       femboy: player.slot == 1 &&
           player.hunterKind == HunterKind.sima &&
           now < player.simaFemboyUntil,
+      charmed: player.slot == 0 &&
+          now >= round.lehaPowerUntil &&
+          now < player.charmPullUntil,
       facing: player.lastDirection,
     );
   }
@@ -3207,22 +3397,37 @@ class GameEngine {
   }
 
   List<TrailPointDto> trailForClient(PlayerConnection viewer, int now) {
-    if (viewer.slot == null) return const [];
-    final sourceSlot = viewer.slot == 1 ? 0 : 1;
-    if (viewer.slot == 0 && now >= round.lehaPowerUntil) return const [];
-    return trailPointsForSlot(sourceSlot, now)
-        .where((point) => canViewerSeeTrailPoint(viewer, point))
-        .toList();
+    final slot = viewer.slot;
+    if (slot == null) return const [];
+    final sourceSlot = slot == 1 ? 0 : 1;
+    final result = <TrailPointDto>[];
+    // Leha only reads the hunter's ordinary scent while powered; the hunter
+    // always smells Leha's. Loud leaf-litter footprints are the exception —
+    // they ring out across the map to the opponent regardless of power state.
+    final scentGated = slot == 0 && now >= round.lehaPowerUntil;
+    for (final point in trailPointsForSlot(sourceSlot, now)) {
+      if (point.loud) {
+        result.add(point);
+      } else if (!scentGated && canViewerSeeTrailPoint(viewer, point)) {
+        result.add(point);
+      }
+    }
+    // Your own loud leaf-litter footprints — shown back to you so you can see
+    // the track you're leaving for the opponent to follow.
+    result.addAll(trailPointsForSlot(slot, now).where((point) => point.loud));
+    return result;
   }
 
   List<TrailPointDto> trailPointsForSlot(int slot, int now) {
     return (round.trails[slot] ?? const <TrailPoint>[])
         .map((point) {
           final age = now - point.at;
-          if (age > GameConstants.trailLifetimeMs) return null;
+          final lifetime = _trailLifetime(point);
+          if (age > lifetime) return null;
           // Linear fade: 1.0 when fresh, 0.0 when expired.
-          final alpha = 1.0 - age / GameConstants.trailLifetimeMs;
-          return TrailPointDto(x: point.x, y: point.y, alpha: alpha);
+          final alpha = 1.0 - age / lifetime;
+          return TrailPointDto(
+              x: point.x, y: point.y, alpha: alpha, loud: point.loud);
         })
         .whereType<TrailPointDto>()
         .toList();
@@ -3232,6 +3437,9 @@ class GameEngine {
     final vp = playerPos(viewer);
     final tp = Point(point.x, point.y);
     final distance = sqrt(pow(vp.x - tp.x, 2) + pow(vp.y - tp.y, 2));
+    // A loud leaf-litter footprint rings out across the whole map — the
+    // opponent always picks it up, no scent range or line-of-sight needed.
+    if (point.loud) return true;
     // Hunter smells Leha's trail within scentRadius — no line-of-sight needed.
     // Ice crystals dampen the scent: signals near a crystal are not shown.
     if (viewer.slot == 1) {

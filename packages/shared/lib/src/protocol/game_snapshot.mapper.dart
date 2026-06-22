@@ -76,6 +76,13 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
     opt: true,
     def: false,
   );
+  static bool _$charmed(PlayerDto v) => v.charmed;
+  static const Field<PlayerDto, bool> _f$charmed = Field(
+    'charmed',
+    _$charmed,
+    opt: true,
+    def: false,
+  );
   static MoveDirection? _$facing(PlayerDto v) => v.facing;
   static const Field<PlayerDto, MoveDirection> _f$facing = Field(
     'facing',
@@ -100,6 +107,7 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
     #hunterKind: _f$hunterKind,
     #blinded: _f$blinded,
     #femboy: _f$femboy,
+    #charmed: _f$charmed,
     #facing: _f$facing,
   };
 
@@ -120,6 +128,7 @@ class PlayerDtoMapper extends ClassMapperBase<PlayerDto> {
       hunterKind: data.dec(_f$hunterKind),
       blinded: data.dec(_f$blinded),
       femboy: data.dec(_f$femboy),
+      charmed: data.dec(_f$charmed),
       facing: data.dec(_f$facing),
     );
   }
@@ -199,6 +208,7 @@ abstract class PlayerDtoCopyWith<$R, $In extends PlayerDto, $Out>
     HunterKind? hunterKind,
     bool? blinded,
     bool? femboy,
+    bool? charmed,
     MoveDirection? facing,
   });
   PlayerDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -229,6 +239,7 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
     Object? hunterKind = $none,
     bool? blinded,
     bool? femboy,
+    bool? charmed,
     Object? facing = $none,
   }) => $apply(
     FieldCopyWithData({
@@ -247,6 +258,7 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
       if (hunterKind != $none) #hunterKind: hunterKind,
       if (blinded != null) #blinded: blinded,
       if (femboy != null) #femboy: femboy,
+      if (charmed != null) #charmed: charmed,
       if (facing != $none) #facing: facing,
     }),
   );
@@ -267,6 +279,7 @@ class _PlayerDtoCopyWithImpl<$R, $Out>
     hunterKind: data.get(#hunterKind, or: $value.hunterKind),
     blinded: data.get(#blinded, or: $value.blinded),
     femboy: data.get(#femboy, or: $value.femboy),
+    charmed: data.get(#charmed, or: $value.charmed),
     facing: data.get(#facing, or: $value.facing),
   );
 
@@ -545,6 +558,137 @@ class _TrapDtoCopyWithImpl<$R, $Out>
   @override
   TrapDtoCopyWith<$R2, TrapDto, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
       _TrapDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class HeartDtoMapper extends ClassMapperBase<HeartDto> {
+  HeartDtoMapper._();
+
+  static HeartDtoMapper? _instance;
+  static HeartDtoMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = HeartDtoMapper._());
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'HeartDto';
+
+  static double _$x(HeartDto v) => v.x;
+  static const Field<HeartDto, double> _f$x = Field('x', _$x);
+  static double _$y(HeartDto v) => v.y;
+  static const Field<HeartDto, double> _f$y = Field('y', _$y);
+  static bool _$impact(HeartDto v) => v.impact;
+  static const Field<HeartDto, bool> _f$impact = Field(
+    'impact',
+    _$impact,
+    opt: true,
+    def: false,
+  );
+
+  @override
+  final MappableFields<HeartDto> fields = const {
+    #x: _f$x,
+    #y: _f$y,
+    #impact: _f$impact,
+  };
+
+  static HeartDto _instantiate(DecodingData data) {
+    return HeartDto(
+      x: data.dec(_f$x),
+      y: data.dec(_f$y),
+      impact: data.dec(_f$impact),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static HeartDto fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<HeartDto>(map);
+  }
+
+  static HeartDto fromJson(String json) {
+    return ensureInitialized().decodeJson<HeartDto>(json);
+  }
+}
+
+mixin HeartDtoMappable {
+  String toJson() {
+    return HeartDtoMapper.ensureInitialized().encodeJson<HeartDto>(
+      this as HeartDto,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return HeartDtoMapper.ensureInitialized().encodeMap<HeartDto>(
+      this as HeartDto,
+    );
+  }
+
+  HeartDtoCopyWith<HeartDto, HeartDto, HeartDto> get copyWith =>
+      _HeartDtoCopyWithImpl<HeartDto, HeartDto>(
+        this as HeartDto,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return HeartDtoMapper.ensureInitialized().stringifyValue(this as HeartDto);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return HeartDtoMapper.ensureInitialized().equalsValue(
+      this as HeartDto,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return HeartDtoMapper.ensureInitialized().hashValue(this as HeartDto);
+  }
+}
+
+extension HeartDtoValueCopy<$R, $Out> on ObjectCopyWith<$R, HeartDto, $Out> {
+  HeartDtoCopyWith<$R, HeartDto, $Out> get $asHeartDto =>
+      $base.as((v, t, t2) => _HeartDtoCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class HeartDtoCopyWith<$R, $In extends HeartDto, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({double? x, double? y, bool? impact});
+  HeartDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _HeartDtoCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, HeartDto, $Out>
+    implements HeartDtoCopyWith<$R, HeartDto, $Out> {
+  _HeartDtoCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<HeartDto> $mapper =
+      HeartDtoMapper.ensureInitialized();
+  @override
+  $R call({double? x, double? y, bool? impact}) => $apply(
+    FieldCopyWithData({
+      if (x != null) #x: x,
+      if (y != null) #y: y,
+      if (impact != null) #impact: impact,
+    }),
+  );
+  @override
+  HeartDto $make(CopyWithData data) => HeartDto(
+    x: data.get(#x, or: $value.x),
+    y: data.get(#y, or: $value.y),
+    impact: data.get(#impact, or: $value.impact),
+  );
+
+  @override
+  HeartDtoCopyWith<$R2, HeartDto, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _HeartDtoCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class WebDtoMapper extends ClassMapperBase<WebDto> {
@@ -1252,6 +1396,13 @@ class IllusionDtoMapper extends ClassMapperBase<IllusionDto> {
     opt: true,
     def: false,
   );
+  static bool _$own(IllusionDto v) => v.own;
+  static const Field<IllusionDto, bool> _f$own = Field(
+    'own',
+    _$own,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<IllusionDto> fields = const {
@@ -1263,6 +1414,7 @@ class IllusionDtoMapper extends ClassMapperBase<IllusionDto> {
     #hunterKind: _f$hunterKind,
     #powered: _f$powered,
     #femboy: _f$femboy,
+    #own: _f$own,
   };
 
   static IllusionDto _instantiate(DecodingData data) {
@@ -1275,6 +1427,7 @@ class IllusionDtoMapper extends ClassMapperBase<IllusionDto> {
       hunterKind: data.dec(_f$hunterKind),
       powered: data.dec(_f$powered),
       femboy: data.dec(_f$femboy),
+      own: data.dec(_f$own),
     );
   }
 
@@ -1347,6 +1500,7 @@ abstract class IllusionDtoCopyWith<$R, $In extends IllusionDto, $Out>
     HunterKind? hunterKind,
     bool? powered,
     bool? femboy,
+    bool? own,
   });
   IllusionDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1369,6 +1523,7 @@ class _IllusionDtoCopyWithImpl<$R, $Out>
     Object? hunterKind = $none,
     bool? powered,
     bool? femboy,
+    bool? own,
   }) => $apply(
     FieldCopyWithData({
       if (x != null) #x: x,
@@ -1379,6 +1534,7 @@ class _IllusionDtoCopyWithImpl<$R, $Out>
       if (hunterKind != $none) #hunterKind: hunterKind,
       if (powered != null) #powered: powered,
       if (femboy != null) #femboy: femboy,
+      if (own != null) #own: own,
     }),
   );
   @override
@@ -1391,6 +1547,7 @@ class _IllusionDtoCopyWithImpl<$R, $Out>
     hunterKind: data.get(#hunterKind, or: $value.hunterKind),
     powered: data.get(#powered, or: $value.powered),
     femboy: data.get(#femboy, or: $value.femboy),
+    own: data.get(#own, or: $value.own),
   );
 
   @override
@@ -2634,12 +2791,20 @@ class TrailPointDtoMapper extends ClassMapperBase<TrailPointDto> {
   static const Field<TrailPointDto, double> _f$y = Field('y', _$y);
   static double _$alpha(TrailPointDto v) => v.alpha;
   static const Field<TrailPointDto, double> _f$alpha = Field('alpha', _$alpha);
+  static bool _$loud(TrailPointDto v) => v.loud;
+  static const Field<TrailPointDto, bool> _f$loud = Field(
+    'loud',
+    _$loud,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<TrailPointDto> fields = const {
     #x: _f$x,
     #y: _f$y,
     #alpha: _f$alpha,
+    #loud: _f$loud,
   };
 
   static TrailPointDto _instantiate(DecodingData data) {
@@ -2647,6 +2812,7 @@ class TrailPointDtoMapper extends ClassMapperBase<TrailPointDto> {
       x: data.dec(_f$x),
       y: data.dec(_f$y),
       alpha: data.dec(_f$alpha),
+      loud: data.dec(_f$loud),
     );
   }
 
@@ -2712,7 +2878,7 @@ extension TrailPointDtoValueCopy<$R, $Out>
 
 abstract class TrailPointDtoCopyWith<$R, $In extends TrailPointDto, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
-  $R call({double? x, double? y, double? alpha});
+  $R call({double? x, double? y, double? alpha, bool? loud});
   TrailPointDtoCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -2725,11 +2891,12 @@ class _TrailPointDtoCopyWithImpl<$R, $Out>
   late final ClassMapperBase<TrailPointDto> $mapper =
       TrailPointDtoMapper.ensureInitialized();
   @override
-  $R call({double? x, double? y, double? alpha}) => $apply(
+  $R call({double? x, double? y, double? alpha, bool? loud}) => $apply(
     FieldCopyWithData({
       if (x != null) #x: x,
       if (y != null) #y: y,
       if (alpha != null) #alpha: alpha,
+      if (loud != null) #loud: loud,
     }),
   );
   @override
@@ -2737,6 +2904,7 @@ class _TrailPointDtoCopyWithImpl<$R, $Out>
     x: data.get(#x, or: $value.x),
     y: data.get(#y, or: $value.y),
     alpha: data.get(#alpha, or: $value.alpha),
+    loud: data.get(#loud, or: $value.loud),
   );
 
   @override
@@ -4662,6 +4830,27 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     opt: true,
     def: 0,
   );
+  static bool _$comingOutAvailable(GameInfoDto v) => v.comingOutAvailable;
+  static const Field<GameInfoDto, bool> _f$comingOutAvailable = Field(
+    'comingOutAvailable',
+    _$comingOutAvailable,
+    opt: true,
+    def: false,
+  );
+  static int _$comingOutCharges(GameInfoDto v) => v.comingOutCharges;
+  static const Field<GameInfoDto, int> _f$comingOutCharges = Field(
+    'comingOutCharges',
+    _$comingOutCharges,
+    opt: true,
+    def: 0,
+  );
+  static int _$comingOutCooldownMs(GameInfoDto v) => v.comingOutCooldownMs;
+  static const Field<GameInfoDto, int> _f$comingOutCooldownMs = Field(
+    'comingOutCooldownMs',
+    _$comingOutCooldownMs,
+    opt: true,
+    def: 0,
+  );
   static bool _$spiderMode(GameInfoDto v) => v.spiderMode;
   static const Field<GameInfoDto, bool> _f$spiderMode = Field(
     'spiderMode',
@@ -4752,6 +4941,9 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
     #barrelCooldownMs: _f$barrelCooldownMs,
     #femboyAvailable: _f$femboyAvailable,
     #femboyCooldownMs: _f$femboyCooldownMs,
+    #comingOutAvailable: _f$comingOutAvailable,
+    #comingOutCharges: _f$comingOutCharges,
+    #comingOutCooldownMs: _f$comingOutCooldownMs,
     #spiderMode: _f$spiderMode,
     #rafaelkiEaten: _f$rafaelkiEaten,
     #rafaelkiNeeded: _f$rafaelkiNeeded,
@@ -4783,6 +4975,9 @@ class GameInfoDtoMapper extends ClassMapperBase<GameInfoDto> {
       barrelCooldownMs: data.dec(_f$barrelCooldownMs),
       femboyAvailable: data.dec(_f$femboyAvailable),
       femboyCooldownMs: data.dec(_f$femboyCooldownMs),
+      comingOutAvailable: data.dec(_f$comingOutAvailable),
+      comingOutCharges: data.dec(_f$comingOutCharges),
+      comingOutCooldownMs: data.dec(_f$comingOutCooldownMs),
       spiderMode: data.dec(_f$spiderMode),
       rafaelkiEaten: data.dec(_f$rafaelkiEaten),
       rafaelkiNeeded: data.dec(_f$rafaelkiNeeded),
@@ -4874,6 +5069,9 @@ abstract class GameInfoDtoCopyWith<$R, $In extends GameInfoDto, $Out>
     int? barrelCooldownMs,
     bool? femboyAvailable,
     int? femboyCooldownMs,
+    bool? comingOutAvailable,
+    int? comingOutCharges,
+    int? comingOutCooldownMs,
     bool? spiderMode,
     int? rafaelkiEaten,
     int? rafaelkiNeeded,
@@ -4915,6 +5113,9 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     int? barrelCooldownMs,
     bool? femboyAvailable,
     int? femboyCooldownMs,
+    bool? comingOutAvailable,
+    int? comingOutCharges,
+    int? comingOutCooldownMs,
     bool? spiderMode,
     int? rafaelkiEaten,
     int? rafaelkiNeeded,
@@ -4944,6 +5145,10 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
       if (barrelCooldownMs != null) #barrelCooldownMs: barrelCooldownMs,
       if (femboyAvailable != null) #femboyAvailable: femboyAvailable,
       if (femboyCooldownMs != null) #femboyCooldownMs: femboyCooldownMs,
+      if (comingOutAvailable != null) #comingOutAvailable: comingOutAvailable,
+      if (comingOutCharges != null) #comingOutCharges: comingOutCharges,
+      if (comingOutCooldownMs != null)
+        #comingOutCooldownMs: comingOutCooldownMs,
       if (spiderMode != null) #spiderMode: spiderMode,
       if (rafaelkiEaten != null) #rafaelkiEaten: rafaelkiEaten,
       if (rafaelkiNeeded != null) #rafaelkiNeeded: rafaelkiNeeded,
@@ -4981,6 +5186,15 @@ class _GameInfoDtoCopyWithImpl<$R, $Out>
     barrelCooldownMs: data.get(#barrelCooldownMs, or: $value.barrelCooldownMs),
     femboyAvailable: data.get(#femboyAvailable, or: $value.femboyAvailable),
     femboyCooldownMs: data.get(#femboyCooldownMs, or: $value.femboyCooldownMs),
+    comingOutAvailable: data.get(
+      #comingOutAvailable,
+      or: $value.comingOutAvailable,
+    ),
+    comingOutCharges: data.get(#comingOutCharges, or: $value.comingOutCharges),
+    comingOutCooldownMs: data.get(
+      #comingOutCooldownMs,
+      or: $value.comingOutCooldownMs,
+    ),
     spiderMode: data.get(#spiderMode, or: $value.spiderMode),
     rafaelkiEaten: data.get(#rafaelkiEaten, or: $value.rafaelkiEaten),
     rafaelkiNeeded: data.get(#rafaelkiNeeded, or: $value.rafaelkiNeeded),
@@ -5155,6 +5369,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       LogoDtoMapper.ensureInitialized();
       TrapDtoMapper.ensureInitialized();
       WebDtoMapper.ensureInitialized();
+      HeartDtoMapper.ensureInitialized();
       BarrelDtoMapper.ensureInitialized();
       PortalDtoMapper.ensureInitialized();
       MagicCrystalDtoMapper.ensureInitialized();
@@ -5191,6 +5406,13 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
   static const Field<GameSnapshotDto, List<Vec2i>> _f$bushes = Field(
     'bushes',
     _$bushes,
+    opt: true,
+    def: const [],
+  );
+  static List<Vec2i> _$leaves(GameSnapshotDto v) => v.leaves;
+  static const Field<GameSnapshotDto, List<Vec2i>> _f$leaves = Field(
+    'leaves',
+    _$leaves,
     opt: true,
     def: const [],
   );
@@ -5338,6 +5560,13 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     'webs',
     _$webs,
   );
+  static List<HeartDto> _$hearts(GameSnapshotDto v) => v.hearts;
+  static const Field<GameSnapshotDto, List<HeartDto>> _f$hearts = Field(
+    'hearts',
+    _$hearts,
+    opt: true,
+    def: const [],
+  );
   static List<BarrelDto> _$barrels(GameSnapshotDto v) => v.barrels;
   static const Field<GameSnapshotDto, List<BarrelDto>> _f$barrels = Field(
     'barrels',
@@ -5420,6 +5649,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #cols: _f$cols,
     #maze: _f$maze,
     #bushes: _f$bushes,
+    #leaves: _f$leaves,
     #crackedWalls: _f$crackedWalls,
     #biome: _f$biome,
     #stoneSeed: _f$stoneSeed,
@@ -5442,6 +5672,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
     #logos: _f$logos,
     #traps: _f$traps,
     #webs: _f$webs,
+    #hearts: _f$hearts,
     #barrels: _f$barrels,
     #portals: _f$portals,
     #magicCrystals: _f$magicCrystals,
@@ -5467,6 +5698,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       cols: data.dec(_f$cols),
       maze: data.dec(_f$maze),
       bushes: data.dec(_f$bushes),
+      leaves: data.dec(_f$leaves),
       crackedWalls: data.dec(_f$crackedWalls),
       biome: data.dec(_f$biome),
       stoneSeed: data.dec(_f$stoneSeed),
@@ -5489,6 +5721,7 @@ class GameSnapshotDtoMapper extends ClassMapperBase<GameSnapshotDto> {
       logos: data.dec(_f$logos),
       traps: data.dec(_f$traps),
       webs: data.dec(_f$webs),
+      hearts: data.dec(_f$hearts),
       barrels: data.dec(_f$barrels),
       portals: data.dec(_f$portals),
       magicCrystals: data.dec(_f$magicCrystals),
@@ -5572,6 +5805,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   YouDtoCopyWith<$R, YouDto, YouDto> get you;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get maze;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get bushes;
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get leaves;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crackedWalls;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crystals;
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get quicksand;
@@ -5625,6 +5859,8 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
   ListCopyWith<$R, LogoDto, LogoDtoCopyWith<$R, LogoDto, LogoDto>> get logos;
   ListCopyWith<$R, TrapDto, TrapDtoCopyWith<$R, TrapDto, TrapDto>> get traps;
   ListCopyWith<$R, WebDto, WebDtoCopyWith<$R, WebDto, WebDto>> get webs;
+  ListCopyWith<$R, HeartDto, HeartDtoCopyWith<$R, HeartDto, HeartDto>>
+  get hearts;
   ListCopyWith<$R, BarrelDto, BarrelDtoCopyWith<$R, BarrelDto, BarrelDto>>
   get barrels;
   ListCopyWith<$R, PortalDto, PortalDtoCopyWith<$R, PortalDto, PortalDto>>
@@ -5669,6 +5905,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     int? cols,
     List<String>? maze,
     List<Vec2i>? bushes,
+    List<Vec2i>? leaves,
     List<Vec2i>? crackedWalls,
     CaveBiome? biome,
     int? stoneSeed,
@@ -5691,6 +5928,7 @@ abstract class GameSnapshotDtoCopyWith<$R, $In extends GameSnapshotDto, $Out>
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
+    List<HeartDto>? hearts,
     List<BarrelDto>? barrels,
     List<PortalDto>? portals,
     List<MagicCrystalDto>? magicCrystals,
@@ -5736,6 +5974,13 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         $value.bushes,
         (v, t) => v.copyWith.$chain(t),
         (v) => call(bushes: v),
+      );
+  @override
+  ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get leaves =>
+      ListCopyWith(
+        $value.leaves,
+        (v, t) => v.copyWith.$chain(t),
+        (v) => call(leaves: v),
       );
   @override
   ListCopyWith<$R, Vec2i, Vec2iCopyWith<$R, Vec2i, Vec2i>> get crackedWalls =>
@@ -5895,6 +6140,13 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
         (v) => call(webs: v),
       );
   @override
+  ListCopyWith<$R, HeartDto, HeartDtoCopyWith<$R, HeartDto, HeartDto>>
+  get hearts => ListCopyWith(
+    $value.hearts,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(hearts: v),
+  );
+  @override
   ListCopyWith<$R, BarrelDto, BarrelDtoCopyWith<$R, BarrelDto, BarrelDto>>
   get barrels => ListCopyWith(
     $value.barrels,
@@ -5989,6 +6241,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     int? cols,
     List<String>? maze,
     List<Vec2i>? bushes,
+    List<Vec2i>? leaves,
     List<Vec2i>? crackedWalls,
     CaveBiome? biome,
     int? stoneSeed,
@@ -6011,6 +6264,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     List<LogoDto>? logos,
     List<TrapDto>? traps,
     List<WebDto>? webs,
+    List<HeartDto>? hearts,
     List<BarrelDto>? barrels,
     List<PortalDto>? portals,
     List<MagicCrystalDto>? magicCrystals,
@@ -6034,6 +6288,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (cols != null) #cols: cols,
       if (maze != null) #maze: maze,
       if (bushes != null) #bushes: bushes,
+      if (leaves != null) #leaves: leaves,
       if (crackedWalls != null) #crackedWalls: crackedWalls,
       if (biome != null) #biome: biome,
       if (stoneSeed != null) #stoneSeed: stoneSeed,
@@ -6056,6 +6311,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
       if (logos != null) #logos: logos,
       if (traps != null) #traps: traps,
       if (webs != null) #webs: webs,
+      if (hearts != null) #hearts: hearts,
       if (barrels != null) #barrels: barrels,
       if (portals != null) #portals: portals,
       if (magicCrystals != null) #magicCrystals: magicCrystals,
@@ -6081,6 +6337,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     cols: data.get(#cols, or: $value.cols),
     maze: data.get(#maze, or: $value.maze),
     bushes: data.get(#bushes, or: $value.bushes),
+    leaves: data.get(#leaves, or: $value.leaves),
     crackedWalls: data.get(#crackedWalls, or: $value.crackedWalls),
     biome: data.get(#biome, or: $value.biome),
     stoneSeed: data.get(#stoneSeed, or: $value.stoneSeed),
@@ -6103,6 +6360,7 @@ class _GameSnapshotDtoCopyWithImpl<$R, $Out>
     logos: data.get(#logos, or: $value.logos),
     traps: data.get(#traps, or: $value.traps),
     webs: data.get(#webs, or: $value.webs),
+    hearts: data.get(#hearts, or: $value.hearts),
     barrels: data.get(#barrels, or: $value.barrels),
     portals: data.get(#portals, or: $value.portals),
     magicCrystals: data.get(#magicCrystals, or: $value.magicCrystals),

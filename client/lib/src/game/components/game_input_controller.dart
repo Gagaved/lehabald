@@ -24,7 +24,8 @@ class _GameInputController extends Component
         } else if (_myHunterKind(snapshot) == HunterKind.sashaYakuza) {
           game.network.beginTargeting(TargetingSkill.barrel);
         } else {
-          game.network.beginTargeting(TargetingSkill.femboy);
+          // Sima's "Фембой" is an instant self-buff — no aiming needed.
+          game.network.useAbility();
         }
       } else if (snapshot?.you.role == PlayerRole.leha) {
         final me = snapshot?.players
@@ -37,6 +38,16 @@ class _GameInputController extends Component
         }
       }
       return false;
+    }
+
+    // Sima's "Камингаут" — Q selects aiming; hold LMB on the board to fire.
+    if (event.logicalKey == LogicalKeyboardKey.keyQ && event is KeyDownEvent) {
+      final snapshot = game.network.snapshot;
+      if (snapshot?.you.role == PlayerRole.hunter &&
+          _myHunterKind(snapshot) == HunterKind.sima) {
+        game.network.beginTargeting(TargetingSkill.comingOut);
+        return false;
+      }
     }
 
     if ((event.logicalKey == LogicalKeyboardKey.keyE ||

@@ -220,6 +220,7 @@ class MatchSession {
       case ClientMessageType.stop:
       case ClientMessageType.placeTrap:
       case ClientMessageType.useAbility:
+      case ClientMessageType.comingOut:
       case ClientMessageType.placeMagicCrystal:
       case ClientMessageType.layClutch:
       case ClientMessageType.activateMagicChain:

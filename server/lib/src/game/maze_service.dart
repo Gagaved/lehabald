@@ -61,6 +61,9 @@ class MazeService {
       quicksand = const {};
       amethystShards = const {};
     }
+    // Only the forest scatters dry leaf litter that betrays a runner's steps.
+    leafLitter =
+        biome == CaveBiome.forest ? _computeLeafLitter(random) : const {};
   }
 
   /// Cosmetic theme + stone-colour seed for this map (sent to clients).
@@ -76,6 +79,10 @@ class MazeService {
 
   /// Sandstone-biome quicksand cells that slow movement (empty otherwise).
   late final Set<String> quicksand;
+
+  /// Forest-biome dry leaf-litter cells. Stepping/running over them leaves a
+  /// "loud" footprint the opponent can read from anywhere (empty otherwise).
+  late final Set<String> leafLitter;
 
   /// Amethyst-biome scatter-shard cells (empty otherwise).
   late final Set<String> amethystShards;
@@ -107,6 +114,8 @@ class MazeService {
 
   bool isQuicksand(int x, int y) => quicksand.contains('$x,$y');
 
+  bool isLeafLitter(int x, int y) => leafLitter.contains('$x,$y');
+
   bool isAmethystShard(int x, int y) => amethystShards.contains('$x,$y');
 
   bool isLava(int x, int y) => lavaStreams.any((s) => s.contains('$x,$y'));
@@ -126,6 +135,7 @@ class MazeService {
   void destroyNonWallContent(int x, int y) {
     final key = '$x,$y';
     if (bushes.contains(key)) bushes.remove(key);
+    if (leafLitter.contains(key)) leafLitter.remove(key);
     if (crystals.contains(key)) crystals.remove(key);
     if (quicksand.contains(key)) quicksand.remove(key);
     if (amethystShards.contains(key)) amethystShards.remove(key);
@@ -725,6 +735,77 @@ class MazeService {
       if (made >= patchCount) break;
       if (result.contains('${seed.x},${seed.y}')) continue;
       final target = 2 + rng.nextInt(4); // patch size 2..5
+      final patch = <Point<int>>[];
+      final queue = <Point<int>>[seed];
+      final seen = <String>{'${seed.x},${seed.y}'};
+      while (queue.isNotEmpty && patch.length < target) {
+        final cell = queue.removeAt(rng.nextInt(queue.length));
+        if (!allowed(cell.x, cell.y) ||
+            result.contains('${cell.x},${cell.y}')) {
+          continue;
+        }
+        patch.add(cell);
+        for (final d in const [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1]
+        ]) {
+          final nx = cell.x + d[0], ny = cell.y + d[1];
+          if (seen.add('$nx,$ny') && allowed(nx, ny)) queue.add(Point(nx, ny));
+        }
+      }
+      if (patch.isNotEmpty) {
+        for (final c in patch) {
+          result.add('${c.x},${c.y}');
+        }
+        made++;
+      }
+    }
+    return result;
+  }
+
+  /// Scatters dry leaf litter across open forest floor (away from walls, where
+  /// the bushes already hug). Crossing it leaves a loud, far-visible footprint,
+  /// so it's the open paths that betray a careless runner.
+  Set<String> _computeLeafLitter(Random rng) {
+    final starts = GameConstants.starts.map((s) => '${s.x},${s.y}').toSet();
+    bool open(int x, int y) =>
+        !GameConstants.tunnelRows.contains(y) &&
+        !GameConstants.tunnelCols.contains(x) &&
+        x >= 0 &&
+        x < cols &&
+        y >= 0 &&
+        y < rows &&
+        !isWall(x, y);
+    bool nearWall(int x, int y) =>
+        isWall(x + 1, y) ||
+        isWall(x - 1, y) ||
+        isWall(x, y + 1) ||
+        isWall(x, y - 1);
+    bool allowed(int x, int y) {
+      final k = '$x,$y';
+      return open(x, y) &&
+          !bushes.contains(k) &&
+          !starts.contains(k) &&
+          !superLogoKeys.contains(k);
+    }
+
+    final seeds = <Point<int>>[];
+    for (var y = 1; y < rows - 1; y++) {
+      for (var x = 1; x < cols - 1; x++) {
+        // Prefer open ground so leaves line the corridors, not the wall nooks.
+        if (allowed(x, y) && !nearWall(x, y)) seeds.add(Point(x, y));
+      }
+    }
+    seeds.shuffle(rng);
+
+    final result = <String>{};
+    var made = 0;
+    for (final seed in seeds) {
+      if (made >= GameConstants.leafLitterPatchCount) break;
+      if (result.contains('${seed.x},${seed.y}')) continue;
+      final target = 2 + rng.nextInt(3); // patch size 2..4
       final patch = <Point<int>>[];
       final queue = <Point<int>>[seed];
       final seen = <String>{'${seed.x},${seed.y}'};

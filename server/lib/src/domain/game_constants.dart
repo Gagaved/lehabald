@@ -23,7 +23,11 @@ class GameConstants {
   static const wallWebLifetimeMs = 10000;
   static const trapTriggeredDisplayMs = 2500;
   static const webSlowMs = 3000;
-  static const trailLifetimeMs = 2500;
+  static const trailLifetimeMs = 1500;
+  // A footprint left while crossing forest leaf litter is "loud": it lingers
+  // longer and the opponent sees it from anywhere on the map.
+  static const loudTrailLifetimeMs = 1000;
+  static const leafLitterPatchCount = 7;
   static const trailScentRadius = 4; // Hunter's scent reach in cells
   static const trailVisibilityRadius = 4; // Leha's powered trail radius
   // Breaking cover (bush, amethyst spores, sulfur cloud) keeps masking the
@@ -139,10 +143,25 @@ class GameConstants {
       1000; // slow lingers this long after touching a web
   static const lehaBlindRadius = 2.4; // tiles Leha can still see while blinded
 
-  // Sima femboy (charm) ability.
-  static const simaFemboyMs = 1000;
+  // Sima "Фембой" form: a self-buff aura. While active, a visible non-powered
+  // Leha is slowed when moving away from Sima (no more drag). Lasts 3x longer
+  // than the old charm (was 1000).
+  static const simaFemboyMs = 3000;
   static const simaFemboyCooldownMs = 20000;
-  static const simaSlowFactor = 0.5; // charmed Leha is dragged at half speed
+  static const simaSlowFactor = 0.5; // fleeing Leha at half speed; pull speed too
+
+  // Sima "Камингаут": charge-based heart projectiles. A heart that hits a
+  // non-powered Leha pulls him toward Sima (old femboy drag) for a brief moment.
+  static const simaHeartMaxCharges = 3;
+  static const simaHeartShotCooldownMs = 300; // gap between consecutive shots
+  static const simaHeartRechargeMs = 4000; // one charge refilled this often
+  static const simaHeartSpeedMultiplier = 2.0; // of baseSpeed
+  static const simaHeartRangeBlocks = 10.0; // travel distance before it fizzles
+  static const simaHeartHitRadius = 0.5;
+  static const simaHeartPullMs = 300; // how long the hit drags Leha
+  static const simaHeartSineAmplitude = 0.275; // lateral sway, cells
+  static const simaHeartSineWavelength = 2.2; // cells per full sine wave
+  static const simaHeartWallImpactMs = 280;
 
   static const roles = [PlayerRole.leha, PlayerRole.hunter];
 

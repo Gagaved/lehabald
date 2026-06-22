@@ -33,6 +33,12 @@ class PlayerConnection {
   int blindUntil = 0;
   int simaFemboyUntil = 0;
   int simaCooldownUntil = 0;
+  // Sima's "Камингаут" heart charges and timers (hunter slot).
+  int heartCharges = 0;
+  int heartShotCooldownUntil = 0;
+  int heartRechargeAt = 0;
+  // Leha (slot 0) is pulled toward Sima until this time after a heart hit.
+  int charmPullUntil = 0;
   int trapCharges = 0;
   int webCharges = 0;
   int webCooldownUntil = 0;
@@ -147,16 +153,65 @@ class MagicChainState {
   final List<List<int>> contours;
 }
 
+/// One of Sima's "Камингаут" heart projectiles. Travels along a straight
+/// centreline ([cx],[cy]) from its origin while swaying side-to-side on a sine
+/// wave; the rendered/collision position is the centreline plus the lateral
+/// offset. It does not ricochet — a wall or its max range ends it.
+class HeartState {
+  HeartState({
+    required this.id,
+    required this.cx,
+    required this.cy,
+    required this.dirX,
+    required this.dirY,
+    required this.perpX,
+    required this.perpY,
+    required this.amplitude,
+    required this.phase,
+    required this.spawnedAt,
+    required this.ownerId,
+  })  : x = cx,
+        y = cy;
+
+  final int id;
+  double cx;
+  double cy;
+  final double dirX;
+  final double dirY;
+  final double perpX;
+  final double perpY;
+  final double amplitude;
+  final double phase;
+  final int spawnedAt;
+  final String ownerId;
+
+  /// Distance travelled along the centreline (cells).
+  double traveled = 0;
+
+  /// Non-zero after hitting a wall. The heart freezes at the contact point
+  /// briefly so clients can render an impact burst.
+  int impactUntil = 0;
+
+  /// Current swaying position (centreline + sine offset), set each tick.
+  double x;
+  double y;
+}
+
 class TrailPoint {
   TrailPoint({
     required this.x,
     required this.y,
     required this.at,
+    this.loud = false,
   });
 
   double x;
   double y;
   int at;
+
+  /// Laid while crossing forest leaf litter: lingers longer and is always
+  /// visible to the opponent regardless of scent range or sight.
+  bool loud;
 }
 
 /// Spider-Leha's egg clutch. Hatches at [hatchAt] (Spider wins) unless the
@@ -290,6 +345,8 @@ class GameRound {
   List<TrapState> traps = [];
   List<WebState> webs = [];
   List<BarrelState> barrels = [];
+  List<HeartState> hearts = [];
+  int nextHeartId = 1;
   List<PortalState> portals = [];
   List<MagicCrystalState> magicCrystals = [];
   List<MagicChainState> magicChains = [];

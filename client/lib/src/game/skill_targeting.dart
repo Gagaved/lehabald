@@ -2,6 +2,7 @@ enum TargetingSkill {
   trap,
   barrel,
   femboy,
+  comingOut,
   web,
   portal,
   crystal,

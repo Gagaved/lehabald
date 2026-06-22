@@ -13,4 +13,5 @@ abstract final class SkillTargetRange {
   static const barrelStep = 3.573 * 1.84 * 0.016;
   static const barrelPreviewTicks = 4000 ~/ 16;
   static const femboy = 8.0;
+  static const comingOut = 10.0;
 }

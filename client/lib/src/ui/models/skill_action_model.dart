@@ -29,6 +29,7 @@ class SkillActionModel {
     required this.targetingSkill,
     required this.range,
     required this.projection,
+    this.directAction,
   });
 
   final SkillActionKind kind;
@@ -43,4 +44,8 @@ class SkillActionModel {
   final TargetingSkill targetingSkill;
   final double range;
   final SkillProjectionKind projection;
+
+  /// When set, pressing this action fires immediately (no aim/targeting step).
+  /// Used by Sima's instant "Фембой" and held-spray "Камингаут".
+  final VoidCallback? directAction;
 }

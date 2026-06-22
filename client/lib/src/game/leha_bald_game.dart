@@ -1030,6 +1030,31 @@ class LehaBaldGame extends FlameGame
     }
   }
 
+  /// Dry leaf litter strewn across forest floor — a flat scatter of fallen
+  /// leaves (no volume, so it reads as ground, not cover). Crossing it betrays
+  /// the runner with a loud footprint.
+  void _drawLeaves(Canvas canvas, List<Vec2i> leaves) {
+    const shades = [Color(0xff8a5a2b), Color(0xffb5793a), Color(0xff6f4420)];
+    for (final l in leaves) {
+      final cx = l.x * tile, cy = l.y * tile;
+      final rnd = Random(l.x * 40503 ^ l.y * 12289);
+      for (var i = 0; i < 9; i++) {
+        final ox = cx + tile * (0.12 + rnd.nextDouble() * 0.76);
+        final oy = cy + tile * (0.12 + rnd.nextDouble() * 0.76);
+        final r = tile * (0.07 + rnd.nextDouble() * 0.06);
+        canvas.save();
+        canvas.translate(ox, oy);
+        canvas.rotate(rnd.nextDouble() * pi);
+        canvas.drawOval(
+          Rect.fromCenter(center: Offset.zero, width: r * 2, height: r),
+          Paint()
+            ..color = shades[i % shades.length].withValues(alpha: 0.7),
+        );
+        canvas.restore();
+      }
+    }
+  }
+
   void _drawLeafyBush(
       Canvas canvas, double cx, double cy, Random rnd, _BiomePalette p) {
     for (var i = 0; i < 7; i++) {
@@ -1320,9 +1345,17 @@ class LehaBaldGame extends FlameGame
 
   /// Crystal-projected illusions of players. At close range they must be
   /// indistinguishable from the real player; farther out the server fades them.
+  /// Blue tint applied to the viewer's own crystal illusions so they read as a
+  /// translucent ghost, distinct from a real opponent.
+  static const _ownIllusionTint =
+      ColorFilter.mode(Color(0xff4aa8ff), BlendMode.modulate);
+
   void _drawIllusions(Canvas canvas, List<IllusionDto> illusions) {
     for (final ill in illusions) {
-      final op = ill.opacity.clamp(0.0, 1.0);
+      // Your own illusions are always visible — knock them back to a faint blue
+      // ghost so you can tell them apart from a real player.
+      final op = (ill.opacity * (ill.own ? 0.55 : 1.0)).clamp(0.0, 1.0);
+      final colorFilter = ill.own ? _ownIllusionTint : null;
       final fake = PlayerDto(
         id: 'illusion',
         slot: ill.slot,
@@ -1343,7 +1376,7 @@ class LehaBaldGame extends FlameGame
       final image = _imageForPlayer(fake);
       final size = _sizeForPlayer(fake, false);
       _drawCrystalGlow(canvas, center, size, op);
-      _drawImage(canvas, image, center, size, op);
+      _drawImage(canvas, image, center, size, op, colorFilter: colorFilter);
     }
   }
 
@@ -1389,6 +1422,29 @@ class LehaBaldGame extends FlameGame
     for (final point in trail) {
       final a = point.alpha.clamp(0.0, 1.0);
       final center = Offset(point.x * tile, point.y * tile);
+      if (point.loud) {
+        // A loud leaf-litter footprint: a bigger amber ring that rings out so
+        // it's unmistakable from the ordinary scent dots.
+        canvas.drawCircle(
+          center,
+          tile * (0.28 + a * 0.22),
+          Paint()..color = Color.fromRGBO(255, 176, 60, a * 0.26),
+        );
+        canvas.drawCircle(
+          center,
+          tile * (0.16 + a * 0.12),
+          Paint()
+            ..color = Color.fromRGBO(255, 200, 90, a * 0.9)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = tile * 0.06,
+        );
+        canvas.drawCircle(
+          center,
+          tile * (0.07 + a * 0.06),
+          Paint()..color = Color.fromRGBO(255, 150, 40, a * 0.9),
+        );
+        continue;
+      }
       // Outer soft glow
       canvas.drawCircle(
         center,
@@ -1496,7 +1552,7 @@ class LehaBaldGame extends FlameGame
         _drawFemboyAura(canvas, center, size);
       }
       _drawImage(canvas, image, center, size, player.ghost ? 0.42 : 1);
-      if (player.femboy) {
+      if (player.femboy || player.charmed) {
         _drawHearts(canvas, center, size);
       }
       if (player.stunned) {
@@ -1551,6 +1607,39 @@ class LehaBaldGame extends FlameGame
         _ => const Color(0xffff8fc0),
       };
       _drawHeart(canvas, p, s, color.withValues(alpha: a));
+    }
+  }
+
+  /// Sima's "Камингаут" heart projectiles flying across the map.
+  void _drawHeartProjectiles(Canvas canvas, List<HeartDto> hearts) {
+    final t = DateTime.now().millisecondsSinceEpoch;
+    for (final heart in hearts) {
+      final c = Offset(heart.x * tile, heart.y * tile);
+      final pulse = 0.5 + 0.5 * sin(t / 140.0 + heart.x + heart.y);
+      if (heart.impact) {
+        _drawHeartImpact(canvas, c, pulse);
+        continue;
+      }
+      _drawHeart(canvas, c, tile * (0.34 + 0.05 * pulse),
+          const Color(0xffff4d94));
+    }
+  }
+
+  void _drawHeartImpact(Canvas canvas, Offset center, double pulse) {
+    final ring = Paint()
+      ..color = const Color(0xffff8fcf).withValues(alpha: 0.75)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = tile * 0.07;
+    canvas.drawCircle(center, tile * (0.24 + pulse * 0.16), ring);
+    final spark = Paint()
+      ..color = const Color(0xffffd2e7).withValues(alpha: 0.9)
+      ..strokeWidth = tile * 0.08
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 8; i++) {
+      final angle = i * pi / 4;
+      final inner = Offset(cos(angle), sin(angle)) * tile * 0.18;
+      final outer = Offset(cos(angle), sin(angle)) * tile * (0.32 + pulse * 0.12);
+      canvas.drawLine(center + inner, center + outer, spark);
     }
   }
 
@@ -1624,8 +1713,11 @@ class LehaBaldGame extends FlameGame
   }
 
   void _drawImage(
-      Canvas canvas, Image image, Offset center, double size, double opacity) {
-    final paint = Paint()..color = Color.fromRGBO(255, 255, 255, opacity);
+      Canvas canvas, Image image, Offset center, double size, double opacity,
+      {ColorFilter? colorFilter}) {
+    final paint = Paint()
+      ..color = Color.fromRGBO(255, 255, 255, opacity)
+      ..colorFilter = colorFilter;
     canvas.drawImageRect(
       image,
       Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),

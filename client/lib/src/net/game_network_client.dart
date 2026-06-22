@@ -146,6 +146,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   void applyTarget(double x, double y) {
     final skill = targetingSkill;
     if (skill == null) return;
+    final keepTargeting = skill == TargetingSkill.comingOut;
     switch (skill) {
       case TargetingSkill.trap:
         placeTrap(targetX: x, targetY: y);
@@ -154,6 +155,8 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
             TargetingSkill.web ||
             TargetingSkill.portal:
         useAbility(targetX: x, targetY: y);
+      case TargetingSkill.comingOut:
+        comingOut(targetX: x, targetY: y);
       case TargetingSkill.crystal:
         placeMagicCrystal(targetX: x, targetY: y);
       case TargetingSkill.chain:
@@ -161,7 +164,7 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       case TargetingSkill.clutch:
         layClutch(targetX: x, targetY: y);
     }
-    targetingSkill = null;
+    if (!keepTargeting) targetingSkill = null;
     notifyListeners();
   }
 
@@ -347,6 +350,15 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   void useAbility({double? targetX, double? targetY}) {
     send(ClientMessage(
         type: ClientMessageType.useAbility,
+        targetX: targetX,
+        targetY: targetY));
+  }
+
+  /// Sima's "Камингаут": fire one heart. The server throttles by its shot
+  /// cooldown, so the input layer can spam this each frame while the key is held.
+  void comingOut({double? targetX, double? targetY}) {
+    send(ClientMessage(
+        type: ClientMessageType.comingOut,
         targetX: targetX,
         targetY: targetY));
   }
