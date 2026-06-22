@@ -5,14 +5,27 @@ part of '../leha_bald_game.dart';
 class _GameInputController extends Component
     with KeyboardHandler, HasGameReference<LehaBaldGame> {
   final MovementInput _movement = MovementInput();
+  static const _minGraceMs = 80;
+  static const _maxGraceMs = 180;
+  static const _minHeartbeatMs = 24;
+  static const _maxHeartbeatMs = 40;
 
   @override
   void update(double dt) {
     super.update(dt);
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    _movement.configureTimings(
+      graceMs: _adaptiveGraceMs(game.network.pingMs),
+      heartbeatMs: _adaptiveHeartbeatMs(game.network.pingMs),
+    );
+    // Poll the actual pressed-key set each frame as a backstop for browsers
+    // that occasionally drop or reorder key events while a key is held.
+    _dispatch(
+        _movement.onKeys(HardwareKeyboard.instance.logicalKeysPressed, nowMs));
     // Drives the deferred stop and the held-direction heartbeat (see
     // MovementInput) so a server-side intent clear or a dropped auto-repeat
     // can't leave the player stranded.
-    _dispatch(_movement.tick(DateTime.now().millisecondsSinceEpoch));
+    _dispatch(_movement.tick(nowMs));
   }
 
   void _dispatch(MoveCommand? command) {
@@ -103,7 +116,8 @@ class _GameInputController extends Component
 
     // Feed the authoritative pressed-key snapshot to the resolver, which decides
     // moves/stops while absorbing web auto-repeat churn (see MovementInput).
-    _dispatch(_movement.onKeys(keysPressed, DateTime.now().millisecondsSinceEpoch));
+    _dispatch(
+        _movement.onKeys(keysPressed, DateTime.now().millisecondsSinceEpoch));
     return false;
   }
 
@@ -119,4 +133,14 @@ class _GameInputController extends Component
         ?.hunterKind;
   }
 
+  int _adaptiveGraceMs(double pingMs) {
+    final pingAware = pingMs <= 0 ? _minGraceMs : (pingMs * 0.75).round();
+    return pingAware.clamp(_minGraceMs, _maxGraceMs);
+  }
+
+  int _adaptiveHeartbeatMs(double pingMs) {
+    if (pingMs <= 0) return 33;
+    final fasterUnderLag = 40 - (pingMs / 12).round();
+    return fasterUnderLag.clamp(_minHeartbeatMs, _maxHeartbeatMs);
+  }
 }

@@ -44,15 +44,19 @@ class MoveCommand {
 ///    causes the same silence. So while a direction is held we re-assert it every
 ///    [heartbeatMs], which the server happily treats as the same input.
 class MovementInput {
-  MovementInput({this.graceMs = 60, this.heartbeatMs = 100});
+  MovementInput({int graceMs = 80, int heartbeatMs = 33})
+      : _graceMs = graceMs,
+        _heartbeatMs = heartbeatMs;
 
   /// How long to wait before honouring a release, absorbing auto-repeat's
   /// up/down churn.
-  final int graceMs;
+  int _graceMs;
+  int get graceMs => _graceMs;
 
   /// How often to re-send the held direction so a server-side clear or a dropped
   /// repeat can't strand the player.
-  final int heartbeatMs;
+  int _heartbeatMs;
+  int get heartbeatMs => _heartbeatMs;
 
   MoveDirection? _held;
   int? _stopPendingAt;
@@ -61,6 +65,13 @@ class MovementInput {
 
   /// The direction currently considered held (null == none). Exposed for tests.
   MoveDirection? get held => _held;
+
+  /// Lets the caller tune the debounce/heartbeat against current conditions
+  /// without recreating the resolver and losing held-key state.
+  void configureTimings({int? graceMs, int? heartbeatMs}) {
+    if (graceMs != null) _graceMs = graceMs;
+    if (heartbeatMs != null) _heartbeatMs = heartbeatMs;
+  }
 
   /// Maps a single key to its cardinal direction, or null if it isn't a
   /// movement key. WASD and arrows are equivalent.
@@ -89,10 +100,10 @@ class MovementInput {
       final dir = directionForKey(key);
       if (dir != null) dirs.add(dir);
     }
-    final up = dirs.contains(MoveDirection.up) &&
-        !dirs.contains(MoveDirection.down);
-    final down = dirs.contains(MoveDirection.down) &&
-        !dirs.contains(MoveDirection.up);
+    final up =
+        dirs.contains(MoveDirection.up) && !dirs.contains(MoveDirection.down);
+    final down =
+        dirs.contains(MoveDirection.down) && !dirs.contains(MoveDirection.up);
     final left = dirs.contains(MoveDirection.left) &&
         !dirs.contains(MoveDirection.right);
     final right = dirs.contains(MoveDirection.right) &&

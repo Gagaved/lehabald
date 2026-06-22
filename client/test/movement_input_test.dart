@@ -82,7 +82,8 @@ void main() {
       expect(m.onKeys(<LogicalKeyboardKey>{}, 100), isNull); // stop deferred
       expect(m.tick(105), isNull); // still within grace, no stop
       // The re-press lands inside the grace window and cancels the pending stop.
-      expect(m.onKeys({_w}, 108), isNull); // unchanged hold, heartbeat covers it
+      expect(
+          m.onKeys({_w}, 108), isNull); // unchanged hold, heartbeat covers it
       // Well past the original grace deadline: still moving (a heartbeat may
       // re-assert the move), but a stop must never have slipped through.
       final late = m.tick(200);
@@ -135,8 +136,7 @@ void main() {
       }
     });
 
-    test(
-        'simulated server-side intent clear: held key keeps the player moving',
+    test('simulated server-side intent clear: held key keeps the player moving',
         () {
       // Model the engine wiping nextDirection (stun ends) — the client gets no
       // new key event, yet the heartbeat keeps re-issuing the held direction.
