@@ -12,22 +12,17 @@ import 'package:flutter/services.dart';
 import 'package:leha_bald_shared/leha_bald_shared.dart';
 
 import '../net/game_network_client.dart';
-import 'movement_input.dart';
 import 'player_interpolator.dart';
 import 'skill_targeting.dart';
 
 part 'components/game_scene_component.dart';
-part 'components/game_input_controller.dart';
 part 'components/portal_component.dart';
 part 'components/reconciled_layer.dart';
 part 'components/trap_component.dart';
 part 'components/web_component.dart';
 
 class LehaBaldGame extends FlameGame
-    with
-        HasKeyboardHandlerComponents,
-        SingleGameInstance,
-        HasPerformanceTracker {
+    with SingleGameInstance, HasPerformanceTracker {
   LehaBaldGame({required this.network});
 
   static const tile = 32.0;
@@ -98,10 +93,8 @@ class LehaBaldGame extends FlameGame
     );
     camera.viewfinder.anchor = Anchor.center;
     // The board lives in the world so the camera transform (not a manual
-    // fit-scale) drives what is on screen; the input controller stays on the
-    // game so it keeps receiving keyboard events.
+    // fit-scale) drives what is on screen.
     world.add(_scene);
-    add(_GameInputController());
   }
 
   Future<Image?> _tryLoad(String name) async {
@@ -367,9 +360,8 @@ class LehaBaldGame extends FlameGame
         ..x = rock.x.toDouble()
         ..y = rock.y.toDouble()
         ..sinking = rock.sinking;
-      final rise =
-          Curves.easeOutBack.transform(((t - anim.appearAt) / _rockRiseDur)
-              .clamp(0.0, 1.0));
+      final rise = Curves.easeOutBack
+          .transform(((t - anim.appearAt) / _rockRiseDur).clamp(0.0, 1.0));
       _paintEmberRock(canvas, anim.x, anim.y, rock.id,
           emerge: rise, submerge: 0, warning: rock.sinking, t: t);
     }
@@ -380,7 +372,10 @@ class LehaBaldGame extends FlameGame
       final sink = ((t - anim.removedAt!) / _rockSinkDur).clamp(0.0, 1.0);
       if (sink >= 1.0) return true;
       _paintEmberRock(canvas, anim.x, anim.y, id,
-          emerge: 1, submerge: Curves.easeIn.transform(sink), warning: true, t: t);
+          emerge: 1,
+          submerge: Curves.easeIn.transform(sink),
+          warning: true,
+          t: t);
       return false;
     });
   }
@@ -431,8 +426,8 @@ class LehaBaldGame extends FlameGame
     canvas.save();
     canvas.clipPath(blob);
     final rnd = Random(id);
-    final crackColor = Color.lerp(const Color(0xffffd34a),
-        const Color(0xffff3a0a), 0.4 + 0.4 * flicker)!;
+    final crackColor = Color.lerp(
+        const Color(0xffffd34a), const Color(0xffff3a0a), 0.4 + 0.4 * flicker)!;
     for (var i = 0; i < 3; i++) {
       final a0 = rnd.nextDouble() * pi * 2;
       final glow = (0.55 + 0.45 * sin(t * 5 + i * 2.1 + id)) * (0.7 + flare);
@@ -443,7 +438,9 @@ class LehaBaldGame extends FlameGame
       for (var s = 0; s < steps; s++) {
         angle += (rnd.nextDouble() - 0.5) * 1.1;
         p = p +
-            Offset(cos(angle), sin(angle)) * bodyR * (0.45 + rnd.nextDouble() * 0.4);
+            Offset(cos(angle), sin(angle)) *
+                bodyR *
+                (0.45 + rnd.nextDouble() * 0.4);
         crack.lineTo(p.dx, p.dy);
       }
       canvas.drawPath(
@@ -460,7 +457,8 @@ class LehaBaldGame extends FlameGame
 
     // Cool slate cap highlight so the top reads as solid stone above the glow.
     canvas.drawPath(
-      _rockBlob(center.translate(-bodyR * 0.12, -bodyR * 0.16), bodyR * 0.52, id ^ 7),
+      _rockBlob(
+          center.translate(-bodyR * 0.12, -bodyR * 0.16), bodyR * 0.52, id ^ 7),
       Paint()
         ..color = const Color(0xff6b6573).withValues(alpha: 0.35 * (1 - flare)),
     );
@@ -520,8 +518,7 @@ class LehaBaldGame extends FlameGame
       canvas.drawCircle(
         center,
         tile * (0.16 + geyser.progress * 0.16),
-        Paint()
-          ..color = const Color(0xffd9c23a).withValues(alpha: 0.5 * pulse),
+        Paint()..color = const Color(0xffd9c23a).withValues(alpha: 0.5 * pulse),
       );
       canvas.drawCircle(
         center,
@@ -534,7 +531,8 @@ class LehaBaldGame extends FlameGame
       // Rising gas spurts, taller as eruption nears.
       for (var i = 0; i < 3; i++) {
         final phase = geyser.x * 1.3 + geyser.y * 2.1 + i * 2.0;
-        final lift = tile * (0.4 + geyser.progress * 0.9) *
+        final lift = tile *
+            (0.4 + geyser.progress * 0.9) *
             (0.5 + 0.5 * sin(_visualTime * 6 + phase));
         final puff = center - Offset(tile * 0.12 * (i - 1), lift);
         canvas.drawCircle(
@@ -1048,8 +1046,7 @@ class LehaBaldGame extends FlameGame
         canvas.rotate(rnd.nextDouble() * pi);
         canvas.drawOval(
           Rect.fromCenter(center: Offset.zero, width: r * 2, height: r),
-          Paint()
-            ..color = shades[i % shades.length].withValues(alpha: 0.7),
+          Paint()..color = shades[i % shades.length].withValues(alpha: 0.7),
         );
         canvas.restore();
       }
@@ -1621,8 +1618,8 @@ class LehaBaldGame extends FlameGame
         _drawHeartImpact(canvas, c, pulse);
         continue;
       }
-      _drawHeart(canvas, c, tile * (0.34 + 0.05 * pulse),
-          const Color(0xffff4d94));
+      _drawHeart(
+          canvas, c, tile * (0.34 + 0.05 * pulse), const Color(0xffff4d94));
     }
   }
 
@@ -1639,7 +1636,8 @@ class LehaBaldGame extends FlameGame
     for (var i = 0; i < 8; i++) {
       final angle = i * pi / 4;
       final inner = Offset(cos(angle), sin(angle)) * tile * 0.18;
-      final outer = Offset(cos(angle), sin(angle)) * tile * (0.32 + pulse * 0.12);
+      final outer =
+          Offset(cos(angle), sin(angle)) * tile * (0.32 + pulse * 0.12);
       canvas.drawLine(center + inner, center + outer, spark);
     }
   }

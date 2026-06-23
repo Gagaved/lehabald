@@ -289,15 +289,10 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void input(MoveDirection direction) {
-    _addLog('input-send', {
-      'dir': direction.name,
-      'pingMs': _pingMs.toStringAsFixed(0),
-    });
     send(ClientMessage(type: ClientMessageType.input, direction: direction));
   }
 
   void stop() {
-    _addLog('stop-send', {'pingMs': _pingMs.toStringAsFixed(0)});
     send(const ClientMessage(type: ClientMessageType.stop));
   }
 
@@ -463,20 +458,8 @@ class GameNetworkClient extends ChangeNotifier with WidgetsBindingObserver {
       _maxGapMs = max(_maxGapMs, gap);
       _gapEwmaMs =
           _gapEwmaMs == 0 ? gap.toDouble() : _gapEwmaMs * 0.92 + gap * 0.08;
-      if (gap > 80) {
-        _addLog('snapshot-gap', {'gapMs': gap, 'bytes': payloadBytes});
-      }
     }
     _lastMessageMs = receivedMs;
-    if (_snapshotCount == 1 || _snapshotCount % 300 == 0) {
-      _addLog('snapshot-stats', {
-        'count': _snapshotCount,
-        'gapAvgMs': _gapEwmaMs.toStringAsFixed(1),
-        'gapMaxMs': _maxGapMs,
-        'decodeUs': decodeUs,
-        'bytes': payloadBytes,
-      });
-    }
   }
 
   void _addLog(String event, [Map<String, Object?> fields = const {}]) {

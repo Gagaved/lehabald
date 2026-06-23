@@ -44,8 +44,10 @@ class MoveCommand {
 ///    causes the same silence. So while a direction is held we re-assert it every
 ///    [heartbeatMs], which the server happily treats as the same input.
 class MovementInput {
-  MovementInput({int graceMs = 80, int heartbeatMs = 33})
-      : _graceMs = graceMs,
+  MovementInput({
+    int graceMs = 80,
+    int heartbeatMs = 33,
+  })  : _graceMs = graceMs,
         _heartbeatMs = heartbeatMs;
 
   /// How long to wait before honouring a release, absorbing auto-repeat's

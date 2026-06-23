@@ -4,7 +4,7 @@ part of '../leha_bald_game.dart';
 /// this component only translates input into network commands.
 class _GameInputController extends Component
     with KeyboardHandler, HasGameReference<LehaBaldGame> {
-  final MovementInput _movement = MovementInput();
+  late final MovementInput _movement = MovementInput();
   static const _minGraceMs = 80;
   static const _maxGraceMs = 180;
   static const _minHeartbeatMs = 24;
@@ -14,14 +14,14 @@ class _GameInputController extends Component
   void update(double dt) {
     super.update(dt);
     final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final pressed = HardwareKeyboard.instance.logicalKeysPressed;
     _movement.configureTimings(
       graceMs: _adaptiveGraceMs(game.network.pingMs),
       heartbeatMs: _adaptiveHeartbeatMs(game.network.pingMs),
     );
     // Poll the actual pressed-key set each frame as a backstop for browsers
     // that occasionally drop or reorder key events while a key is held.
-    _dispatch(
-        _movement.onKeys(HardwareKeyboard.instance.logicalKeysPressed, nowMs));
+    _dispatch(_movement.onKeys(pressed, nowMs));
     // Drives the deferred stop and the held-direction heartbeat (see
     // MovementInput) so a server-side intent clear or a dropped auto-repeat
     // can't leave the player stranded.
